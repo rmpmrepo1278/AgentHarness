@@ -1,0 +1,28 @@
+[Unit]
+Description=ik_llama.cpp Server - Fast Model
+After=network.target
+Documentation=https://github.com/ikawrakow/ik_llama.cpp
+
+[Service]
+Type=simple
+User=root
+# __MODEL_PATH__ is replaced by install.sh with the actual fast model path
+ExecStart=/usr/local/bin/ik-llama-server \
+  --model __MODEL_PATH__ \
+  --threads __THREADS__ \
+  --numa distribute \
+  --mlock \
+  --ctx-size 8192 \
+  --batch-size 512 \
+  --host 0.0.0.0 \
+  --port 8081 \
+  --metrics
+Restart=always
+RestartSec=10
+LimitMEMLOCK=infinity
+ProtectSystem=strict
+ReadWritePaths=/opt/models /opt/agentharness /tmp
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+# Runtime state (generated on homelab, not in repo)
+*.pyc
+__pycache__/
+.gstack/
+.claude/
+.claude.*
+
+# Secrets
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db

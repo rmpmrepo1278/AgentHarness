@@ -1,0 +1,183 @@
+# =============================================================================
+# harness_registry.yaml — Declarative registry of all checks, harnesses, and
+#                          scheduled tasks. Add new capabilities here without
+#                          editing any scripts.
+#
+# The scheduler reads this file and runs items based on their schedule,
+# window (online/offline), and conditions.
+# =============================================================================
+
+# --- Monitor checks (run by monitor.sh) ---
+# These run every 15 minutes during their specified window.
+# Each check produces alerts when thresholds are crossed.
+checks:
+  disk_usage:
+    enabled: true
+    command: "df / | awk 'NR==2 {gsub(/%/,\"\"); print $5}'"
+    type: threshold  # threshold, command_exit, regex_match, http_probe
+    warn: 80
+    critical: 90
+    unit: "%"
+    message: "Disk usage at {value}%"
+
+  swap_usage:
+    enabled: true
+    command: "free -m | awk '/Swap/ {print $3}'"
+    type: threshold
+    warn: 500
+    critical: 2000
+    unit: "MB"
+    message: "Swap at {value}MB — possible memory pressure"
+
+  ram_usage:
+    enabled: true
+    command: "free | awk '/Mem/ {printf \"%.0f\", $3/$2*100}'"
+    type: threshold
+    warn: 85
+    critical: 95
+    unit: "%"
+    message: "RAM at {value}%"
+
+  cpu_temperature:
+    enabled: true
+    command: "sensors 2>/dev/null | grep -oP '\\+\\K[0-9]+(?=\\.[0-9]+°C)' | sort -rn | head -1 || echo 0"
+    type: threshold
+    warn: 80
+    critical: 90
+    unit: "°C"
+    message: "CPU temperature at {value}°C"
+    requires: sensors
+
+  llm_server:
+    enabled: true
+    command: "curl -sf --max-time 5 http://localhost:8080/health"
+    type: http_probe
+    url: "http://localhost:8080/health"
+    message: "Primary LLM server not responding"
+
+  # --- Docker container checks ---
+  # These are auto-generated from running containers but you can add specific ones:
+  docker_unhealthy:
+    enabled: true
+    command: "docker ps --filter 'health=unhealthy' --format '{{.Names}}' | head -5"
+    type: command_output  # alert if output is non-empty
+    message: "Unhealthy containers: {value}"
+
+  docker_crashed:
+    enabled: true
+    command: "docker ps -a --filter 'status=exited' --format '{{.Names}} {{.Status}}' | grep -v 'Exited (0)' | head -5"
+    type: command_output
+    message: "Crashed containers: {value}"
+
+  # --- Add your custom checks below ---
+  # Example: Monitor Jellyfin transcoding queue
+  # jellyfin_transcode:
+  #   enabled: true
+  #   command: "curl -sf http://localhost:8096/Sessions | python3 -c \"import sys,json; sessions=json.load(sys.stdin); active=[s for s in sessions if s.get('TranscodingInfo')]; print(len(active))\""
+  #   type: threshold
+  #   warn: 3
+  #   critical: 5
+  #   unit: "active transcodes"
+  #   message: "Jellyfin has {value} active transcodes"
+
+  # Example: Check if Pi-hole is blocking
+  # pihole_blocking:
+  #   enabled: true
+  #   command: "curl -sf http://localhost/admin/api.php?status | python3 -c \"import sys,json; print(json.load(sys.stdin).get('status','unknown'))\""
+  #   type: regex_match
+  #   expected: "enabled"
+  #   message: "Pi-hole blocking is disabled!"
+
+
+# --- Harnesses (scheduled tasks) ---
+# These run on a schedule during the specified window.
+harnesses:
+  daily_analysis:
+    enabled: true
+    script: "daily_improve.sh"
+    window: offline      # offline, online, any
+    frequency: daily     # hourly, daily, weekly, monthly, custom
+    description: "Analyze OpenClaw/Telegram interactions"
+
+  weekly_optimize:
+    enabled: true
+    script: "weekly_optimize.sh"
+    window: online
+    frequency: weekly
+    description: "Search for new models, tools, techniques"
+
+  cleanup:
+    enabled: true
+    script: "cleanup.sh"
+    window: offline
+    frequency: "3d"      # every 3 days
+    description: "Clean up Docker, packages, logs, temp files"
+
+  benchmark:
+    enabled: true
+    script: "benchmark.sh"
+    window: offline
+    frequency: weekly
+    description: "Re-benchmark all model x engine combos"
+
+  backup:
+    enabled: true
+    script: "backup.sh"
+    window: offline
+    frequency: daily
+    description: "Backup configs and state to USB drive"
+
+  security_audit:
+    enabled: true
+    script: "security_audit.sh"
+    window: offline
+    frequency: weekly
+    description: "Security boundary checks"
+
+  memory_ingest:
+    enabled: true
+    script: "chaguli_memory.sh ingest"
+    window: offline
+    frequency: daily
+    description: "Feed daily analysis patterns into Chaguli memory"
+    depends_on: daily_analysis
+
+  service_registry:
+    enabled: true
+    script: "service_registry.sh"
+    window: offline
+    frequency: "6h"      # every 6 hours
+    description: "Refresh service API registry"
+
+  openclaw_sync:
+    enabled: true
+    script: "openclaw_sync.sh"
+    window: any          # runs whenever registry changes
+    trigger: file_changed:/opt/agentharness/service_registry_dirty
+    description: "Sync skills to OpenClaw after registry changes"
+
+  morning_briefing:
+    enabled: true
+    script: "monitor.sh briefing morning"
+    window: online
+    frequency: daily
+    time_window: "07:00-08:00"  # Only run during this hour
+    description: "Send morning status briefing via Telegram"
+
+  # --- Add your custom harnesses below ---
+  # Example: Check for Immich face recognition updates
+  # immich_faces:
+  #   enabled: true
+  #   script: "custom/check_immich_faces.sh"
+  #   window: offline
+  #   frequency: daily
+  #   description: "Check Immich face recognition job status"
+
+
+# --- Custom scripts directory ---
+# Drop scripts in /opt/agentharness/custom/ and reference them above.
+# They'll have access to all discovered paths and configs via:
+#   source /opt/agentharness/scripts/common.sh
+#   source /opt/agentharness/.env
+#   source /opt/agentharness/openclaw_paths.env
+custom_scripts_dir: "/opt/agentharness/custom"

@@ -1,0 +1,61 @@
+// =============================================================================
+// OpenClaw Model Failover Configuration
+//
+// Copy the relevant sections into your ~/.openclaw/openclaw.json
+// This sets up smart routing: local fast → local deep → Groq API
+//
+// IMPORTANT: Don't paste this file directly — merge into your existing config.
+//            The discovery process will find your actual openclaw.json path.
+// =============================================================================
+
+// Add this to the "models" or "provider" section of openclaw.json:
+{
+  // --- Option 1: Single model with failover chain ---
+  // Tries local 9B first (fast), falls back to local 35B (deep), then Groq
+  "model": "openai-compatible/qwen3.5-9b > openai-compatible/qwen3.5-35b-a3b > groq/llama-3.3-70b-versatile",
+
+  // --- Option 2: Separate models by context ---
+  // Configure in openclaw.json under "models":
+  "models": {
+    // Default model for chat — fast response for Telegram interactions
+    "default": "openai-compatible/qwen3.5-9b",
+
+    // For complex reasoning — slower but much better quality
+    // Triggered when Chaguli decides it needs deeper thinking
+    "reasoning": "openai-compatible/qwen3.5-35b-a3b",
+
+    // Emergency fallback — when local models are down or overloaded
+    "fallback": "groq/llama-3.3-70b-versatile"
+  },
+
+  // --- Provider configuration ---
+  // Add under "providers" in openclaw.json:
+  "providers": {
+    "openai-compatible": {
+      "baseUrl": "http://localhost:8080/v1",
+      "apiKey": "not-needed",
+      "models": {
+        "qwen3.5-9b": {
+          "name": "Qwen 3.5 9B (Fast)",
+          "contextWindow": 8192
+        },
+        "qwen3.5-35b-a3b": {
+          "name": "Qwen 3.5 35B-A3B MoE (Deep)",
+          "contextWindow": 8192
+        }
+      }
+    },
+    "groq": {
+      "apiKey": "YOUR_GROQ_API_KEY"
+    }
+  }
+}
+
+// --- Notes ---
+// 1. The ">" syntax creates a failover chain — if left model fails, tries next
+// 2. Local models use the ik_llama.cpp OpenAI-compatible API on port 8080
+// 3. If running both models on different ports, use:
+//    "baseUrl": "http://localhost:8080/v1" for primary (35B)
+//    "baseUrl": "http://localhost:8081/v1" for fast (9B)
+// 4. Groq is capped at 200 req/day — use sparingly
+// 5. The installer's discover_config.sh will find your actual Groq key

@@ -1,0 +1,41 @@
+use_default_settings: true
+
+general:
+  instance_name: "AgentHarness Search"
+
+search:
+  safe_search: 0
+  autocomplete: "google"
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "__SEARXNG_SECRET__"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+  - name: github
+    engine: github
+    shortcut: gh
+  - name: stackoverflow
+    engine: stackoverflow
+    shortcut: so
+  - name: dockerhub
+    engine: docker_hub
+    shortcut: dh
+  - name: arch wiki
+    engine: archlinux
+    shortcut: aw
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: w
