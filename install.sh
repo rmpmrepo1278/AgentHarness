@@ -687,6 +687,10 @@ main() {
     setup_aliases        # Phase 9
     validate             # Phase 10
 
+    # Phase 11: Security hardening
+    log_header "Phase 11: Security Hardening"
+    bash "${SCRIPT_DIR}/scripts/harden.sh"
+
     log_header "Installation Complete!"
     echo ""
     echo "  Quick start:"
