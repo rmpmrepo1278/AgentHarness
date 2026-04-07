@@ -4,6 +4,7 @@ Manages a single state.json file that stores discovered paths, services,
 and hardware info. Every write is atomic (tmp + rename) and protected by
 fcntl file locking. Reads handle missing/corrupt files gracefully.
 """
+from __future__ import annotations
 
 import copy
 import fcntl
@@ -12,6 +13,8 @@ import os
 import pathlib
 import time
 from datetime import datetime, timezone
+
+from core.resilience.watchdog import recover_stale_lock
 
 SCHEMA_VERSION = 1
 LOCK_TIMEOUT = 5  # seconds
@@ -83,6 +86,7 @@ class StateManager:
         Returns:
             The new merged state dict.
         """
+        recover_stale_lock(str(self._lock_file))
         lock_fd = None
         try:
             # Acquire file lock

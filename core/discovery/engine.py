@@ -6,6 +6,7 @@ discovery, then persists results via StateManager.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from core.discovery.state import StateManager
@@ -13,6 +14,9 @@ from core.discovery.paths import discover_paths
 from core.discovery.hardware import discover_hardware
 from core.discovery.services import discover_services
 from core.discovery.agents import discover_agents
+from core.resilience.selftest import run_selftest
+from core.resilience.circuit_breaker import CircuitBreaker
+from core.security.integrity import generate_checksums, save_checksums
 
 
 def run_discovery(
@@ -33,4 +37,18 @@ def run_discovery(
         "services": services,
         "agents": agents,
     })
+
+    # Run self-test and persist results
+    selftest = run_selftest(data_dir=data_dir)
+    sm.write({"selftest": selftest})
+
+    # Reset circuit breakers (services may have changed)
+    cb = CircuitBreaker(data_dir=data_dir)
+    cb.reset_all()
+
+    # Generate integrity manifest
+    manifest_path = str(Path(data_dir) / "integrity_manifest.json")
+    checksums = generate_checksums(paths["install_dir"])
+    save_checksums(checksums, manifest_path)
+
     return sm.read()
