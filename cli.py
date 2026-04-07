@@ -368,6 +368,34 @@ def cmd_reject(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_briefing(args: argparse.Namespace) -> int:
+    """Show the latest infrastructure briefing."""
+    from core.discovery.state import StateManager
+    import json as _json
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+    briefings_dir = Path(data_dir) / "briefings"
+
+    if not briefings_dir.is_dir():
+        print("No briefings yet. Run the scheduler to generate one.")
+        return 0
+
+    # Find latest briefing
+    files = sorted(briefings_dir.glob("*.json"), reverse=True)
+    if not files:
+        print("No briefings found.")
+        return 0
+
+    briefing = _json.loads(files[0].read_text())
+    # Format for terminal
+    from core.feedback.distiller import Distiller
+    d = Distiller(data_dir=data_dir)
+    print(d.format_telegram(briefing))
+    return 0
+
+
 def cmd_integrity(args: argparse.Namespace) -> None:
     """Verify file integrity against manifest."""
     from core.security.integrity import verify_integrity
@@ -424,6 +452,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("selftest", help="Run startup self-test")
     sub.add_parser("circuits", help="Show open circuit breakers")
     sub.add_parser("audit", help="Show recent audit log entries")
+    sub.add_parser("briefing", help="Show latest infrastructure briefing")
     sub.add_parser("integrity", help="Verify file integrity")
     sub.add_parser("budget", help="Show LLM budget status")
     migrate_parser = sub.add_parser("migrate-scheduler", help="Migrate to Python scheduler")
@@ -453,6 +482,7 @@ def main() -> None:
         "selftest": cmd_selftest,
         "circuits": cmd_circuits,
         "audit": cmd_audit,
+        "briefing": cmd_briefing,
         "integrity": cmd_integrity,
         "budget": cmd_budget,
         "migrate-scheduler": cmd_migrate_scheduler,
