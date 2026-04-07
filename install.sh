@@ -622,6 +622,214 @@ validate() {
 }
 
 # =============================================================================
+# PHASE 10.5: Install MCP servers
+# =============================================================================
+setup_mcp_servers() {
+    log_header "Phase 10.5: MCP Servers"
+
+    # Check what's already running as MCP
+    log_info "Checking for existing MCP servers..."
+    local existing_mcp=0
+
+    # Quick probe for any MCP servers already running
+    for port in 3000 3001 3333 4000 5000 5001 8000 8001; do
+        if curl -sf --max-time 2 -X POST "http://localhost:${port}" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
+            2>/dev/null | grep -q '"result"'; then
+            log_ok "MCP server already running on port ${port}"
+            ((existing_mcp++))
+        fi
+    done
+
+    # Check for homelab-mcp-bundle
+    if [ -d /opt/homelab-mcp-bundle ] || [ -d /opt/mcp-bundle ]; then
+        log_ok "homelab-mcp-bundle already installed"
+        ((existing_mcp++))
+    fi
+
+    if [ "${existing_mcp}" -gt 0 ]; then
+        log_info "Found ${existing_mcp} existing MCP component(s). Running discovery..."
+        bash "${SCRIPT_DIR}/scripts/mcp_gateway.sh" || true
+        return
+    fi
+
+    # Nothing found — offer to install MCP servers
+    log_info "No MCP servers detected. Installing recommended MCP servers..."
+
+    ensure_dir /opt/mcp-servers
+
+    # --- 1. Official MCP servers (from modelcontextprotocol org) ---
+    # These are lightweight Node.js processes
+
+    local mcp_repos=(
+        # repo_url|name|description|requires_service
+        "https://github.com/modelcontextprotocol/servers.git|mcp-official|Official MCP servers (filesystem, git, fetch, sqlite)|none"
+    )
+
+    # --- 2. Homelab MCP bundle ---
+    mcp_repos+=(
+        "https://github.com/AI-Engineerings-at/homelab-mcp-bundle.git|homelab-mcp-bundle|Portainer, Grafana, Uptime Kuma, n8n, and more|docker"
+    )
+
+    for entry in "${mcp_repos[@]}"; do
+        IFS='|' read -r repo name desc requires <<< "${entry}"
+        local dest="/opt/mcp-servers/${name}"
+
+        if [ -d "${dest}" ]; then
+            log_info "${name}: already cloned"
+            continue
+        fi
+
+        # Check if required service is available
+        if [ "${requires}" = "docker" ] && ! command -v docker &>/dev/null; then
+            log_warn "Skipping ${name}: requires Docker"
+            continue
+        fi
+
+        log_info "Installing: ${name} — ${desc}"
+
+        if git clone --depth 1 "${repo}" "${dest}" 2>/dev/null; then
+            log_ok "Cloned: ${name}"
+
+            # Install dependencies
+            cd "${dest}"
+            if [ -f package.json ]; then
+                npm install --quiet 2>/dev/null && log_ok "${name}: npm deps installed" || \
+                    log_warn "${name}: npm install failed (install Node.js if needed)"
+            elif [ -f requirements.txt ]; then
+                pip install --quiet -r requirements.txt 2>/dev/null && log_ok "${name}: pip deps installed" || \
+                    log_warn "${name}: pip install failed"
+            fi
+
+            # If it has a docker-compose, check if we should start it
+            local compose_file
+            compose_file=$(ls docker-compose.y*ml compose.y*ml 2>/dev/null | head -1)
+            if [ -n "${compose_file}" ]; then
+                # Copy .env.example if exists
+                [ -f .env.example ] && [ ! -f .env ] && cp .env.example .env
+
+                log_info "${name}: Docker Compose found."
+                log_info "  Configure: nano ${dest}/.env"
+                log_info "  Start:     cd ${dest} && docker compose up -d"
+                log_info "  (Not auto-starting — you need to configure service URLs first)"
+            fi
+        else
+            log_warn "Failed to clone ${name}. Install manually later."
+        fi
+    done
+
+    # --- 3. Create individual MCP server configs for your specific services ---
+    log_info "Creating MCP server configs for your homelab services..."
+
+    # Docker MCP — connects to local Docker socket
+    local docker_mcp_dir="/opt/mcp-servers/docker-mcp"
+    if [ ! -d "${docker_mcp_dir}" ]; then
+        mkdir -p "${docker_mcp_dir}"
+        cat > "${docker_mcp_dir}/docker-compose.yml" << 'COMPOSE'
+version: '3.8'
+
+services:
+  docker-mcp:
+    image: mcp/docker-server:latest
+    container_name: mcp-docker
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      - MCP_TRANSPORT=http
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true
+COMPOSE
+        log_ok "Docker MCP config created at ${docker_mcp_dir}"
+        log_info "  Start: cd ${docker_mcp_dir} && docker compose up -d"
+    fi
+
+    # Filesystem MCP — read/write/search files
+    local fs_mcp_dir="/opt/mcp-servers/filesystem-mcp"
+    if [ ! -d "${fs_mcp_dir}" ]; then
+        mkdir -p "${fs_mcp_dir}"
+        cat > "${fs_mcp_dir}/docker-compose.yml" << 'COMPOSE'
+version: '3.8'
+
+services:
+  filesystem-mcp:
+    image: mcp/filesystem-server:latest
+    container_name: mcp-filesystem
+    restart: unless-stopped
+    volumes:
+      - /opt:/data/opt:ro
+      - /home:/data/home:ro
+    ports:
+      - "127.0.0.1:3101:3000"
+    environment:
+      - MCP_TRANSPORT=http
+      - ALLOWED_DIRECTORIES=/data/opt,/data/home
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true
+COMPOSE
+        log_ok "Filesystem MCP config created at ${fs_mcp_dir}"
+        log_info "  Start: cd ${fs_mcp_dir} && docker compose up -d"
+    fi
+
+    # --- 4. Create a master start/stop script ---
+    cat > /opt/mcp-servers/start_all.sh << 'STARTALL'
+#!/bin/bash
+echo "Starting all MCP servers..."
+for dir in /opt/mcp-servers/*/; do
+    if [ -f "${dir}docker-compose.yml" ] || [ -f "${dir}compose.yml" ]; then
+        echo "  Starting: $(basename ${dir})"
+        (cd "${dir}" && docker compose up -d 2>/dev/null) || echo "    Failed — check config"
+    fi
+done
+echo "Done. Run 'bash /opt/agentharness/scripts/mcp_gateway.sh' to discover tools."
+STARTALL
+    chmod +x /opt/mcp-servers/start_all.sh
+
+    cat > /opt/mcp-servers/stop_all.sh << 'STOPALL'
+#!/bin/bash
+echo "Stopping all MCP servers..."
+for dir in /opt/mcp-servers/*/; do
+    if [ -f "${dir}docker-compose.yml" ] || [ -f "${dir}compose.yml" ]; then
+        echo "  Stopping: $(basename ${dir})"
+        (cd "${dir}" && docker compose down 2>/dev/null) || true
+    fi
+done
+echo "Done."
+STOPALL
+    chmod +x /opt/mcp-servers/stop_all.sh
+
+    # --- 5. Run MCP discovery ---
+    log_info "Running MCP discovery..."
+    bash "${SCRIPT_DIR}/scripts/mcp_gateway.sh" || true
+
+    # --- Summary ---
+    log_header "MCP Setup Summary"
+    echo ""
+    echo "  MCP server configs: /opt/mcp-servers/"
+    echo "  Start all:          bash /opt/mcp-servers/start_all.sh"
+    echo "  Stop all:           bash /opt/mcp-servers/stop_all.sh"
+    echo "  Discover tools:     bash scripts/mcp_gateway.sh"
+    echo ""
+    echo "  Before starting MCP servers, configure their .env files:"
+    ls -d /opt/mcp-servers/*/.env /opt/mcp-servers/*/.env.example 2>/dev/null | \
+        while read -r f; do echo "    ${f}"; done
+    echo ""
+    echo "  After starting, MCP gateway auto-discovers tools every 6 hours."
+    echo ""
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 main() {
@@ -665,7 +873,9 @@ main() {
             8.5)  setup_registry ;;
             9)    setup_aliases ;;
             10)   validate ;;
-            *)    log_error "Unknown phase: ${RUN_PHASE}. Use 0-10." ; exit 1 ;;
+            10.5) setup_mcp_servers ;;
+            11)   bash "${SCRIPT_DIR}/scripts/harden.sh" ;;
+            *)    log_error "Unknown phase: ${RUN_PHASE}. Use 0-11." ; exit 1 ;;
         esac
         log_ok "Phase ${RUN_PHASE} complete"
         return 0
@@ -686,6 +896,7 @@ main() {
     setup_registry       # Phase 8.5
     setup_aliases        # Phase 9
     validate             # Phase 10
+    setup_mcp_servers    # Phase 10.5
 
     # Phase 11: Security hardening
     log_header "Phase 11: Security Hardening"
