@@ -14,14 +14,53 @@ When Rohit asks to set up a new service, deploy a container, or says "install X"
 Before doing anything, determine:
 
 1. **What service?** (name, Docker image)
-2. **What port?** Check what's already in use:
+2. **What port?** Check if the requested port is available. If not, find the next free one:
 
 ```bash
-echo "=== Ports in use ==="
-docker ps --format "{{.Names}}: {{.Ports}}" | sort
-echo ""
-echo "=== System ports ==="
-ss -tlnp | grep LISTEN | awk '{print $4}' | sort -t: -k2 -n | tail -20
+REQUESTED_PORT=8083  # Replace with what the user asked for
+
+# Check if port is in use
+if ss -tlnp 2>/dev/null | grep -q ":${REQUESTED_PORT} " || \
+   docker ps --format "{{.Ports}}" 2>/dev/null | grep -q "0.0.0.0:${REQUESTED_PORT}->"; then
+    echo "PORT ${REQUESTED_PORT} IS ALREADY IN USE BY:"
+    ss -tlnp 2>/dev/null | grep ":${REQUESTED_PORT} " | awk '{print $NF}'
+    docker ps --format "{{.Names}}: {{.Ports}}" 2>/dev/null | grep ":${REQUESTED_PORT}->"
+    echo ""
+
+    # Find next available port starting from requested
+    NEXT_FREE=${REQUESTED_PORT}
+    while ss -tlnp 2>/dev/null | grep -q ":${NEXT_FREE} " || \
+          docker ps --format "{{.Ports}}" 2>/dev/null | grep -q "0.0.0.0:${NEXT_FREE}->"; do
+        NEXT_FREE=$((NEXT_FREE + 1))
+    done
+    echo "SUGGESTED ALTERNATIVE: ${NEXT_FREE}"
+    echo ""
+    echo "Also available nearby:"
+    COUNT=0
+    for p in $(seq $((REQUESTED_PORT)) $((REQUESTED_PORT + 20))); do
+        if ! ss -tlnp 2>/dev/null | grep -q ":${p} " && \
+           ! docker ps --format "{{.Ports}}" 2>/dev/null | grep -q "0.0.0.0:${p}->"; then
+            echo "  :${p} — free"
+            COUNT=$((COUNT + 1))
+            [ ${COUNT} -ge 5 ] && break
+        fi
+    done
+else
+    echo "PORT ${REQUESTED_PORT} IS AVAILABLE"
+fi
+```
+
+**IMPORTANT**: If the requested port is taken, ALWAYS tell the user and suggest the alternative. NEVER silently pick a different port. Ask: "Port 8083 is used by Jellyfin. 8084 is free — want me to use that instead?"
+
+Full port map for reference:
+
+```bash
+echo "=== All ports in use ==="
+(docker ps --format "{{.Names}}|{{.Ports}}" 2>/dev/null | while IFS='|' read -r name ports; do
+    echo "$ports" | grep -oP '0\.0\.0\.0:\K\d+' | while read -r p; do
+        printf "  :%s — %s (docker)\n" "$p" "$name"
+    done
+done; ss -tlnp 2>/dev/null | awk '/LISTEN/ {split($4,a,":"); split($NF,b,"\""); printf "  :%s — %s (system)\n", a[length(a)], b[2]}') | sort -t: -k2 -n | uniq
 ```
 
 3. **Volume storage location** — check available space:
