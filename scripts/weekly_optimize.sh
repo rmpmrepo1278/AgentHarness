@@ -254,18 +254,11 @@ check_engine_updates() {
 }
 
 # -----------------------------------------------------------------------------
-# Send notification (if Telegram configured)
+# Send notification via agent file inbox
 # -----------------------------------------------------------------------------
 notify() {
     local message="$1"
-
-    if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-        curl -sf "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "text=${message}" \
-            -d "parse_mode=Markdown" \
-            &>/dev/null || true
-    fi
+    bash "${AH_SCRIPTS_DIR}/alert.sh" INFO "${message}" weekly_optimize
 }
 
 # -----------------------------------------------------------------------------

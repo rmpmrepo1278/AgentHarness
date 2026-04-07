@@ -64,10 +64,10 @@ def test_briefing_saved_to_file(distiller_env):
     assert "health" in data
 
 
-def test_format_telegram(distiller_env):
+def test_format_summary(distiller_env):
     from core.feedback.distiller import Distiller
     d = Distiller(data_dir=str(distiller_env))
     briefing = d.compile()
-    text = d.format_telegram(briefing)
+    text = d.format_summary(briefing)
     assert isinstance(text, str)
-    assert len(text) < 4096  # Telegram message limit
+    assert len(text) < 4096  # Short text summary limit

@@ -63,11 +63,11 @@ scan_env_files() {
                     ;;
                 TELEGRAM_BOT_TOKEN|TELEGRAM_TOKEN|telegram_bot_token)
                     [ -z "${CONFIG[TELEGRAM_BOT_TOKEN]:-}" ] && CONFIG[TELEGRAM_BOT_TOKEN]="${value}" && \
-                        log_ok "    Found TELEGRAM_BOT_TOKEN in ${envfile}"
+                        log_ok "    Found TELEGRAM_BOT_TOKEN (for agent use, not AgentHarness) in ${envfile}"
                     ;;
                 TELEGRAM_CHAT_ID|telegram_chat_id)
                     [ -z "${CONFIG[TELEGRAM_CHAT_ID]:-}" ] && CONFIG[TELEGRAM_CHAT_ID]="${value}" && \
-                        log_ok "    Found TELEGRAM_CHAT_ID in ${envfile}"
+                        log_ok "    Found TELEGRAM_CHAT_ID (for agent use, not AgentHarness) in ${envfile}"
                     ;;
                 PORTAINER_API_KEY|portainer_api_key|PORTAINER_TOKEN)
                     [ -z "${CONFIG[PORTAINER_API_KEY]:-}" ] && CONFIG[PORTAINER_API_KEY]="${value}" && \

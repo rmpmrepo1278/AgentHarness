@@ -1,57 +1,34 @@
 #!/usr/bin/env bash
 # =============================================================================
-# alert.sh — Lightweight alert sender (replaces monitor.sh alert functionality)
+# alert.sh — File-based alert sender
 #
-# Usage: alert.sh SEVERITY "message"
-#        alert.sh flush  (send queued alerts)
+# Writes alerts to alerts_inbox.jsonl for the agent (Chaguli/OpenClaw) to
+# consume and deliver via its own channels (Telegram, email, etc.).
+#
+# AgentHarness does NOT talk to Telegram directly.
+#
+# Usage: alert.sh SEVERITY "message" [SOURCE]
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-ALERT_QUEUE="${AH_DATA_DIR}/alert_queue.json"
+severity="${1:-INFO}"
+message="${2:-}"
+source_name="${3:-bash_script}"
 
-case "${1:-}" in
-    flush)
-        [ -f "${ALERT_QUEUE}" ] || exit 0
-        python3 -c "
-import json, subprocess
-queue = json.load(open('${ALERT_QUEUE}'))
-for a in queue:
-    if not a.get('sent') and '${TELEGRAM_BOT_TOKEN:-}' and '${TELEGRAM_CHAT_ID:-}':
-        try:
-            subprocess.run(['curl','-sf','--max-time','5',
-                'https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage',
-                '-d','chat_id=${TELEGRAM_CHAT_ID}',
-                '-d',f'text=[{a[\"severity\"]}] {a[\"message\"]}'],
-                capture_output=True,timeout=10)
-            a['sent']=True
-        except: pass
-json.dump(queue, open('${ALERT_QUEUE}','w'), indent=2)
-" 2>/dev/null
-        ;;
-    *)
-        local severity="${1:-INFO}"
-        local message="${2:-}"
-        [ -z "${message}" ] && exit 0
+[ -z "${message}" ] && exit 0
 
-        # Try sending immediately
-        if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-            curl -sf --max-time 5 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-                -d "chat_id=${TELEGRAM_CHAT_ID}" \
-                -d "text=[${severity}] ${message}" &>/dev/null && exit 0
-        fi
-
-        # Queue if offline
-        ensure_dir "${AH_DATA_DIR}"
-        [ -f "${ALERT_QUEUE}" ] || echo '[]' > "${ALERT_QUEUE}"
-        python3 -c "
-import json
-from datetime import datetime
-q = json.load(open('${ALERT_QUEUE}'))
-q.append({'severity':'${severity}','message':'''${message}''','queued_at':datetime.now().isoformat(),'sent':False})
-json.dump(q, open('${ALERT_QUEUE}','w'), indent=2)
-" 2>/dev/null
-        ;;
-esac
+# Write alert via the Python alert sender
+python3 -c "
+import sys
+sys.path.insert(0, '$(dirname "$SCRIPT_DIR")')
+from core.alerts.sender import get_alert_sender
+sender = get_alert_sender()
+sender.send('${severity,,}', '''${message}''', source='${source_name}')
+" 2>/dev/null || {
+    # Fallback: append directly to JSONL if Python fails
+    local alert_file="${AH_DATA_DIR}/alerts_inbox.jsonl"
+    ensure_dir "${AH_DATA_DIR}"
+    echo "{\"severity\":\"${severity,,}\",\"message\":\"${message}\",\"source\":\"${source_name}\",\"timestamp\":\"$(date -Iseconds)\",\"delivered\":false}" >> "${alert_file}" 2>/dev/null
+}

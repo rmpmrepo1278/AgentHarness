@@ -392,7 +392,7 @@ def cmd_briefing(args: argparse.Namespace) -> int:
     # Format for terminal
     from core.feedback.distiller import Distiller
     d = Distiller(data_dir=data_dir)
-    print(d.format_telegram(briefing))
+    print(d.format_summary(briefing))
     return 0
 
 

@@ -345,12 +345,7 @@ notify_cleanup() {
     local total_human
     total_human=$(numfmt --to=iec --suffix=B $((TOTAL_FREED_KB * 1024)) 2>/dev/null || echo "${TOTAL_FREED_KB}KB")
 
-    if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-        curl -sf "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            -d "text=Cleanup complete: freed ${total_human}. Report: ${CLEANUP_REPORT}" \
-            &>/dev/null || true
-    fi
+    bash "${AH_SCRIPTS_DIR}/alert.sh" INFO "Cleanup complete: freed ${total_human}. See ${CLEANUP_REPORT}" cleanup
 }
 
 # =============================================================================

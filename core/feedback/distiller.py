@@ -83,8 +83,8 @@ class Distiller:
         log.info(f"Briefing saved: {path}")
         return str(path)
 
-    def format_telegram(self, briefing: dict) -> str:
-        """Format briefing as a Telegram-friendly message (<4096 chars)."""
+    def format_summary(self, briefing: dict) -> str:
+        """Format briefing as a short text summary (<4096 chars)."""
         h = briefing.get("health", {})
         t = briefing.get("tools", {})
         lines = [
