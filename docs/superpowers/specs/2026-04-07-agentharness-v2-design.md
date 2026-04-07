@@ -865,6 +865,30 @@ Every script and tool invocation captures exit code, stdout, stderr. Failures ar
 3. Surfaced in the next briefing
 4. Never silently swallowed with `|| true`
 
+### Resilience — Unattended Homelab Operation
+
+The primary demographic for AgentHarness is homelab users. The tool must be one less thing to worry about — it should recover from failures without user intervention.
+
+**Auto-restart:** Scheduler runs as a systemd service with `Restart=on-failure`, `RestartSec=30`, and a crash loop limit (`StartLimitBurst=5` in 10 minutes). If it crashes 5 times rapidly, it stops and sends a critical alert.
+
+**Self-watchdog:** A separate systemd timer checks the scheduler heartbeat every 5 minutes. The scheduler writes a `heartbeat.json` (timestamp + PID) on every tick. If stale >20 minutes, the watchdog alerts and attempts restart.
+
+**Crash-safe queues:** All JSON queue files (alerts, tasks, proposals) use atomic write (tmp-then-rename with file locking). Corrupt files are backed up as `.corrupt` and replaced with empty defaults. No data loss on process crash or power failure.
+
+**Stale lock recovery:** If the process crashes while holding a file lock, the lock file persists with a dead PID. Before every state write, the system checks if the lock PID is alive. Dead PID locks are automatically removed.
+
+**Circuit breaker for alert fatigue:** When a health check fails N consecutive times (default 5), the circuit "opens" and the check is suppressed — no more alert spam for a removed service. When discovery runs and detects service changes, all circuits reset so checks get re-evaluated.
+
+**Startup self-test:** On every boot and scheduler start, a quick validation runs: can we read state.json? Can we write to data dirs? Is Python adequate? Is Docker available? Are there stale locks? Results are logged, and failures alert immediately.
+
+**Config backup before changes:** Before any proposal execution, bundle install, or self-update modifies configuration, the current config is snapshotted to `config_backups/`. If something breaks, `agentharness config restore <snapshot>` reverts. Old snapshots auto-purge (keep 10).
+
+**Self-update safety:** `self_update.sh` snapshots state before updating, runs `--dry-run` first, validates after update, and auto-rollbacks if validation fails.
+
+**Log rotation:** Logrotate config keeps 30 days of logs, compresses after 1 day. Prevents disk fill on unattended systems.
+
+**Dependency degradation:** If Docker daemon dies, Python is missing, or disk is full, the scheduler detects this at the start of each tick and degrades gracefully — runs what it can, skips what it can't, alerts on what's broken.
+
 ---
 
 ## Section 11: Agent Bridge — Addressing Open Questions
