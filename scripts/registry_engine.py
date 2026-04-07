@@ -217,10 +217,10 @@ def run_checks(window="any"):
                 message = message_template.replace("{value}", stderr[:200])
                 alerts.append(("WARN", message))
 
-    # Send alerts via monitor.sh
+    # Send alerts
     for severity, message in alerts:
         subprocess.run(
-            ["bash", f"{SCRIPTS_DIR}/monitor.sh", "alert", severity, message],
+            ["bash", f"{SCRIPTS_DIR}/alert.sh", severity, message],
             capture_output=True, timeout=30
         )
         print(f"[{severity}] {message}")

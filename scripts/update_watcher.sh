@@ -130,7 +130,7 @@ PYEOF
     local update_count
     update_count=$(grep -c "Updates Available" "${UPDATE_REPORT}" 2>/dev/null || echo "0")
     if [ "${update_count}" -gt 0 ]; then
-        bash "${SCRIPT_DIR}/monitor.sh" alert INFO "Container updates available. See ${UPDATE_REPORT}" || true
+        bash "${SCRIPT_DIR}/alert.sh" INFO "Container updates available. See ${UPDATE_REPORT}" || true
     fi
 
     log_ok "Report: ${UPDATE_REPORT}"

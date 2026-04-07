@@ -7,7 +7,7 @@
 # window (online/offline), and conditions.
 # =============================================================================
 
-# --- Monitor checks (run by monitor.sh) ---
+# --- Monitor checks (run by registry_engine.py) ---
 # These run every 15 minutes during their specified window.
 # Each check produces alerts when thresholds are crossed.
 checks:
@@ -92,12 +92,9 @@ checks:
 # --- Harnesses (scheduled tasks) ---
 # These run on a schedule during the specified window.
 harnesses:
-  daily_analysis:
-    enabled: true
-    script: "daily_improve.sh"
-    window: offline      # offline, online, any
-    frequency: daily     # hourly, daily, weekly, monthly, custom
-    description: "Analyze OpenClaw/Telegram interactions"
+  # NOTE: daily analysis, memory, self-improvement, briefings, and monitoring
+  # are handled by Chaguli's own Python modules (self_improve.py, memory.py,
+  # briefings.py, heartbeat.py). AgentHarness only handles infrastructure.
 
   weekly_optimize:
     enabled: true
@@ -134,50 +131,8 @@ harnesses:
     frequency: weekly
     description: "Security boundary checks"
 
-  memory_ingest:
-    enabled: true
-    script: "chaguli_memory.sh ingest"
-    window: offline
-    frequency: daily
-    description: "Feed daily analysis patterns into Chaguli memory"
-    depends_on: daily_analysis
-
-  service_registry:
-    enabled: true
-    script: "service_registry.sh"
-    window: offline
-    frequency: "6h"      # every 6 hours
-    description: "Refresh service API registry"
-
-  openclaw_sync:
-    enabled: true
-    script: "openclaw_sync.sh"
-    window: any          # runs whenever registry changes
-    trigger: file_changed:/opt/agentharness/service_registry_dirty
-    description: "Sync skills to OpenClaw after registry changes"
-
-  morning_briefing:
-    enabled: true
-    script: "monitor.sh briefing morning"
-    window: online
-    frequency: daily
-    time_window: "07:00-08:00"  # Only run during this hour
-    description: "Send morning status briefing via Telegram"
-
-  pattern_analysis:
-    enabled: true
-    script: "pattern_analyzer.sh"
-    window: offline
-    frequency: weekly
-    description: "Analyze interaction patterns and behavioral trends"
-
-  nightly_study:
-    enabled: true
-    script: "nightly_study.sh"
-    window: offline
-    frequency: daily
-    description: "Review failures, research gaps, self-improve"
-    depends_on: daily_analysis
+  # memory, service_registry, openclaw_sync, morning_briefing removed
+  # — handled by Chaguli's memory.py, heartbeat.py, briefings.py
 
   trend_projections:
     enabled: true

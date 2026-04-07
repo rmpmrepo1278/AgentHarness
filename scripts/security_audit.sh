@@ -126,7 +126,7 @@ else:
         echo "${recent}" >> "${SECURITY_REPORT}"
         echo '```' >> "${SECURITY_REPORT}"
     else
-        echo "- Audit log not yet created. Will be populated by monitor.sh" >> "${SECURITY_REPORT}"
+        echo "- Audit log not yet created. Will be populated as tools execute." >> "${SECURITY_REPORT}"
         touch "${AUDIT_LOG}"
     fi
     echo "" >> "${SECURITY_REPORT}"
@@ -170,7 +170,7 @@ EOF
 
     log_ok "Security audit: ${SECURITY_REPORT} (${issues} issue(s))"
 
-    [ "${issues}" -gt 0 ] && bash "${SCRIPT_DIR}/monitor.sh" alert WARN "Security audit found ${issues} issue(s). See ${SECURITY_REPORT}"
+    [ "${issues}" -gt 0 ] && bash "${SCRIPT_DIR}/alert.sh" WARN "Security audit found ${issues} issue(s). See ${SECURITY_REPORT}"
 }
 
 main "$@"

@@ -168,7 +168,7 @@ trends = json.load(open('/opt/agentharness/latest_trends.json'))
 for projection in trends.get('projections', []):
     severity = 'CRITICAL' if 'CRITICAL' in projection else 'WARN'
     subprocess.run([
-        'bash', '/opt/agentharness/scripts/monitor.sh', 'alert', severity, projection
+        'bash', '/opt/agentharness/scripts/alert.sh', severity, projection
     ], capture_output=True, timeout=10)
 " 2>/dev/null
 }

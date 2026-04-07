@@ -24,8 +24,9 @@ OFFLINE_START_HOUR="${OFFLINE_START_HOUR:-23}"    # 11 PM PT
 ONLINE_START_HOUR="${ONLINE_START_HOUR:-7}"       # 7 AM PT (conservative)
 TIMEZONE="America/Los_Angeles"
 
-# Load env
+# Load env (symlinked to master .env at the Chaguli project root)
 [ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
+[ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
 
 # -----------------------------------------------------------------------------
 # Determine current network state
@@ -108,31 +109,7 @@ run_offline_tasks() {
         bash "${SCRIPT_DIR}/cleanup.sh" >> "${LOG_FILE}" 2>&1 && ((tasks_run++)) || true
     fi
 
-    # 3. Daily interaction analysis (reads local logs, no internet needed)
-    local last_daily
-    last_daily=$(stat -c %Y /opt/agentharness/reports/daily_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
-    local daily_age=$(( (now - last_daily) / 86400 ))
-    if [ "${daily_age}" -gt 0 ]; then
-        log_info "Running daily interaction analysis..."
-        bash "${SCRIPT_DIR}/daily_improve.sh" >> "${LOG_FILE}" 2>&1 && ((tasks_run++)) || true
-
-        # Feed patterns into Chaguli's memory
-        bash "${SCRIPT_DIR}/chaguli_memory.sh" ingest >> "${LOG_FILE}" 2>&1 || true
-    fi
-
-    # 4. Refresh service registry (detects new/changed containers)
-    local last_registry
-    last_registry=$(stat -c %Y /opt/agentharness/service_registry.json 2>/dev/null || echo "0")
-    local registry_age=$(( (now - last_registry) / 3600 ))
-    if [ "${registry_age}" -gt 6 ]; then
-        log_info "Service registry is ${registry_age}h old. Refreshing..."
-        bash "${SCRIPT_DIR}/service_registry.sh" >> "${LOG_FILE}" 2>&1 && {
-            touch /opt/agentharness/service_registry_dirty  # trigger sync when online
-            ((tasks_run++))
-        } || true
-    fi
-
-    # 5. Backup (nightly, during offline window)
+    # 3. Backup (nightly, during offline window)
     local last_backup
     last_backup=$(stat -c %Y /opt/agentharness/reports/backup_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
     local backup_age=$(( (now - last_backup) / 86400 ))
@@ -142,7 +119,6 @@ run_offline_tasks() {
     fi
 
     # 6. Proactive health checks (every run)
-    bash "${SCRIPT_DIR}/monitor.sh" check >> "${LOG_FILE}" 2>&1 || true
 
     # 7. Security audit (weekly)
     local last_security
@@ -185,27 +161,7 @@ run_online_tasks() {
 
     local tasks_run=0
 
-    # 0. Flush queued alerts from offline window + morning briefing
-    bash "${SCRIPT_DIR}/monitor.sh" flush >> "${LOG_FILE}" 2>&1 || true
-
-    # Send morning briefing once per day (between 7-8 AM)
-    local current_hour
-    current_hour=$(TZ="${TIMEZONE}" date +%H | sed 's/^0//')
-    local briefing_marker="/tmp/agentharness_briefing_$(date +%Y%m%d)"
-    if [ "${current_hour}" -ge 7 ] && [ "${current_hour}" -le 8 ] && [ ! -f "${briefing_marker}" ]; then
-        log_info "Sending morning briefing..."
-        bash "${SCRIPT_DIR}/monitor.sh" briefing morning >> "${LOG_FILE}" 2>&1 && \
-            touch "${briefing_marker}" || true
-    fi
-
-    # 0.5. Sync service registry → OpenClaw skills (after any deployment)
-    if [ -f /opt/agentharness/service_registry_dirty ]; then
-        log_info "Service registry changed. Syncing skills to OpenClaw..."
-        bash "${SCRIPT_DIR}/openclaw_sync.sh" >> "${LOG_FILE}" 2>&1 && {
-            rm -f /opt/agentharness/service_registry_dirty
-            ((tasks_run++))
-        } || true
-    fi
+    # Chaguli handles its own briefings via briefings.py — we don't duplicate.
 
     # 1. Weekly optimization search (if due)
     local last_weekly

@@ -80,77 +80,58 @@ done
 # PHASE 0: Detect existing environment
 # =============================================================================
 detect_existing() {
-    log_header "Phase 0: Deep Discovery"
-    log_info "Scanning everything already on this machine..."
-    log_info "Scripts, cron jobs, systemd services, Docker configs, n8n workflows,"
-    log_info "env files, API keys, running services — all of it."
+    log_header "Phase 0: Discovery"
+    log_info "Scanning your homelab — Chaguli agent, services, configs, LLM stack..."
     echo ""
 
-    # --- 0a: Discover all automations ---
-    bash "${SCRIPT_DIR}/scripts/discover_automations.sh"
+    ensure_dir /opt/agentharness
 
-    # --- 0b: Discover all configs/secrets ---
-    bash "${SCRIPT_DIR}/scripts/discover_config.sh"
+    # --- 0a: Discover Chaguli's actual architecture ---
+    bash "${SCRIPT_DIR}/scripts/discover_chaguli.sh"
 
-    # --- 0c: Build EXISTING and BENCHMARK_TOOLS arrays from catalog ---
+    # --- 0b: Discover storage (USB drive, etc.) ---
+    bash "${SCRIPT_DIR}/scripts/discover_storage.sh" 2>/dev/null || true
+
+    # --- 0c: Build EXISTING array from discovered state ---
     EXISTING=()
     BENCHMARK_TOOLS=()
 
-    if [ -f /opt/agentharness/automation_catalog.json ]; then
-        # Extract benchmark tools and existing capabilities from catalog
-        while IFS='|' read -r entry_type entry_value; do
-            case "${entry_type}" in
-                EXISTING) EXISTING+=("${entry_value}") ;;
-                BENCH)    BENCHMARK_TOOLS+=("${entry_value}") ;;
-            esac
-        done < <(python3 -c "
-import json
+    [ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
 
-catalog = json.load(open('/opt/agentharness/automation_catalog.json'))
-items = catalog['items']
+    # Chaguli
+    [ -n "${CHAGULI_CONTAINER:-}" ] && EXISTING+=("chaguli:${CHAGULI_CONTAINER}")
+    [ -n "${CHAGULI_APP_DIR:-}" ] && EXISTING+=("chaguli_app:${CHAGULI_APP_DIR}")
 
-for item in items:
-    t = item.get('type', '')
-    path = item.get('path', '')
-    name = item.get('name', '')
-    caps = item.get('capabilities', [])
+    # LLM engines
+    [ -d "${EXISTING_IK_LLAMA_CPP_DIR:-}" ] && EXISTING+=("ik-llama-built")
+    [ -d "${EXISTING_LLAMA_CPP_DIR:-}" ] && EXISTING+=("llama-cpp-built")
+    for bin in ik-llama-server llama-server; do
+        command -v "${bin}" &>/dev/null && EXISTING+=("${bin}")
+    done
+    curl -sf --max-time 3 http://localhost:8080/health &>/dev/null && EXISTING+=("llm-server-8080")
+    curl -sf --max-time 3 http://localhost:4000/health &>/dev/null && EXISTING+=("litellm-4000")
 
-    if t == 'systemd_service' and 'llama' in name.lower():
-        print(f'EXISTING|systemd:{name}')
-    if t in ('shell_script', 'python_script'):
-        if 'benchmark' in caps or 'bench' in path.lower():
-            print(f'BENCH|{path}')
-        for cap in ('monitoring', 'self-healing', 'cleanup', 'llm', 'deployment', 'backup'):
-            if cap in caps:
-                print(f'EXISTING|has_{cap}:{path}')
-                break
-    if t == 'n8n_workflow':
-        print(f'EXISTING|n8n:{name}')
-    if t == 'docker_compose':
-        for svc in item.get('services', []):
-            print(f'EXISTING|compose_svc:{svc}')
-" 2>/dev/null)
-    fi
-
-    # Also check directly for key components
-    command -v ik-llama-server &>/dev/null && EXISTING+=("ik-llama-server")
-    command -v llama-server &>/dev/null && EXISTING+=("llama-server")
-    command -v aider &>/dev/null && EXISTING+=("aider")
-    command -v opencode &>/dev/null && EXISTING+=("opencode")
-    python3 -c "import smolagents" 2>/dev/null && EXISTING+=("smolagents")
-    docker ps --format '{{.Names}}' 2>/dev/null | grep -q searxng && EXISTING+=("searxng")
-
-    local model_count
-    model_count=$(find /opt/models -name "*.gguf" -type f 2>/dev/null | wc -l || echo "0")
+    # Models
+    local model_count=0
+    for dir in /opt/models "${HOME}/models" "${HOME}"/.cache/lm-studio; do
+        model_count=$((model_count + $(find "${dir}" -name "*.gguf" -type f 2>/dev/null | wc -l)))
+    done
     [ "${model_count}" -gt 0 ] && EXISTING+=("models:${model_count}")
-    [ -f /opt/agentharness/benchmark_results.json ] && EXISTING+=("benchmark_results")
+
+    # Existing benchmarks
+    for f in "${HOME}/llm_benchmark_results.txt" "${HOME}/llm_bench_v2.log" "${HOME}/apply_best_llm.sh"; do
+        [ -f "$f" ] && BENCHMARK_TOOLS+=("$f")
+    done
+
+    # Services
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -q searxng && EXISTING+=("searxng")
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -q portainer && EXISTING+=("portainer")
+
+    # Master .env
+    [ -n "${MASTER_ENV:-}" ] && EXISTING+=("master_env:${MASTER_ENV}")
 
     echo ""
-    log_ok "Discovered ${#EXISTING[@]} existing component(s) and ${#BENCHMARK_TOOLS[@]} benchmark tool(s)"
-    log_info "Catalog: /opt/agentharness/automation_catalog.json"
-    log_info "Config:  /opt/agentharness/.env"
-    echo ""
-    log_info "AgentHarness will AUGMENT existing automations, not replace them."
+    log_ok "Discovered ${#EXISTING[@]} component(s), ${#BENCHMARK_TOOLS[@]} benchmark tool(s)"
     echo ""
 }
 
@@ -397,16 +378,23 @@ run_benchmarks() {
 # PHASE 7: Discover existing configs and generate .env
 # =============================================================================
 setup_env() {
-    log_header "Phase 7: Config Discovery"
+    log_header "Phase 7: Environment Configuration"
 
-    log_info "Scanning system for existing API keys, service URLs, and configs..."
-    log_info "This avoids re-entering values already configured on this machine."
-    echo ""
+    [ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
 
-    bash "${SCRIPT_DIR}/scripts/discover_config.sh"
-
-    echo ""
-    log_info "Review and verify: nano /opt/agentharness/.env"
+    # Symlink to master .env instead of creating a new one
+    if [ -n "${MASTER_ENV:-}" ] && [ -f "${MASTER_ENV}" ]; then
+        if [ ! -f /opt/agentharness/.env ]; then
+            ln -sf "${MASTER_ENV}" /opt/agentharness/.env
+            log_ok "Linked to master .env: ${MASTER_ENV}"
+        else
+            log_info ".env already exists at /opt/agentharness/.env"
+        fi
+        log_info "All secrets come from: ${MASTER_ENV}"
+    else
+        log_warn "Master .env not found. AgentHarness scripts will need GROQ_API_KEY etc."
+        log_info "Set MASTER_ENV in /opt/agentharness/chaguli_paths.env"
+    fi
 }
 
 # =============================================================================
@@ -584,7 +572,7 @@ alias websearch='f(){ curl -s "http://localhost:8888/search?q=$(python3 -c "impo
 # AgentHarness management
 alias ah-validate='bash /opt/agentharness/scripts/validate.sh'
 alias ah-benchmark='bash /opt/agentharness/scripts/benchmark.sh'
-alias ah-daily='bash /opt/agentharness/scripts/daily_improve.sh'
+
 alias ah-weekly='bash /opt/agentharness/scripts/weekly_optimize.sh'
 alias ah-reports='ls -lt /opt/agentharness/reports/ | head -10'
 alias ah-best='cat /opt/agentharness/best_config.env 2>/dev/null || echo "No benchmark results yet"'
@@ -619,6 +607,19 @@ ALIASES
 validate() {
     log_header "Phase 10: Validation"
     bash "${SCRIPT_DIR}/scripts/validate.sh"
+}
+
+# =============================================================================
+# PHASE 11: Integrate with Chaguli — add tools to the existing agent
+# =============================================================================
+integrate_chaguli_phase() {
+    log_header "Phase 11: Chaguli Integration"
+
+    log_info "Adding AgentHarness tools to Chaguli's tool system..."
+    log_info "This patches tools.py and adds 9 new tools Chaguli can use."
+    echo ""
+
+    bash "${SCRIPT_DIR}/scripts/integrate_chaguli.sh"
 }
 
 # =============================================================================
@@ -873,9 +874,10 @@ main() {
             8.5)  setup_registry ;;
             9)    setup_aliases ;;
             10)   validate ;;
-            10.5) setup_mcp_servers ;;
-            11)   bash "${SCRIPT_DIR}/scripts/harden.sh" ;;
-            *)    log_error "Unknown phase: ${RUN_PHASE}. Use 0-11." ; exit 1 ;;
+            11)   integrate_chaguli_phase ;;
+            12)   setup_mcp_servers ;;
+            13)   bash "${SCRIPT_DIR}/scripts/harden.sh" ;;
+            *)    log_error "Unknown phase: ${RUN_PHASE}. Use 0-13." ; exit 1 ;;
         esac
         log_ok "Phase ${RUN_PHASE} complete"
         return 0
@@ -896,10 +898,11 @@ main() {
     setup_registry       # Phase 8.5
     setup_aliases        # Phase 9
     validate             # Phase 10
-    setup_mcp_servers    # Phase 10.5
+    integrate_chaguli_phase  # Phase 11
+    setup_mcp_servers    # Phase 12
 
-    # Phase 11: Security hardening
-    log_header "Phase 11: Security Hardening"
+    # Phase 13: Security hardening
+    log_header "Phase 13: Security Hardening"
     bash "${SCRIPT_DIR}/scripts/harden.sh"
 
     log_header "Installation Complete!"
