@@ -440,6 +440,22 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_troubleshoot(args: argparse.Namespace) -> int:
+    """Run guided troubleshooter — detect issues and show fix instructions."""
+    from core.doctor.troubleshoot import Troubleshooter
+
+    data_dir = _data_dir()
+    t = Troubleshooter(data_dir=data_dir)
+    issues = t.run()
+
+    if not issues:
+        print("No issues detected. System is healthy.")
+        return 0
+
+    print(t.format_guide(issues))
+    return 1 if any(i.severity == "critical" for i in issues) else 0
+
+
 def cmd_setup_coding_tool(args: argparse.Namespace) -> int:
     """Generate and write Aider config, print setup script."""
     from core.tools.setup_aider import (
@@ -545,6 +561,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("smoketest", help="Run full post-deploy smoketest")
     sub.add_parser("validate", help="Run pre-deploy validation checks")
+    sub.add_parser("troubleshoot", help="Guided troubleshooter with fix instructions")
 
     setup_ct_parser = sub.add_parser("setup-coding-tool",
                                      help="Generate Aider coding tool config")
@@ -577,6 +594,7 @@ def main() -> None:
         "doctor": cmd_doctor,
         "smoketest": cmd_smoketest,
         "validate": cmd_validate,
+        "troubleshoot": cmd_troubleshoot,
         "setup-coding-tool": cmd_setup_coding_tool,
     }
 
