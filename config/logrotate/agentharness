@@ -1,0 +1,14 @@
+/home/*/agentharness/data/logs/*.log
+/opt/agentharness/data/logs/*.log
+{
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    create 0644
+    size 10M
+}

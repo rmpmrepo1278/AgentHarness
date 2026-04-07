@@ -1,0 +1,9 @@
+[Unit]
+Description=AgentHarness Watchdog — checks scheduler heartbeat
+After=agentharness-scheduler.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -m core.resilience.watchdog --check
+Environment=AH_DATA_DIR=%h/agentharness/data
+WorkingDirectory=%h/agentharness

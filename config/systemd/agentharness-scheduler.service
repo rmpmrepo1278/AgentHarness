@@ -1,0 +1,17 @@
+[Unit]
+Description=AgentHarness Scheduler — network-aware task runner
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'while true; do /bin/bash "${AH_SCRIPTS_DIR:-/opt/agentharness/scripts}/scheduler.sh" >> "${AH_LOGS_DIR:-/opt/agentharness/data/logs}/scheduler.log" 2>&1; sleep 900; done'
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=600
+StartLimitBurst=5
+EnvironmentFile=-/etc/agentharness/env
+Environment=AH_DATA_DIR=%h/agentharness/data
+
+[Install]
+WantedBy=multi-user.target
