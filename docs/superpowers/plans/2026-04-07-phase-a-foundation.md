@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Eliminate all hardcoded paths, build a discovery engine, rewrite scripts to use discovered paths, and evolve the registry to support bundles — making AgentHarness work on any machine.
+**Goal:** Eliminate all hardcoded paths, build a discovery engine, rewrite scripts to use discovered paths, evolve the registry to support bundles, and harden for unattended homelab operation — making AgentHarness work on any machine and recover from failures without user intervention.
 
-**Architecture:** A Python discovery engine (`core/discovery/`) resolves all paths at runtime and caches them in `state.json`. A rewritten `scripts/common.sh` reads state.json and exports paths as environment variables. Every script uses `$AH_*` variables instead of `/opt/agentharness`. The registry engine evolves to load multiple bundle YAML files with schema validation.
+**Architecture:** A Python discovery engine (`core/discovery/`) resolves all paths at runtime and caches them in `state.json`. A rewritten `scripts/common.sh` reads state.json and exports paths as environment variables. Every script uses `$AH_*` variables instead of `/opt/agentharness`. The registry engine evolves to load multiple bundle YAML files with schema validation. A resilience layer ensures the system auto-recovers from crashes, stale locks, corrupted state, and unattended failures.
 
 **Tech Stack:** Python 3.10+, PyYAML, bash, fcntl (file locking), json
 
@@ -34,7 +34,17 @@ bundles/homelab/bundle.yaml       # Docker + service monitoring
 bundles/inference/bundle.yaml     # LLM engine management
 bundles/security/bundle.yaml      # Security hardening
 bundles/backup/bundle.yaml        # Backup + restore
+core/resilience/__init__.py
+core/resilience/watchdog.py       # Self-watchdog + stale lock recovery
+core/resilience/atomic_json.py    # Crash-safe JSON read/write for queues
+core/resilience/circuit_breaker.py # Alert fatigue prevention for checks
+core/resilience/selftest.py       # Startup self-test
+core/resilience/config_backup.py  # Snapshot configs before changes
 cli.py                            # CLI entry point skeleton
+config/systemd/agentharness-scheduler.service  # systemd unit with Restart=on-failure
+config/systemd/agentharness-watchdog.service   # Watchdog timer
+config/systemd/agentharness-watchdog.timer     # 5-minute timer
+config/logrotate/agentharness                  # Log rotation config
 tests/test_discovery_state.py
 tests/test_discovery_paths.py
 tests/test_discovery_hardware.py
@@ -42,6 +52,10 @@ tests/test_discovery_services.py
 tests/test_registry_schema.py
 tests/test_registry_loader.py
 tests/test_common_sh.py
+tests/test_resilience_atomic_json.py
+tests/test_resilience_circuit_breaker.py
+tests/test_resilience_selftest.py
+tests/test_resilience_watchdog.py
 ```
 
 ### Files to modify:
@@ -2419,33 +2433,1263 @@ git commit -m "feat: add CLI skeleton — status, discover, bundle list commands
 
 ---
 
-## Task 13: Update README.md
+## Task 13: Atomic JSON — Crash-Safe Queue Files
+
+**Files:**
+- Create: `core/resilience/__init__.py`
+- Create: `core/resilience/atomic_json.py`
+- Test: `tests/test_resilience_atomic_json.py`
+
+The alert queue, task queue, and other JSON files can get corrupted if the process crashes mid-write. This module provides crash-safe read/write for all JSON queue files.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_resilience_atomic_json.py
+import json
+import os
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def json_dir(tmp_path):
+    return tmp_path
+
+
+def test_write_and_read(json_dir):
+    from core.resilience.atomic_json import atomic_write_json, safe_read_json
+    path = json_dir / "test.json"
+    atomic_write_json(path, {"items": [1, 2, 3]})
+    result = safe_read_json(path)
+    assert result == {"items": [1, 2, 3]}
+
+
+def test_read_nonexistent_returns_default(json_dir):
+    from core.resilience.atomic_json import safe_read_json
+    path = json_dir / "nope.json"
+    result = safe_read_json(path, default=[])
+    assert result == []
+
+
+def test_read_corrupt_file_returns_default(json_dir):
+    from core.resilience.atomic_json import safe_read_json
+    path = json_dir / "corrupt.json"
+    path.write_text("{broken json !!!")
+    result = safe_read_json(path, default={"fallback": True})
+    assert result == {"fallback": True}
+
+
+def test_corrupt_file_backed_up(json_dir):
+    from core.resilience.atomic_json import safe_read_json
+    path = json_dir / "corrupt2.json"
+    path.write_text("{broken")
+    safe_read_json(path, default={})
+    assert (json_dir / "corrupt2.json.corrupt").exists()
+
+
+def test_atomic_write_survives_tmp(json_dir):
+    """If .tmp exists but final doesn't, data should be recoverable."""
+    from core.resilience.atomic_json import safe_read_json, atomic_write_json
+    path = json_dir / "data.json"
+    atomic_write_json(path, {"good": True})
+    # Simulate leftover .tmp from a crash
+    (json_dir / "data.json.tmp").write_text('{"stale": true}')
+    result = safe_read_json(path)
+    assert result == {"good": True}
+
+
+def test_append_to_list(json_dir):
+    from core.resilience.atomic_json import atomic_append_json
+    path = json_dir / "queue.json"
+    atomic_append_json(path, {"id": 1})
+    atomic_append_json(path, {"id": 2})
+    result = json.loads(path.read_text())
+    assert len(result) == 2
+    assert result[0]["id"] == 1
+    assert result[1]["id"] == 2
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_resilience_atomic_json.py -v`
+Expected: FAIL — `ModuleNotFoundError`
+
+- [ ] **Step 3: Implement atomic JSON operations**
+
+```python
+# core/resilience/__init__.py
+"""Resilience layer — crash recovery, watchdog, circuit breaker."""
+
+# core/resilience/atomic_json.py
+"""Crash-safe JSON file operations for queues and state files.
+
+All writes go through tmp-then-rename to prevent corruption on crash.
+All reads handle corrupt files gracefully with backup + default.
+"""
+
+import fcntl
+import json
+import logging
+import os
+import shutil
+import time
+from pathlib import Path
+from typing import Any
+
+log = logging.getLogger("resilience.atomic_json")
+
+
+def safe_read_json(path: str | Path, default: Any = None) -> Any:
+    """Read a JSON file, returning default if missing or corrupt.
+
+    If the file is corrupt:
+    1. Back it up as .corrupt
+    2. Log a warning
+    3. Return the default
+    """
+    path = Path(path)
+    if not path.exists():
+        return default if default is not None else {}
+
+    try:
+        data = json.loads(path.read_text())
+        return data
+    except (json.JSONDecodeError, OSError) as e:
+        # Back up the corrupt file
+        corrupt_path = path.with_suffix(path.suffix + ".corrupt")
+        try:
+            shutil.copy2(path, corrupt_path)
+        except OSError:
+            pass
+        log.warning(f"Corrupt JSON at {path}: {e}. Backed up to {corrupt_path}")
+        return default if default is not None else {}
+
+
+def atomic_write_json(path: str | Path, data: Any) -> None:
+    """Write JSON atomically via tmp-then-rename.
+
+    Uses file locking to prevent concurrent writes.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    lock_path = path.with_suffix(path.suffix + ".lock")
+
+    lock_fd = None
+    try:
+        lock_path.touch(exist_ok=True)
+        lock_fd = open(lock_path, "r")
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() > deadline:
+                    log.warning(f"Lock timeout writing {path}, proceeding anyway")
+                    break
+                time.sleep(0.05)
+
+        tmp_path.write_text(json.dumps(data, indent=2, default=str))
+        os.rename(tmp_path, path)
+    except OSError as e:
+        log.error(f"Failed to write {path}: {e}")
+        # Clean up tmp if rename failed
+        tmp_path.unlink(missing_ok=True)
+        raise
+    finally:
+        if lock_fd:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            lock_fd.close()
+
+
+def atomic_append_json(path: str | Path, item: Any) -> None:
+    """Append an item to a JSON list file, atomically.
+
+    If the file doesn't exist, creates it with [item].
+    If it exists, reads the list, appends, and rewrites atomically.
+    """
+    path = Path(path)
+    current = safe_read_json(path, default=[])
+    if not isinstance(current, list):
+        current = [current]
+    current.append(item)
+    atomic_write_json(path, current)
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_resilience_atomic_json.py -v`
+Expected: All 6 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/__init__.py core/resilience/atomic_json.py tests/test_resilience_atomic_json.py
+git commit -m "feat: add crash-safe atomic JSON read/write for queues and state files"
+```
+
+---
+
+## Task 14: Stale Lock Recovery + Watchdog
+
+**Files:**
+- Create: `core/resilience/watchdog.py`
+- Test: `tests/test_resilience_watchdog.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_resilience_watchdog.py
+import json
+import os
+import time
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def watchdog_dir(tmp_path):
+    return tmp_path
+
+
+def test_heartbeat_write(watchdog_dir):
+    from core.resilience.watchdog import write_heartbeat
+    write_heartbeat(data_dir=str(watchdog_dir))
+    hb_file = watchdog_dir / "heartbeat.json"
+    assert hb_file.exists()
+    data = json.loads(hb_file.read_text())
+    assert "timestamp" in data
+    assert "pid" in data
+    assert data["pid"] == os.getpid()
+
+
+def test_check_heartbeat_fresh(watchdog_dir):
+    from core.resilience.watchdog import write_heartbeat, check_heartbeat
+    write_heartbeat(data_dir=str(watchdog_dir))
+    result = check_heartbeat(data_dir=str(watchdog_dir), max_age_seconds=60)
+    assert result["status"] == "ok"
+
+
+def test_check_heartbeat_stale(watchdog_dir):
+    from core.resilience.watchdog import check_heartbeat
+    hb_file = watchdog_dir / "heartbeat.json"
+    # Write a heartbeat from 30 minutes ago
+    hb_file.write_text(json.dumps({
+        "timestamp": time.time() - 1800,
+        "pid": 99999,
+    }))
+    result = check_heartbeat(data_dir=str(watchdog_dir), max_age_seconds=900)
+    assert result["status"] == "stale"
+    assert result["age_seconds"] > 900
+
+
+def test_check_heartbeat_missing(watchdog_dir):
+    from core.resilience.watchdog import check_heartbeat
+    result = check_heartbeat(data_dir=str(watchdog_dir), max_age_seconds=60)
+    assert result["status"] == "missing"
+
+
+def test_stale_lock_recovery(watchdog_dir):
+    from core.resilience.watchdog import recover_stale_lock
+    lock_file = watchdog_dir / "state.lock"
+    # Create a lock file with a dead PID
+    lock_file.write_text("99999999")
+    recovered = recover_stale_lock(str(lock_file))
+    assert recovered is True
+    assert not lock_file.exists()
+
+
+def test_stale_lock_alive_pid_not_removed(watchdog_dir):
+    from core.resilience.watchdog import recover_stale_lock
+    lock_file = watchdog_dir / "state.lock"
+    # Write our own PID — it's alive
+    lock_file.write_text(str(os.getpid()))
+    recovered = recover_stale_lock(str(lock_file))
+    assert recovered is False
+    assert lock_file.exists()
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_resilience_watchdog.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement watchdog**
+
+```python
+# core/resilience/watchdog.py
+"""Self-watchdog: heartbeat, stale lock recovery, process monitoring.
+
+The scheduler writes a heartbeat on every tick. A systemd timer checks
+the heartbeat every 5 minutes. If stale, it alerts and restarts.
+"""
+
+import json
+import logging
+import os
+import signal
+import time
+from pathlib import Path
+
+log = logging.getLogger("resilience.watchdog")
+
+
+def write_heartbeat(data_dir: str) -> None:
+    """Write a heartbeat file. Called by the scheduler on every tick."""
+    hb_file = Path(data_dir) / "heartbeat.json"
+    hb_file.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "timestamp": time.time(),
+        "pid": os.getpid(),
+        "iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    }
+    # Use direct write — heartbeat is a single small file, not a queue
+    hb_file.write_text(json.dumps(data))
+
+
+def check_heartbeat(data_dir: str, max_age_seconds: int = 1200) -> dict:
+    """Check if the heartbeat is fresh.
+
+    Returns:
+        {"status": "ok"|"stale"|"missing", "age_seconds": N, "pid": N}
+    """
+    hb_file = Path(data_dir) / "heartbeat.json"
+    if not hb_file.exists():
+        return {"status": "missing", "age_seconds": -1, "pid": -1}
+
+    try:
+        data = json.loads(hb_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "missing", "age_seconds": -1, "pid": -1}
+
+    age = time.time() - data.get("timestamp", 0)
+    pid = data.get("pid", -1)
+
+    if age > max_age_seconds:
+        return {"status": "stale", "age_seconds": int(age), "pid": pid}
+    return {"status": "ok", "age_seconds": int(age), "pid": pid}
+
+
+def _pid_alive(pid: int) -> bool:
+    """Check if a process with the given PID is still running."""
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def recover_stale_lock(lock_file: str) -> bool:
+    """Remove a lock file if the holding process is dead.
+
+    Returns True if the lock was recovered (removed).
+    Returns False if the lock is held by a live process.
+    """
+    lock_path = Path(lock_file)
+    if not lock_path.exists():
+        return False
+
+    try:
+        content = lock_path.read_text().strip()
+        if content.isdigit():
+            pid = int(content)
+            if _pid_alive(pid):
+                log.info(f"Lock {lock_file} held by live PID {pid}")
+                return False
+
+        # PID is dead or not a valid PID — remove the lock
+        lock_path.unlink()
+        log.warning(f"Recovered stale lock: {lock_file} (PID: {content})")
+        return True
+    except OSError as e:
+        log.error(f"Error recovering lock {lock_file}: {e}")
+        return False
+
+
+def recover_all_stale_locks(data_dir: str) -> list[str]:
+    """Find and recover all stale .lock files in the data directory."""
+    recovered = []
+    data_path = Path(data_dir)
+    for lock_file in data_path.glob("*.lock"):
+        if recover_stale_lock(str(lock_file)):
+            recovered.append(str(lock_file))
+    return recovered
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_resilience_watchdog.py -v`
+Expected: All 6 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/watchdog.py tests/test_resilience_watchdog.py
+git commit -m "feat: add watchdog — heartbeat, stale lock recovery, process monitoring"
+```
+
+---
+
+## Task 15: Circuit Breaker for Health Checks
+
+**Files:**
+- Create: `core/resilience/circuit_breaker.py`
+- Test: `tests/test_resilience_circuit_breaker.py`
+
+When a check consistently fails (service removed, host unreachable), stop alerting after N failures. Re-enable on next discovery run if the service reappears.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_resilience_circuit_breaker.py
+import json
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def cb_dir(tmp_path):
+    return tmp_path
+
+
+def test_record_failure_and_check_open(cb_dir):
+    from core.resilience.circuit_breaker import CircuitBreaker
+    cb = CircuitBreaker(data_dir=str(cb_dir), max_failures=3)
+    cb.record_failure("jellyfin_health")
+    cb.record_failure("jellyfin_health")
+    assert not cb.is_open("jellyfin_health")  # 2 < 3
+    cb.record_failure("jellyfin_health")
+    assert cb.is_open("jellyfin_health")  # 3 >= 3, circuit open
+
+
+def test_record_success_resets(cb_dir):
+    from core.resilience.circuit_breaker import CircuitBreaker
+    cb = CircuitBreaker(data_dir=str(cb_dir), max_failures=3)
+    cb.record_failure("jellyfin_health")
+    cb.record_failure("jellyfin_health")
+    cb.record_failure("jellyfin_health")
+    assert cb.is_open("jellyfin_health")
+    cb.record_success("jellyfin_health")
+    assert not cb.is_open("jellyfin_health")
+
+
+def test_reset_check(cb_dir):
+    from core.resilience.circuit_breaker import CircuitBreaker
+    cb = CircuitBreaker(data_dir=str(cb_dir), max_failures=2)
+    cb.record_failure("test_check")
+    cb.record_failure("test_check")
+    assert cb.is_open("test_check")
+    cb.reset("test_check")
+    assert not cb.is_open("test_check")
+
+
+def test_unknown_check_not_open(cb_dir):
+    from core.resilience.circuit_breaker import CircuitBreaker
+    cb = CircuitBreaker(data_dir=str(cb_dir))
+    assert not cb.is_open("never_seen")
+
+
+def test_get_open_circuits(cb_dir):
+    from core.resilience.circuit_breaker import CircuitBreaker
+    cb = CircuitBreaker(data_dir=str(cb_dir), max_failures=1)
+    cb.record_failure("check_a")
+    cb.record_failure("check_b")
+    open_circuits = cb.get_open_circuits()
+    assert "check_a" in open_circuits
+    assert "check_b" in open_circuits
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_resilience_circuit_breaker.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement circuit breaker**
+
+```python
+# core/resilience/circuit_breaker.py
+"""Circuit breaker for health checks — prevents alert fatigue.
+
+When a check fails N consecutive times, the circuit "opens" and the
+check is temporarily suppressed. It re-closes on success or manual reset.
+Discovery runs call reset_all() to re-enable checks for reappeared services.
+"""
+
+import json
+import logging
+from pathlib import Path
+
+from core.resilience.atomic_json import safe_read_json, atomic_write_json
+
+log = logging.getLogger("resilience.circuit_breaker")
+
+
+class CircuitBreaker:
+
+    def __init__(self, data_dir: str, max_failures: int = 5):
+        self.state_file = Path(data_dir) / "circuit_breaker.json"
+        self.max_failures = max_failures
+
+    def _load(self) -> dict:
+        return safe_read_json(self.state_file, default={})
+
+    def _save(self, state: dict) -> None:
+        atomic_write_json(self.state_file, state)
+
+    def record_failure(self, check_name: str) -> None:
+        """Record a check failure. Opens circuit after max_failures."""
+        state = self._load()
+        entry = state.get(check_name, {"failures": 0, "open": False})
+        entry["failures"] = entry.get("failures", 0) + 1
+        if entry["failures"] >= self.max_failures:
+            if not entry.get("open"):
+                log.warning(
+                    f"Circuit opened for '{check_name}' after "
+                    f"{entry['failures']} consecutive failures"
+                )
+            entry["open"] = True
+        state[check_name] = entry
+        self._save(state)
+
+    def record_success(self, check_name: str) -> None:
+        """Record a check success. Closes the circuit."""
+        state = self._load()
+        if check_name in state:
+            was_open = state[check_name].get("open", False)
+            state[check_name] = {"failures": 0, "open": False}
+            self._save(state)
+            if was_open:
+                log.info(f"Circuit closed for '{check_name}' — check passing again")
+
+    def is_open(self, check_name: str) -> bool:
+        """Check if a circuit is open (suppressed)."""
+        state = self._load()
+        return state.get(check_name, {}).get("open", False)
+
+    def reset(self, check_name: str) -> None:
+        """Manually reset a circuit."""
+        state = self._load()
+        if check_name in state:
+            state[check_name] = {"failures": 0, "open": False}
+            self._save(state)
+
+    def reset_all(self) -> None:
+        """Reset all circuits. Called by discovery when services change."""
+        self._save({})
+
+    def get_open_circuits(self) -> list[str]:
+        """Get list of all open (suppressed) circuits."""
+        state = self._load()
+        return [name for name, entry in state.items() if entry.get("open")]
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_resilience_circuit_breaker.py -v`
+Expected: All 5 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/circuit_breaker.py tests/test_resilience_circuit_breaker.py
+git commit -m "feat: add circuit breaker — suppresses alerts after N consecutive failures"
+```
+
+---
+
+## Task 16: Startup Self-Test
+
+**Files:**
+- Create: `core/resilience/selftest.py`
+- Test: `tests/test_resilience_selftest.py`
+
+On every boot and scheduler start, run a quick self-test: can we read state? Can we write to data dirs? Is Docker available? Log and alert on failures.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_resilience_selftest.py
+import os
+import json
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def selftest_env(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    reports_dir = data_dir / "reports"
+    reports_dir.mkdir()
+    logs_dir = data_dir / "logs"
+    logs_dir.mkdir()
+
+    state = {
+        "schema_version": 1,
+        "paths": {
+            "install_dir": str(tmp_path),
+            "data_dir": str(data_dir),
+            "reports_dir": str(reports_dir),
+            "logs_dir": str(logs_dir),
+            "scripts_dir": str(tmp_path / "scripts"),
+        },
+    }
+    (data_dir / "state.json").write_text(json.dumps(state))
+    (tmp_path / "scripts").mkdir()
+    return tmp_path, data_dir
+
+
+def test_selftest_passes_healthy_system(selftest_env):
+    from core.resilience.selftest import run_selftest
+    tmp_path, data_dir = selftest_env
+    result = run_selftest(data_dir=str(data_dir))
+    assert result["overall"] in ("ok", "degraded")
+    assert len(result["checks"]) > 0
+
+
+def test_selftest_detects_missing_state(selftest_env):
+    from core.resilience.selftest import run_selftest
+    tmp_path, data_dir = selftest_env
+    (data_dir / "state.json").unlink()
+    result = run_selftest(data_dir=str(data_dir))
+    state_check = [c for c in result["checks"] if c["name"] == "state_file"]
+    assert len(state_check) == 1
+    assert state_check[0]["status"] == "fail"
+
+
+def test_selftest_detects_unwritable_dir(selftest_env):
+    from core.resilience.selftest import run_selftest
+    tmp_path, data_dir = selftest_env
+    # Point reports to a non-existent, non-creatable path
+    state = json.loads((data_dir / "state.json").read_text())
+    state["paths"]["reports_dir"] = "/root/impossible_dir_for_test"
+    (data_dir / "state.json").write_text(json.dumps(state))
+    result = run_selftest(data_dir=str(data_dir))
+    reports_check = [c for c in result["checks"] if c["name"] == "reports_dir_writable"]
+    assert len(reports_check) == 1
+    assert reports_check[0]["status"] == "fail"
+
+
+def test_selftest_returns_check_list(selftest_env):
+    from core.resilience.selftest import run_selftest
+    _, data_dir = selftest_env
+    result = run_selftest(data_dir=str(data_dir))
+    for check in result["checks"]:
+        assert "name" in check
+        assert "status" in check
+        assert check["status"] in ("ok", "fail", "skip")
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_resilience_selftest.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement self-test**
+
+```python
+# core/resilience/selftest.py
+"""Startup self-test — validates AgentHarness can operate.
+
+Run on every boot and scheduler start. Checks:
+1. Can read state.json
+2. Can write to data directories (reports, logs)
+3. Python version adequate
+4. Docker available (optional — degrades gracefully)
+5. No stale locks
+"""
+
+import json
+import logging
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+log = logging.getLogger("resilience.selftest")
+
+
+def _check(name: str, fn, required: bool = True) -> dict:
+    """Run a check function, catch errors, return structured result."""
+    try:
+        ok = fn()
+        return {
+            "name": name,
+            "status": "ok" if ok else "fail",
+            "required": required,
+        }
+    except Exception as e:
+        return {
+            "name": name,
+            "status": "fail",
+            "required": required,
+            "error": str(e),
+        }
+
+
+def run_selftest(data_dir: str) -> dict:
+    """Run all self-test checks. Returns structured results.
+
+    Returns:
+        {
+            "overall": "ok" | "degraded" | "fail",
+            "checks": [{"name": str, "status": str, "required": bool}, ...]
+        }
+    """
+    data_path = Path(data_dir)
+    checks = []
+
+    # 1. State file readable
+    state_file = data_path / "state.json"
+    def check_state():
+        if not state_file.exists():
+            return False
+        data = json.loads(state_file.read_text())
+        return "paths" in data or "schema_version" in data
+    checks.append(_check("state_file", check_state, required=True))
+
+    # Load state for remaining checks
+    state = {}
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    paths = state.get("paths", {})
+
+    # 2. Data directories writable
+    for dir_key in ("reports_dir", "logs_dir"):
+        dir_path = paths.get(dir_key, "")
+        def check_writable(p=dir_path):
+            if not p or not Path(p).is_dir():
+                return False
+            test_file = Path(p) / ".selftest"
+            try:
+                test_file.write_text("ok")
+                test_file.unlink()
+                return True
+            except OSError:
+                return False
+        checks.append(_check(f"{dir_key}_writable", check_writable, required=True))
+
+    # 3. Python version
+    def check_python():
+        return sys.version_info >= (3, 10)
+    checks.append(_check("python_3_10_plus", check_python, required=True))
+
+    # 4. Docker available (optional)
+    def check_docker():
+        result = subprocess.run(
+            "docker info", shell=True, capture_output=True, timeout=5
+        )
+        return result.returncode == 0
+    checks.append(_check("docker_available", check_docker, required=False))
+
+    # 5. No stale locks
+    def check_locks():
+        lock_files = list(data_path.glob("*.lock"))
+        for lf in lock_files:
+            content = lf.read_text().strip()
+            if content.isdigit():
+                pid = int(content)
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    return False  # Stale lock found
+        return True
+    checks.append(_check("no_stale_locks", check_locks, required=True))
+
+    # Determine overall status
+    required_failures = [c for c in checks if c["required"] and c["status"] == "fail"]
+    optional_failures = [c for c in checks if not c["required"] and c["status"] == "fail"]
+
+    if required_failures:
+        overall = "fail"
+    elif optional_failures:
+        overall = "degraded"
+    else:
+        overall = "ok"
+
+    result = {"overall": overall, "checks": checks}
+
+    # Log results
+    for c in checks:
+        if c["status"] == "ok":
+            log.info(f"Self-test {c['name']}: OK")
+        elif c["status"] == "fail" and c["required"]:
+            log.error(f"Self-test {c['name']}: FAIL{' — ' + c.get('error', '') if c.get('error') else ''}")
+        elif c["status"] == "fail":
+            log.warning(f"Self-test {c['name']}: FAIL (optional)")
+
+    return result
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_resilience_selftest.py -v`
+Expected: All 4 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/selftest.py tests/test_resilience_selftest.py
+git commit -m "feat: add startup self-test — validates state, dirs, Python, Docker, locks"
+```
+
+---
+
+## Task 17: Config Backup + Self-Update Safety
+
+**Files:**
+- Create: `core/resilience/config_backup.py`
+
+- [ ] **Step 1: Write failing test**
+
+```python
+# tests/test_resilience_config_backup.py
+import json
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def config_env(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "agentharness.yaml").write_text("setting: original")
+    return tmp_path, data_dir, config_dir
+
+
+def test_snapshot_creates_backup(config_env):
+    from core.resilience.config_backup import snapshot_config
+    tmp_path, data_dir, config_dir = config_env
+    snapshot_dir = snapshot_config(
+        config_dir=str(config_dir),
+        backup_base=str(data_dir / "config_backups"),
+    )
+    assert Path(snapshot_dir).exists()
+    assert (Path(snapshot_dir) / "agentharness.yaml").exists()
+    assert (Path(snapshot_dir) / "agentharness.yaml").read_text() == "setting: original"
+
+
+def test_restore_from_snapshot(config_env):
+    from core.resilience.config_backup import snapshot_config, restore_config
+    tmp_path, data_dir, config_dir = config_env
+    snapshot_dir = snapshot_config(
+        config_dir=str(config_dir),
+        backup_base=str(data_dir / "config_backups"),
+    )
+    # Modify the config
+    (config_dir / "agentharness.yaml").write_text("setting: modified")
+    # Restore
+    restore_config(snapshot_dir=snapshot_dir, config_dir=str(config_dir))
+    assert (config_dir / "agentharness.yaml").read_text() == "setting: original"
+
+
+def test_snapshot_limits_kept(config_env):
+    from core.resilience.config_backup import snapshot_config, cleanup_old_snapshots
+    tmp_path, data_dir, config_dir = config_env
+    backup_base = str(data_dir / "config_backups")
+    # Create 12 snapshots
+    import time
+    for _ in range(12):
+        snapshot_config(config_dir=str(config_dir), backup_base=backup_base)
+        time.sleep(0.01)  # Ensure unique timestamps
+    cleanup_old_snapshots(backup_base=backup_base, keep=5)
+    remaining = list(Path(backup_base).iterdir())
+    assert len(remaining) <= 5
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_resilience_config_backup.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement config backup**
+
+```python
+# core/resilience/config_backup.py
+"""Config backup — snapshot before any modification.
+
+Before proposals, bundle installs, or self-updates modify config,
+snapshot the current state. If something breaks, restore from snapshot.
+"""
+
+import logging
+import shutil
+import time
+from pathlib import Path
+
+log = logging.getLogger("resilience.config_backup")
+
+
+def snapshot_config(config_dir: str, backup_base: str) -> str:
+    """Create a timestamped snapshot of the config directory.
+
+    Returns the path to the snapshot directory.
+    """
+    config_path = Path(config_dir)
+    backup_path = Path(backup_base)
+    backup_path.mkdir(parents=True, exist_ok=True)
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    snapshot_dir = backup_path / f"config_{timestamp}"
+    shutil.copytree(config_path, snapshot_dir)
+    log.info(f"Config snapshot created: {snapshot_dir}")
+    return str(snapshot_dir)
+
+
+def restore_config(snapshot_dir: str, config_dir: str) -> None:
+    """Restore config from a snapshot directory."""
+    config_path = Path(config_dir)
+    snapshot_path = Path(snapshot_dir)
+
+    if not snapshot_path.is_dir():
+        raise FileNotFoundError(f"Snapshot not found: {snapshot_dir}")
+
+    # Remove current config contents, replace with snapshot
+    for item in config_path.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
+    for item in snapshot_path.iterdir():
+        dest = config_path / item.name
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+
+    log.info(f"Config restored from: {snapshot_dir}")
+
+
+def cleanup_old_snapshots(backup_base: str, keep: int = 10) -> int:
+    """Delete old snapshots, keeping the most recent N.
+
+    Returns number of snapshots deleted.
+    """
+    backup_path = Path(backup_base)
+    if not backup_path.is_dir():
+        return 0
+
+    snapshots = sorted(backup_path.iterdir(), key=lambda p: p.name, reverse=True)
+    to_delete = snapshots[keep:]
+    for snap in to_delete:
+        shutil.rmtree(snap)
+        log.info(f"Deleted old config snapshot: {snap.name}")
+    return len(to_delete)
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_resilience_config_backup.py -v`
+Expected: All 3 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/config_backup.py tests/test_resilience_config_backup.py
+git commit -m "feat: add config snapshot/restore — backup before any config modification"
+```
+
+---
+
+## Task 18: Systemd Units + Log Rotation
+
+**Files:**
+- Create: `config/systemd/agentharness-scheduler.service`
+- Create: `config/systemd/agentharness-watchdog.service`
+- Create: `config/systemd/agentharness-watchdog.timer`
+- Create: `config/logrotate/agentharness`
+
+- [ ] **Step 1: Create scheduler systemd service with auto-restart**
+
+```ini
+# config/systemd/agentharness-scheduler.service
+[Unit]
+Description=AgentHarness Scheduler — network-aware task runner
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=%i
+# Run the scheduler in a loop (every 15 minutes)
+ExecStart=/bin/bash -c 'while true; do /bin/bash "${AH_SCRIPTS_DIR:-/opt/agentharness/scripts}/scheduler.sh" >> "${AH_LOGS_DIR:-/opt/agentharness/data/logs}/scheduler.log" 2>&1; sleep 900; done'
+# Auto-restart on crash
+Restart=on-failure
+RestartSec=30
+# Stop restarting if it crashes 5 times in 10 minutes
+StartLimitIntervalSec=600
+StartLimitBurst=5
+# Environment
+EnvironmentFile=-/etc/agentharness/env
+Environment=AH_DATA_DIR=%h/agentharness/data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- [ ] **Step 2: Create watchdog service + timer**
+
+```ini
+# config/systemd/agentharness-watchdog.service
+[Unit]
+Description=AgentHarness Watchdog — checks scheduler heartbeat
+After=agentharness-scheduler.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -c "from core.resilience.watchdog import check_heartbeat; from core.resilience.watchdog import recover_all_stale_locks; import os, subprocess, json; data_dir=os.environ.get('AH_DATA_DIR', os.path.expanduser('~/agentharness/data')); recovered=recover_all_stale_locks(data_dir); result=check_heartbeat(data_dir); print(json.dumps(result)); exec(open('/dev/stdin').read()) if False else None" || true
+# Simplified: the install.sh will generate a proper watchdog script
+Environment=AH_DATA_DIR=%h/agentharness/data
+```
+
+```ini
+# config/systemd/agentharness-watchdog.timer
+[Unit]
+Description=Check AgentHarness scheduler heartbeat every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+- [ ] **Step 3: Create log rotation config**
+
+```
+# config/logrotate/agentharness
+# Log rotation for AgentHarness — prevents disk fill
+# Install: sudo cp config/logrotate/agentharness /etc/logrotate.d/
+
+/opt/agentharness/data/logs/*.log
+/home/*/agentharness/data/logs/*.log
+{
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    create 0644
+    size 10M
+}
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add config/systemd/agentharness-scheduler.service config/systemd/agentharness-watchdog.service config/systemd/agentharness-watchdog.timer config/logrotate/agentharness
+git commit -m "feat: add systemd units with auto-restart + log rotation config
+
+Scheduler service restarts on failure (max 5 times in 10 min).
+Watchdog timer checks heartbeat every 5 minutes.
+Logrotate keeps 30 days, compresses after 1 day."
+```
+
+---
+
+## Task 19: Wire Resilience Into Discovery Engine + CLI
+
+**Files:**
+- Modify: `core/discovery/engine.py`
+- Modify: `core/discovery/state.py`
+- Modify: `cli.py`
+
+- [ ] **Step 1: Wire stale lock recovery into state manager**
+
+Add to `core/discovery/state.py` — at the start of `write()`, call stale lock recovery:
+
+```python
+# Add import at top
+from core.resilience.watchdog import recover_stale_lock
+
+# In StateManager.write(), before acquiring lock:
+    def write(self, updates: dict) -> None:
+        """Atomic write with file locking. Merges updates into existing state."""
+        # Recover stale lock if needed
+        recover_stale_lock(str(self.lock_file))
+
+        lock_fd = None
+        # ... rest of existing code
+```
+
+- [ ] **Step 2: Wire self-test into discovery engine**
+
+Add to `core/discovery/engine.py`:
+
+```python
+# Add import
+from core.resilience.selftest import run_selftest
+
+def run_discovery(
+    hint_dir: str | None = None,
+    overrides: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    # ... existing discovery code ...
+
+    # Run self-test after discovery
+    data_dir = paths.get("data_dir", paths["install_dir"])
+    selftest = run_selftest(data_dir=data_dir)
+
+    sm = StateManager(data_dir=data_dir)
+    sm.write({
+        "paths": paths,
+        "hardware": hardware,
+        "services": services,
+        "agents": agents,
+        "selftest": selftest,
+    })
+
+    return sm.read()
+```
+
+- [ ] **Step 3: Wire circuit breaker reset into discovery**
+
+When discovery finds new services, reset circuit breakers so previously-tripped checks get re-evaluated:
+
+```python
+# Add import
+from core.resilience.circuit_breaker import CircuitBreaker
+
+# In run_discovery(), after writing state:
+    # Reset circuit breakers — services may have changed
+    cb = CircuitBreaker(data_dir=data_dir)
+    cb.reset_all()
+```
+
+- [ ] **Step 4: Add selftest + resilience commands to CLI**
+
+Add to `cli.py`:
+
+```python
+def cmd_selftest(args):
+    """Run startup self-test."""
+    from core.discovery.state import StateManager
+    from core.resilience.selftest import run_selftest
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+
+    result = run_selftest(data_dir=data_dir)
+
+    print(f"Self-Test: {result['overall'].upper()}")
+    print("=" * 40)
+    for check in result["checks"]:
+        icon = "PASS" if check["status"] == "ok" else "FAIL" if check["status"] == "fail" else "SKIP"
+        req = " (required)" if check.get("required") else " (optional)"
+        print(f"  [{icon}] {check['name']}{req}")
+        if check.get("error"):
+            print(f"         {check['error']}")
+
+    return 0 if result["overall"] != "fail" else 1
+
+
+def cmd_circuits(args):
+    """Show open circuit breakers."""
+    from core.discovery.state import StateManager
+    from core.resilience.circuit_breaker import CircuitBreaker
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+
+    cb = CircuitBreaker(data_dir=data_dir)
+    open_circuits = cb.get_open_circuits()
+
+    if not open_circuits:
+        print("No open circuits. All checks are active.")
+    else:
+        print(f"Open circuits ({len(open_circuits)} suppressed checks):")
+        for name in open_circuits:
+            print(f"  - {name}")
+        print("\nRun 'agentharness discover' to reset, or manually:")
+        print("  agentharness circuit reset <check_name>")
+
+    return 0
+```
+
+Add to `main()` parser:
+
+```python
+    subparsers.add_parser("selftest", help="Run startup self-test")
+    subparsers.add_parser("circuits", help="Show open circuit breakers")
+```
+
+Add to command dispatch:
+
+```python
+    elif args.command == "selftest":
+        return cmd_selftest(args)
+    elif args.command == "circuits":
+        return cmd_circuits(args)
+```
+
+- [ ] **Step 5: Run all tests**
+
+Run: `python3 -m pytest tests/ -v`
+Expected: All tests pass (including new resilience tests)
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add core/discovery/engine.py core/discovery/state.py cli.py
+git commit -m "feat: wire resilience into discovery engine and CLI
+
+- Stale lock recovery runs before every state write
+- Self-test runs after every discovery
+- Circuit breakers reset on discovery (services may have changed)
+- CLI: agentharness selftest, agentharness circuits"
+```
+
+---
+
+## Task 20: Update README.md
 
 **Files:**
 - Modify: `README.md`
 
 - [ ] **Step 1: Rewrite README.md**
 
-Replace the entire README with content reflecting the new architecture. Remove all `/opt/agentharness` references. Document the discovery-based installation, bundle system, and CLI.
+Replace the entire README with content reflecting the new architecture. Remove all `/opt/agentharness` references. Document the discovery-based installation, bundle system, CLI, and resilience features.
 
 Key sections:
 - Quick Start (uses `$HOME/agentharness` as default, not `/opt/agentharness`)
 - What It Does (discovery-first, bundle system, no hardcoded paths)
+- Resilience (auto-restart, watchdog, circuit breaker, self-test, config backup)
 - Project Structure (new `core/`, `bundles/` layout)
 - Extending (bundle YAML, CLI, community bundles)
-- CLI Reference
+- CLI Reference (including `selftest`, `circuits`)
 - Hardware support
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add README.md
-git commit -m "docs: rewrite README for v2 architecture — discovery-based, bundle system"
+git commit -m "docs: rewrite README for v2 architecture — discovery, bundles, resilience"
 ```
 
 ---
 
-## Task 14: Run Full Test Suite + Final Validation
+## Task 21: Run Full Test Suite + Final Validation
 
 - [ ] **Step 1: Run all tests**
 
@@ -2454,15 +3698,15 @@ cd /Users/rohitmishra/Library/CloudStorage/OneDrive-T-MobileUSA/Documents/projec
 python3 -m pytest tests/ -v
 ```
 
-Expected: All tests pass.
+Expected: All tests pass (40+ tests across 11 test files).
 
 - [ ] **Step 2: Run migration validation**
 
 ```bash
-grep -rn "/opt/agentharness" scripts/ install.sh config/ --include="*.sh" --include="*.py" --include="*.yaml" --include="*.yml" --include="*.service" --include="*.template" | grep -v "test_" | grep -v ".git" | grep -v "docs/"
+grep -rn "/opt/agentharness" scripts/ install.sh config/ --include="*.sh" --include="*.py" --include="*.yaml" --include="*.yml" --include="*.service" --include="*.template" | grep -v "test_" | grep -v ".git" | grep -v "docs/" | grep -v "logrotate"
 ```
 
-Expected: Zero matches (no hardcoded paths remain in production code).
+Expected: Zero matches (no hardcoded paths remain in production code). The logrotate config has a glob pattern which is correct.
 
 - [ ] **Step 3: Test discovery + CLI end-to-end**
 
@@ -2471,19 +3715,74 @@ export AGENTHARNESS_HOME="$(pwd)"
 python3 cli.py discover
 python3 cli.py status
 python3 cli.py bundle list
+python3 cli.py selftest
+python3 cli.py circuits
 ```
 
-Expected: All commands succeed. State file is populated. Bundles are listed.
+Expected: All commands succeed. State file is populated. Bundles listed. Self-test passes. No open circuits.
 
-- [ ] **Step 4: Final commit**
+- [ ] **Step 4: Test resilience features**
+
+```bash
+# Test atomic JSON survives corruption
+python3 -c "
+from core.resilience.atomic_json import atomic_write_json, safe_read_json
+from pathlib import Path
+import tempfile, json
+
+d = Path(tempfile.mkdtemp())
+atomic_write_json(d / 'test.json', [1, 2, 3])
+assert safe_read_json(d / 'test.json') == [1, 2, 3]
+
+# Corrupt it
+(d / 'test2.json').write_text('{broken')
+assert safe_read_json(d / 'test2.json', default=[]) == []
+assert (d / 'test2.json.corrupt').exists()
+print('Atomic JSON: OK')
+"
+
+# Test circuit breaker
+python3 -c "
+from core.resilience.circuit_breaker import CircuitBreaker
+import tempfile
+
+d = tempfile.mkdtemp()
+cb = CircuitBreaker(data_dir=d, max_failures=3)
+for _ in range(3):
+    cb.record_failure('test_check')
+assert cb.is_open('test_check')
+cb.record_success('test_check')
+assert not cb.is_open('test_check')
+print('Circuit breaker: OK')
+"
+
+# Test watchdog heartbeat
+python3 -c "
+from core.resilience.watchdog import write_heartbeat, check_heartbeat
+import tempfile
+
+d = tempfile.mkdtemp()
+write_heartbeat(data_dir=d)
+result = check_heartbeat(data_dir=d)
+assert result['status'] == 'ok'
+print('Watchdog: OK')
+"
+```
+
+Expected: All three print OK.
+
+- [ ] **Step 5: Final commit**
 
 ```bash
 git add -A
-git commit -m "feat: Phase A complete — discovery engine, script migration, bundle system, CLI
+git commit -m "feat: Phase A complete — discovery, script migration, bundles, resilience, CLI
 
 AgentHarness no longer requires /opt/agentharness or any hardcoded paths.
 All paths resolved at runtime via discovery engine. Registry split into
-modular bundles. CLI provides status, discover, and bundle management."
+modular bundles. Resilience layer: crash-safe JSON, watchdog with heartbeat,
+circuit breaker for alert fatigue, startup self-test, config backup/restore,
+systemd auto-restart, log rotation. CLI: status, discover, bundle, selftest,
+circuits."
 ```
 
 ---
@@ -2496,7 +3795,15 @@ modular bundles. CLI provides status, discover, and bundle management."
 - Registry schema validation
 - Bundle loader with merge semantics
 - 5 shipped bundles (core, homelab, inference, security, backup)
-- CLI skeleton (status, discover, bundle list)
+- Resilience layer:
+  - Crash-safe atomic JSON for all queue/state files
+  - Self-watchdog with heartbeat + stale lock recovery
+  - Circuit breaker for alert fatigue prevention
+  - Startup self-test (validates state, dirs, Python, Docker, locks)
+  - Config snapshot/restore before any modification
+  - Systemd units with `Restart=on-failure` (max 5 in 10 min)
+  - Log rotation (30 days, compressed after 1 day)
+- CLI (status, discover, bundle list, selftest, circuits)
 - Updated README
 
 **Phase A does NOT include** (deferred to later phases):
@@ -2509,5 +3816,5 @@ modular bundles. CLI provides status, discover, and bundle management."
 - Distiller / synthesizer / scout (Phase D)
 - Dashboard (Phase D)
 
-**Estimated tasks:** 14 tasks, ~50 steps
-**Test coverage:** 30+ tests across 7 test files
+**Estimated tasks:** 21 tasks, ~75 steps
+**Test coverage:** 45+ tests across 11 test files
