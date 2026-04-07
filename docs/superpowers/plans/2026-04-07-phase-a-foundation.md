@@ -40,6 +40,11 @@ core/resilience/atomic_json.py    # Crash-safe JSON read/write for queues
 core/resilience/circuit_breaker.py # Alert fatigue prevention for checks
 core/resilience/selftest.py       # Startup self-test
 core/resilience/config_backup.py  # Snapshot configs before changes
+core/security/__init__.py
+core/security/sanitize.py         # Input sanitization — blocks shell injection
+core/security/audit.py            # Exec audit trail with secret redaction
+core/security/integrity.py        # SHA-256 file integrity verification
+core/security/container_policy.py # Docker isolation for sandboxed tools
 cli.py                            # CLI entry point skeleton
 config/systemd/agentharness-scheduler.service  # systemd unit with Restart=on-failure
 config/systemd/agentharness-watchdog.service   # Watchdog timer
@@ -56,6 +61,11 @@ tests/test_resilience_atomic_json.py
 tests/test_resilience_circuit_breaker.py
 tests/test_resilience_selftest.py
 tests/test_resilience_watchdog.py
+tests/test_resilience_config_backup.py
+tests/test_security_sanitize.py
+tests/test_security_audit.py
+tests/test_security_integrity.py
+tests/test_security_container_policy.py
 ```
 
 ### Files to modify:
@@ -3662,34 +3672,991 @@ git commit -m "feat: wire resilience into discovery engine and CLI
 
 ---
 
-## Task 20: Update README.md
+## Task 20: Input Sanitization for Tool Parameters
+
+**Files:**
+- Create: `core/security/__init__.py`
+- Create: `core/security/sanitize.py`
+- Test: `tests/test_security_sanitize.py`
+
+Tool arguments (e.g., `deploy_repo` URL) go to shell execution. A crafted input could inject commands. Every tool parameter must be sanitized before shell dispatch.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_security_sanitize.py
+import pytest
+
+
+def test_safe_string_passes():
+    from core.security.sanitize import sanitize_shell_arg
+    assert sanitize_shell_arg("https://github.com/user/repo") == "https://github.com/user/repo"
+
+
+def test_semicolon_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("repo; rm -rf /")
+
+
+def test_backtick_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("`whoami`")
+
+
+def test_dollar_paren_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("$(cat /etc/passwd)")
+
+
+def test_pipe_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("repo | curl evil.com")
+
+
+def test_newline_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("repo\nrm -rf /")
+
+
+def test_ampersand_injection_blocked():
+    from core.security.sanitize import sanitize_shell_arg
+    with pytest.raises(ValueError, match="prohibited"):
+        sanitize_shell_arg("repo && curl evil.com")
+
+
+def test_validate_url_accepts_valid():
+    from core.security.sanitize import validate_url
+    assert validate_url("https://github.com/user/repo") is True
+    assert validate_url("http://localhost:8080/health") is True
+
+
+def test_validate_url_rejects_dangerous():
+    from core.security.sanitize import validate_url
+    assert validate_url("javascript:alert(1)") is False
+    assert validate_url("file:///etc/passwd") is False
+    assert validate_url("ftp://evil.com; rm -rf /") is False
+
+
+def test_sanitize_tool_args_all_clean():
+    from core.security.sanitize import sanitize_tool_args
+    args = {"url": "https://github.com/user/repo", "lines": "50"}
+    result = sanitize_tool_args(args)
+    assert result == args
+
+
+def test_sanitize_tool_args_rejects_injection():
+    from core.security.sanitize import sanitize_tool_args
+    args = {"url": "https://github.com/user/repo; rm -rf /"}
+    with pytest.raises(ValueError):
+        sanitize_tool_args(args)
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_security_sanitize.py -v`
+Expected: FAIL — `ModuleNotFoundError`
+
+- [ ] **Step 3: Implement input sanitization**
+
+```python
+# core/security/__init__.py
+"""Security layer — input sanitization, audit trail, integrity checks."""
+
+# core/security/sanitize.py
+"""Input sanitization for tool parameters before shell dispatch.
+
+Every tool argument must pass through sanitize_tool_args() before
+being interpolated into a shell command. This prevents command injection.
+"""
+
+import re
+import logging
+from urllib.parse import urlparse
+
+log = logging.getLogger("security.sanitize")
+
+# Characters/patterns that indicate shell injection
+SHELL_INJECTION_PATTERNS = [
+    (r'[;`]', "semicolon or backtick"),
+    (r'\$\(', "command substitution $()"),
+    (r'\$\{', "variable expansion ${}"),
+    (r'\|', "pipe"),
+    (r'&&', "logical AND"),
+    (r'\|\|', "logical OR"),
+    (r'[\n\r]', "newline"),
+    (r'>\s*/', "redirect to absolute path"),
+    (r'<\s*/', "redirect from absolute path"),
+]
+
+SAFE_URL_SCHEMES = {"http", "https", "ssh", "git"}
+
+
+def sanitize_shell_arg(value: str) -> str:
+    """Validate a string is safe for shell interpolation.
+
+    Raises ValueError if the string contains shell injection patterns.
+    Returns the string unchanged if safe.
+    """
+    if not isinstance(value, str):
+        value = str(value)
+
+    for pattern, description in SHELL_INJECTION_PATTERNS:
+        if re.search(pattern, value):
+            log.warning(f"Shell injection blocked: {description} in '{value[:50]}...'")
+            raise ValueError(
+                f"Input contains prohibited characters ({description}): "
+                f"'{value[:80]}'"
+            )
+
+    return value
+
+
+def validate_url(url: str) -> bool:
+    """Validate a URL is safe to use (no file://, javascript:, etc.)."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in SAFE_URL_SCHEMES:
+            return False
+        if not parsed.netloc:
+            return False
+        # Check for injection in the URL itself
+        try:
+            sanitize_shell_arg(url)
+        except ValueError:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def sanitize_tool_args(args: dict) -> dict:
+    """Sanitize all string arguments in a tool call.
+
+    Raises ValueError if any argument contains injection patterns.
+    Non-string values are passed through unchanged.
+    """
+    sanitized = {}
+    for key, value in args.items():
+        if isinstance(value, str):
+            sanitized[key] = sanitize_shell_arg(value)
+        else:
+            sanitized[key] = value
+    return sanitized
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_security_sanitize.py -v`
+Expected: All 11 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/security/__init__.py core/security/sanitize.py tests/test_security_sanitize.py
+git commit -m "feat: add input sanitization — blocks shell injection in tool parameters"
+```
+
+---
+
+## Task 21: Exec Audit Trail
+
+**Files:**
+- Create: `core/security/audit.py`
+- Test: `tests/test_security_audit.py`
+
+Every tool execution must be logged: who triggered it, what ran, exit code, truncated output. This is the forensic trail if something goes wrong.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_security_audit.py
+import json
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def audit_dir(tmp_path):
+    return tmp_path
+
+
+def test_log_execution(audit_dir):
+    from core.security.audit import AuditLogger
+    al = AuditLogger(log_dir=str(audit_dir))
+    al.log_execution(
+        tool="cleanup_system",
+        trigger="telegram:rohit",
+        args={},
+        exit_code=0,
+        output="Cleaned 4GB",
+        approval_id="001",
+    )
+    log_file = audit_dir / "exec_audit.jsonl"
+    assert log_file.exists()
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["tool"] == "cleanup_system"
+    assert entry["trigger"] == "telegram:rohit"
+    assert entry["exit_code"] == 0
+    assert "timestamp" in entry
+
+
+def test_log_truncates_long_output(audit_dir):
+    from core.security.audit import AuditLogger
+    al = AuditLogger(log_dir=str(audit_dir))
+    al.log_execution(
+        tool="test_tool",
+        trigger="cli",
+        args={},
+        exit_code=0,
+        output="x" * 10000,
+    )
+    log_file = audit_dir / "exec_audit.jsonl"
+    entry = json.loads(log_file.read_text().strip())
+    assert len(entry["output"]) <= 2048
+
+
+def test_log_redacts_secrets(audit_dir):
+    from core.security.audit import AuditLogger
+    al = AuditLogger(log_dir=str(audit_dir))
+    al.log_execution(
+        tool="test_tool",
+        trigger="cli",
+        args={"api_key": "sk-12345secret"},
+        exit_code=0,
+        output="token=abc123def456",
+    )
+    log_file = audit_dir / "exec_audit.jsonl"
+    entry = json.loads(log_file.read_text().strip())
+    assert "12345secret" not in json.dumps(entry)
+    assert "abc123def456" not in json.dumps(entry)
+
+
+def test_multiple_entries_are_jsonl(audit_dir):
+    from core.security.audit import AuditLogger
+    al = AuditLogger(log_dir=str(audit_dir))
+    al.log_execution(tool="a", trigger="cli", args={}, exit_code=0, output="")
+    al.log_execution(tool="b", trigger="cli", args={}, exit_code=1, output="err")
+    log_file = audit_dir / "exec_audit.jsonl"
+    lines = log_file.read_text().strip().splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0])["tool"] == "a"
+    assert json.loads(lines[1])["tool"] == "b"
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_security_audit.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement audit logger**
+
+```python
+# core/security/audit.py
+"""Execution audit trail — forensic log of every tool invocation.
+
+Every tool execution is logged as a JSONL entry with:
+- What tool ran
+- Who/what triggered it (CLI, Telegram, scheduler)
+- Arguments (with secrets redacted)
+- Exit code
+- Truncated output
+- Timestamp
+"""
+
+import json
+import logging
+import os
+import re
+import time
+from pathlib import Path
+
+log = logging.getLogger("security.audit")
+
+# Patterns that look like secrets — redact them
+SECRET_PATTERNS = [
+    re.compile(r'(sk-|api_key["\s:=]+|token["\s:=]+|password["\s:=]+|secret["\s:=]+)([A-Za-z0-9_\-]{8,})', re.IGNORECASE),
+    re.compile(r'[A-Za-z0-9]{32,}'),  # Long alphanumeric strings (likely tokens)
+]
+
+MAX_OUTPUT_LENGTH = 2000
+
+
+def _redact(text: str) -> str:
+    """Redact potential secrets from text."""
+    if not text:
+        return text
+    result = text
+    for pattern in SECRET_PATTERNS:
+        result = pattern.sub(lambda m: m.group(0)[:4] + "***REDACTED***", result)
+    return result
+
+
+def _redact_args(args: dict) -> dict:
+    """Redact secret-looking values from tool arguments."""
+    redacted = {}
+    secret_keys = {"api_key", "token", "password", "secret", "key", "credential"}
+    for k, v in args.items():
+        if any(sk in k.lower() for sk in secret_keys):
+            redacted[k] = "***REDACTED***"
+        elif isinstance(v, str):
+            redacted[k] = _redact(v)
+        else:
+            redacted[k] = v
+    return redacted
+
+
+class AuditLogger:
+
+    def __init__(self, log_dir: str):
+        self.log_file = Path(log_dir) / "exec_audit.jsonl"
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def log_execution(
+        self,
+        tool: str,
+        trigger: str,
+        args: dict,
+        exit_code: int,
+        output: str,
+        approval_id: str | None = None,
+        sandbox_mode: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
+        """Append an execution record to the audit log."""
+        entry = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "epoch": time.time(),
+            "tool": tool,
+            "trigger": trigger,
+            "args": _redact_args(args),
+            "exit_code": exit_code,
+            "output": _redact(output[:MAX_OUTPUT_LENGTH]),
+            "approval_id": approval_id,
+            "sandbox_mode": sandbox_mode,
+            "duration_ms": duration_ms,
+            "pid": os.getpid(),
+            "user": os.environ.get("USER", "unknown"),
+        }
+
+        try:
+            with open(self.log_file, "a") as f:
+                f.write(json.dumps(entry, default=str) + "\n")
+        except OSError as e:
+            log.error(f"Failed to write audit log: {e}")
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_security_audit.py -v`
+Expected: All 4 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/security/audit.py tests/test_security_audit.py
+git commit -m "feat: add exec audit trail — JSONL log with secret redaction for all tool runs"
+```
+
+---
+
+## Task 22: File Integrity Verification for Bundles
+
+**Files:**
+- Create: `core/security/integrity.py`
+- Test: `tests/test_security_integrity.py`
+
+Detect if a shipped bundle or script has been modified unexpectedly. Generates checksums at install time, verifies on each scheduler start.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_security_integrity.py
+import json
+import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def integrity_env(tmp_path):
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "common.sh").write_text("#!/bin/bash\necho hello")
+    (scripts_dir / "cleanup.sh").write_text("#!/bin/bash\necho cleanup")
+    bundles_dir = tmp_path / "bundles" / "core"
+    bundles_dir.mkdir(parents=True)
+    (bundles_dir / "bundle.yaml").write_text("checks:\n  disk: {}")
+    return tmp_path
+
+
+def test_generate_checksums(integrity_env):
+    from core.security.integrity import generate_checksums
+    checksums = generate_checksums(str(integrity_env))
+    assert len(checksums) >= 3
+    for entry in checksums:
+        assert "path" in entry
+        assert "sha256" in entry
+        assert len(entry["sha256"]) == 64
+
+
+def test_verify_no_changes(integrity_env):
+    from core.security.integrity import generate_checksums, save_checksums, verify_integrity
+    checksums = generate_checksums(str(integrity_env))
+    manifest_path = integrity_env / "data" / "integrity_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    save_checksums(checksums, str(manifest_path))
+    result = verify_integrity(str(integrity_env), str(manifest_path))
+    assert result["status"] == "ok"
+    assert len(result["modified"]) == 0
+    assert len(result["missing"]) == 0
+
+
+def test_verify_detects_modification(integrity_env):
+    from core.security.integrity import generate_checksums, save_checksums, verify_integrity
+    checksums = generate_checksums(str(integrity_env))
+    manifest_path = integrity_env / "data" / "integrity_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    save_checksums(checksums, str(manifest_path))
+    # Modify a file
+    (integrity_env / "scripts" / "common.sh").write_text("#!/bin/bash\necho HACKED")
+    result = verify_integrity(str(integrity_env), str(manifest_path))
+    assert result["status"] == "modified"
+    assert any("common.sh" in f for f in result["modified"])
+
+
+def test_verify_detects_missing_file(integrity_env):
+    from core.security.integrity import generate_checksums, save_checksums, verify_integrity
+    checksums = generate_checksums(str(integrity_env))
+    manifest_path = integrity_env / "data" / "integrity_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    save_checksums(checksums, str(manifest_path))
+    # Delete a file
+    (integrity_env / "scripts" / "cleanup.sh").unlink()
+    result = verify_integrity(str(integrity_env), str(manifest_path))
+    assert len(result["missing"]) > 0
+
+
+def test_verify_new_files_not_flagged(integrity_env):
+    from core.security.integrity import generate_checksums, save_checksums, verify_integrity
+    checksums = generate_checksums(str(integrity_env))
+    manifest_path = integrity_env / "data" / "integrity_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    save_checksums(checksums, str(manifest_path))
+    # Add a new file — should NOT be flagged (only tracked files matter)
+    (integrity_env / "scripts" / "new_script.sh").write_text("#!/bin/bash\necho new")
+    result = verify_integrity(str(integrity_env), str(manifest_path))
+    assert result["status"] == "ok"
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_security_integrity.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement integrity verification**
+
+```python
+# core/security/integrity.py
+"""File integrity verification — detect unexpected modifications.
+
+Generates SHA-256 checksums of all shipped scripts and bundle YAML files
+at install time. Verifies on each scheduler start. Alerts on modifications.
+"""
+
+import hashlib
+import json
+import logging
+from pathlib import Path
+
+log = logging.getLogger("security.integrity")
+
+# File patterns to track
+TRACKED_PATTERNS = [
+    "scripts/*.sh",
+    "scripts/*.py",
+    "bundles/*/bundle.yaml",
+    "core/**/*.py",
+    "install.sh",
+    "cli.py",
+]
+
+
+def _sha256(filepath: Path) -> str:
+    """Compute SHA-256 of a file."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def generate_checksums(install_dir: str) -> list[dict]:
+    """Generate checksums for all tracked files.
+
+    Returns list of {"path": relative_path, "sha256": hash}.
+    """
+    base = Path(install_dir)
+    checksums = []
+
+    for pattern in TRACKED_PATTERNS:
+        for filepath in sorted(base.glob(pattern)):
+            if filepath.is_file():
+                rel_path = str(filepath.relative_to(base))
+                checksums.append({
+                    "path": rel_path,
+                    "sha256": _sha256(filepath),
+                })
+
+    return checksums
+
+
+def save_checksums(checksums: list[dict], manifest_path: str) -> None:
+    """Save checksums to a manifest file."""
+    Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(manifest_path).write_text(json.dumps(checksums, indent=2))
+    log.info(f"Integrity manifest saved: {manifest_path} ({len(checksums)} files)")
+
+
+def verify_integrity(install_dir: str, manifest_path: str) -> dict:
+    """Verify file integrity against the saved manifest.
+
+    Returns:
+        {
+            "status": "ok" | "modified" | "missing" | "no_manifest",
+            "modified": [list of modified file paths],
+            "missing": [list of missing file paths],
+            "checked": int,
+        }
+    """
+    manifest_file = Path(manifest_path)
+    if not manifest_file.exists():
+        return {"status": "no_manifest", "modified": [], "missing": [], "checked": 0}
+
+    try:
+        manifest = json.loads(manifest_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "no_manifest", "modified": [], "missing": [], "checked": 0}
+
+    base = Path(install_dir)
+    modified = []
+    missing = []
+
+    for entry in manifest:
+        filepath = base / entry["path"]
+        if not filepath.exists():
+            missing.append(entry["path"])
+            continue
+        current_hash = _sha256(filepath)
+        if current_hash != entry["sha256"]:
+            modified.append(entry["path"])
+            log.warning(f"Integrity: {entry['path']} modified (expected {entry['sha256'][:12]}..., got {current_hash[:12]}...)")
+
+    status = "ok"
+    if modified:
+        status = "modified"
+    elif missing:
+        status = "missing"
+
+    return {
+        "status": status,
+        "modified": modified,
+        "missing": missing,
+        "checked": len(manifest),
+    }
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_security_integrity.py -v`
+Expected: All 5 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/security/integrity.py tests/test_security_integrity.py
+git commit -m "feat: add file integrity verification — SHA-256 manifest for shipped scripts and bundles"
+```
+
+---
+
+## Task 23: Container Environment Isolation for Sandboxed Tools
+
+**Files:**
+- Create: `core/security/container_policy.py`
+- Test: `tests/test_security_container_policy.py`
+
+Community bundle scripts run in Docker containers. They must NOT have access to API keys, host environment, or Docker socket. This module generates the `docker run` command with proper isolation.
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+# tests/test_security_container_policy.py
+import pytest
+
+
+def test_default_policy_has_no_network():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    assert "--network=none" in args
+
+
+def test_default_policy_has_memory_limit():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    assert any(a.startswith("--memory=") for a in args)
+
+
+def test_default_policy_has_no_docker_socket():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    joined = " ".join(args)
+    assert "docker.sock" not in joined
+
+
+def test_no_host_env_leaked():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    joined = " ".join(args)
+    # Should not pass through host environment
+    assert "--env-file" not in joined
+    assert "GROQ_API_KEY" not in joined
+    assert "TELEGRAM_BOT_TOKEN" not in joined
+
+
+def test_network_opt_in():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+        allow_network=True,
+    )
+    assert "--network=none" not in args
+    assert "--network=bridge" in args
+
+
+def test_scripts_mounted_readonly():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    mount_args = [a for a in args if "/opt/scripts" in a]
+    assert any(":ro" in a for a in mount_args)
+
+
+def test_reports_mounted_readwrite():
+    from core.security.container_policy import build_docker_run_args
+    args = build_docker_run_args(
+        script="check.sh",
+        scripts_dir="/opt/scripts",
+        reports_dir="/opt/reports",
+    )
+    mount_args = [a for a in args if "/opt/reports" in a]
+    assert any(":rw" in a for a in mount_args)
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `python3 -m pytest tests/test_security_container_policy.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement container policy**
+
+```python
+# core/security/container_policy.py
+"""Container isolation policy for sandboxed tool execution.
+
+Generates docker run arguments that enforce:
+- No Docker socket access
+- No host environment variables (no API key leaks)
+- Network disabled by default
+- Memory and CPU limits
+- Scripts mounted read-only
+- Reports mounted read-write
+- Auto-remove after execution
+"""
+
+import logging
+
+log = logging.getLogger("security.container_policy")
+
+DEFAULT_IMAGE = "agentharness/sandbox:latest"
+DEFAULT_MEMORY = "512m"
+DEFAULT_CPUS = "1"
+DEFAULT_TIMEOUT = 300  # seconds
+
+
+def build_docker_run_args(
+    script: str,
+    scripts_dir: str,
+    reports_dir: str,
+    image: str = DEFAULT_IMAGE,
+    allow_network: bool = False,
+    memory: str = DEFAULT_MEMORY,
+    cpus: str = DEFAULT_CPUS,
+    timeout: int = DEFAULT_TIMEOUT,
+    extra_mounts: list[tuple[str, str, str]] | None = None,
+    extra_env: dict[str, str] | None = None,
+) -> list[str]:
+    """Build docker run arguments with security isolation.
+
+    Returns a list of arguments for subprocess (NOT a shell string,
+    to avoid injection).
+    """
+    args = [
+        "docker", "run",
+        "--rm",  # Auto-remove
+        f"--memory={memory}",
+        f"--cpus={cpus}",
+        "--pids-limit=256",
+        "--read-only",  # Read-only root filesystem
+        "--tmpfs=/tmp:rw,noexec,nosuid,size=100m",  # Writable tmp
+        "--no-new-privileges",  # No privilege escalation
+        "--security-opt=no-new-privileges",
+    ]
+
+    # Network
+    if allow_network:
+        args.append("--network=bridge")
+    else:
+        args.append("--network=none")
+
+    # Mounts — scripts read-only, reports read-write
+    args.extend([
+        "-v", f"{scripts_dir}:/scripts:ro",
+        "-v", f"{reports_dir}:/reports:rw",
+    ])
+
+    # Extra mounts (if tool needs specific directories)
+    if extra_mounts:
+        for host_path, container_path, mode in extra_mounts:
+            args.extend(["-v", f"{host_path}:{container_path}:{mode}"])
+
+    # Minimal environment — only what the script needs, NO host secrets
+    args.extend([
+        "-e", "TERM=dumb",
+        "-e", "HOME=/tmp",
+    ])
+    if extra_env:
+        for key, value in extra_env.items():
+            args.extend(["-e", f"{key}={value}"])
+
+    # Timeout via docker stop
+    args.extend(["--stop-timeout", str(timeout)])
+
+    # Image and command
+    args.append(image)
+    args.extend(["bash", f"/scripts/{script}"])
+
+    return args
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest tests/test_security_container_policy.py -v`
+Expected: All 7 tests PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/security/container_policy.py tests/test_security_container_policy.py
+git commit -m "feat: add container isolation policy — no secrets, no socket, network-off by default"
+```
+
+---
+
+## Task 24: Wire Security Into Discovery + Self-Test + CLI
+
+**Files:**
+- Modify: `core/resilience/selftest.py`
+- Modify: `core/discovery/engine.py`
+- Modify: `cli.py`
+
+- [ ] **Step 1: Add integrity check to self-test**
+
+Add to `core/resilience/selftest.py` — in `run_selftest()`:
+
+```python
+    # Add import at top
+    from core.security.integrity import verify_integrity
+
+    # Add after stale locks check:
+    # 6. File integrity
+    def check_integrity():
+        manifest = Path(data_dir) / "integrity_manifest.json"
+        if not manifest.exists():
+            return True  # No manifest yet (fresh install), skip
+        result = verify_integrity(
+            install_dir=paths.get("install_dir", str(Path(data_dir).parent)),
+            manifest_path=str(manifest),
+        )
+        return result["status"] == "ok"
+    checks.append(_check("file_integrity", check_integrity, required=False))
+```
+
+- [ ] **Step 2: Generate integrity manifest during discovery**
+
+Add to `core/discovery/engine.py` — in `run_discovery()`:
+
+```python
+    # Add import
+    from core.security.integrity import generate_checksums, save_checksums
+
+    # After writing state, generate integrity manifest:
+    manifest_path = str(Path(data_dir) / "integrity_manifest.json")
+    checksums = generate_checksums(paths["install_dir"])
+    save_checksums(checksums, manifest_path)
+```
+
+- [ ] **Step 3: Add audit and integrity commands to CLI**
+
+Add to `cli.py`:
+
+```python
+def cmd_audit(args):
+    """Show recent exec audit trail."""
+    from core.discovery.state import StateManager
+    import json
+
+    sm = StateManager()
+    state = sm.read()
+    logs_dir = state.get("paths", {}).get("logs_dir", ".")
+    audit_file = Path(logs_dir) / "exec_audit.jsonl"
+
+    if not audit_file.exists():
+        print("No audit log found. Tool executions will be logged here.")
+        return 0
+
+    lines = audit_file.read_text().strip().splitlines()
+    recent = lines[-20:]  # Last 20 entries
+    print(f"Exec Audit Trail (last {len(recent)} of {len(lines)} entries)")
+    print("=" * 70)
+    for line in recent:
+        try:
+            entry = json.loads(line)
+            status = "OK" if entry.get("exit_code") == 0 else f"EXIT {entry.get('exit_code')}"
+            print(f"  [{entry.get('timestamp', '?')}] {entry.get('tool', '?')} "
+                  f"by {entry.get('trigger', '?')} → {status}")
+        except json.JSONDecodeError:
+            continue
+    return 0
+
+
+def cmd_integrity(args):
+    """Verify file integrity."""
+    from core.discovery.state import StateManager
+    from core.security.integrity import verify_integrity
+
+    sm = StateManager()
+    state = sm.read()
+    install_dir = state.get("paths", {}).get("install_dir", ".")
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+    manifest_path = str(Path(data_dir) / "integrity_manifest.json")
+
+    result = verify_integrity(install_dir, manifest_path)
+
+    if result["status"] == "no_manifest":
+        print("No integrity manifest found. Run 'agentharness discover' to generate one.")
+        return 1
+
+    print(f"Integrity: {result['status'].upper()} ({result['checked']} files checked)")
+    if result["modified"]:
+        print(f"\nModified files ({len(result['modified'])}):")
+        for f in result["modified"]:
+            print(f"  ! {f}")
+    if result["missing"]:
+        print(f"\nMissing files ({len(result['missing'])}):")
+        for f in result["missing"]:
+            print(f"  - {f}")
+    if result["status"] == "ok":
+        print("All files match their expected checksums.")
+
+    return 0 if result["status"] == "ok" else 1
+```
+
+Add to parser and dispatch:
+
+```python
+    subparsers.add_parser("audit", help="Show exec audit trail")
+    subparsers.add_parser("integrity", help="Verify file integrity")
+```
+
+```python
+    elif args.command == "audit":
+        return cmd_audit(args)
+    elif args.command == "integrity":
+        return cmd_integrity(args)
+```
+
+- [ ] **Step 4: Run all tests**
+
+Run: `python3 -m pytest tests/ -v`
+Expected: All tests pass
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add core/resilience/selftest.py core/discovery/engine.py cli.py
+git commit -m "feat: wire security into self-test, discovery, and CLI
+
+- Integrity check runs as part of self-test
+- Discovery generates integrity manifest
+- CLI: agentharness audit, agentharness integrity"
+```
+
+---
+
+## Task 25: Update README.md
 
 **Files:**
 - Modify: `README.md`
 
 - [ ] **Step 1: Rewrite README.md**
 
-Replace the entire README with content reflecting the new architecture. Remove all `/opt/agentharness` references. Document the discovery-based installation, bundle system, CLI, and resilience features.
+Replace the entire README with content reflecting the new architecture. Remove all `/opt/agentharness` references. Document the discovery-based installation, bundle system, CLI, resilience, and security features.
 
 Key sections:
 - Quick Start (uses `$HOME/agentharness` as default, not `/opt/agentharness`)
 - What It Does (discovery-first, bundle system, no hardcoded paths)
 - Resilience (auto-restart, watchdog, circuit breaker, self-test, config backup)
+- Security (input sanitization, exec audit trail, file integrity, container isolation)
 - Project Structure (new `core/`, `bundles/` layout)
 - Extending (bundle YAML, CLI, community bundles)
-- CLI Reference (including `selftest`, `circuits`)
+- CLI Reference (status, discover, bundle, selftest, circuits, audit, integrity)
 - Hardware support
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add README.md
-git commit -m "docs: rewrite README for v2 architecture — discovery, bundles, resilience"
+git commit -m "docs: rewrite README for v2 — discovery, bundles, resilience, security"
 ```
 
 ---
 
-## Task 21: Run Full Test Suite + Final Validation
+## Task 26: Run Full Test Suite + Final Validation
 
 - [ ] **Step 1: Run all tests**
 
@@ -3698,7 +4665,7 @@ cd /Users/rohitmishra/Library/CloudStorage/OneDrive-T-MobileUSA/Documents/projec
 python3 -m pytest tests/ -v
 ```
 
-Expected: All tests pass (40+ tests across 11 test files).
+Expected: All tests pass (60+ tests across 15 test files).
 
 - [ ] **Step 2: Run migration validation**
 
@@ -3717,9 +4684,11 @@ python3 cli.py status
 python3 cli.py bundle list
 python3 cli.py selftest
 python3 cli.py circuits
+python3 cli.py audit
+python3 cli.py integrity
 ```
 
-Expected: All commands succeed. State file is populated. Bundles listed. Self-test passes. No open circuits.
+Expected: All commands succeed. State file is populated. Bundles listed. Self-test passes. No open circuits. Audit shows empty (no tool runs yet). Integrity passes.
 
 - [ ] **Step 4: Test resilience features**
 
@@ -3771,18 +4740,89 @@ print('Watchdog: OK')
 
 Expected: All three print OK.
 
-- [ ] **Step 5: Final commit**
+- [ ] **Step 5: Test security features**
+
+```bash
+# Test input sanitization blocks injection
+python3 -c "
+from core.security.sanitize import sanitize_shell_arg, validate_url
+try:
+    sanitize_shell_arg('safe_string')
+    print('Safe string: OK')
+except ValueError:
+    print('FAIL: rejected safe string')
+
+try:
+    sanitize_shell_arg('repo; rm -rf /')
+    print('FAIL: accepted injection')
+except ValueError:
+    print('Injection blocked: OK')
+
+assert validate_url('https://github.com/user/repo') == True
+assert validate_url('file:///etc/passwd') == False
+print('URL validation: OK')
+"
+
+# Test audit logger with redaction
+python3 -c "
+from core.security.audit import AuditLogger
+import tempfile, json
+from pathlib import Path
+
+d = tempfile.mkdtemp()
+al = AuditLogger(log_dir=d)
+al.log_execution(
+    tool='test', trigger='cli',
+    args={'api_key': 'sk-supersecret123'},
+    exit_code=0, output='token=abc123xyz789'
+)
+entry = json.loads((Path(d) / 'exec_audit.jsonl').read_text().strip())
+assert 'supersecret' not in json.dumps(entry)
+print('Audit redaction: OK')
+"
+
+# Test file integrity
+python3 -c "
+from core.security.integrity import generate_checksums, save_checksums, verify_integrity
+import tempfile
+from pathlib import Path
+
+d = tempfile.mkdtemp()
+scripts = Path(d) / 'scripts'
+scripts.mkdir()
+(scripts / 'test.sh').write_text('echo hello')
+checksums = generate_checksums(d)
+manifest = Path(d) / 'manifest.json'
+save_checksums(checksums, str(manifest))
+result = verify_integrity(d, str(manifest))
+assert result['status'] == 'ok'
+(scripts / 'test.sh').write_text('echo HACKED')
+result = verify_integrity(d, str(manifest))
+assert result['status'] == 'modified'
+print('Integrity verification: OK')
+"
+```
+
+Expected: All security tests print OK.
+
+- [ ] **Step 6: Final commit**
 
 ```bash
 git add -A
-git commit -m "feat: Phase A complete — discovery, script migration, bundles, resilience, CLI
+git commit -m "feat: Phase A complete — discovery, script migration, bundles, resilience, security, CLI
 
 AgentHarness no longer requires /opt/agentharness or any hardcoded paths.
 All paths resolved at runtime via discovery engine. Registry split into
-modular bundles. Resilience layer: crash-safe JSON, watchdog with heartbeat,
-circuit breaker for alert fatigue, startup self-test, config backup/restore,
-systemd auto-restart, log rotation. CLI: status, discover, bundle, selftest,
-circuits."
+modular bundles.
+
+Resilience: crash-safe JSON, watchdog with heartbeat, circuit breaker,
+startup self-test, config backup/restore, systemd auto-restart, log rotation.
+
+Security: input sanitization blocks shell injection, exec audit trail with
+secret redaction, SHA-256 file integrity verification, container isolation
+policy for sandboxed tools.
+
+CLI: status, discover, bundle, selftest, circuits, audit, integrity."
 ```
 
 ---
@@ -3799,11 +4839,16 @@ circuits."
   - Crash-safe atomic JSON for all queue/state files
   - Self-watchdog with heartbeat + stale lock recovery
   - Circuit breaker for alert fatigue prevention
-  - Startup self-test (validates state, dirs, Python, Docker, locks)
+  - Startup self-test (validates state, dirs, Python, Docker, locks, integrity)
   - Config snapshot/restore before any modification
   - Systemd units with `Restart=on-failure` (max 5 in 10 min)
   - Log rotation (30 days, compressed after 1 day)
-- CLI (status, discover, bundle list, selftest, circuits)
+- Security layer:
+  - Input sanitization — blocks shell injection in all tool parameters
+  - Exec audit trail — JSONL log with automatic secret redaction
+  - File integrity verification — SHA-256 manifest for all shipped code
+  - Container isolation policy — no secrets, no socket, network-off by default
+- CLI (status, discover, bundle list, selftest, circuits, audit, integrity)
 - Updated README
 
 **Phase A does NOT include** (deferred to later phases):
@@ -3811,10 +4856,10 @@ circuits."
 - Budget tracking (Phase B)
 - Scheduler rewrite to Python (Phase B)
 - HITL approval gateway (Phase C)
-- Sandbox execution (Phase C)
+- Sandbox execution runtime (Phase C) — container_policy.py defines the policy, Phase C wires it into the execution path
 - Agent bridge (Phase C)
 - Distiller / synthesizer / scout (Phase D)
 - Dashboard (Phase D)
 
-**Estimated tasks:** 21 tasks, ~75 steps
-**Test coverage:** 45+ tests across 11 test files
+**Estimated tasks:** 26 tasks, ~100 steps
+**Test coverage:** 60+ tests across 15 test files
