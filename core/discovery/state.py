@@ -114,7 +114,7 @@ class StateManager:
             # Atomic write: tmp file + rename
             tmp_file = self._state_file.with_suffix(".json.tmp")
             tmp_file.write_text(
-                json.dumps(merged, indent=2, sort_keys=True),
+                json.dumps(merged, indent=2, default=str),
                 encoding="utf-8",
             )
             tmp_file.rename(self._state_file)
