@@ -396,6 +396,57 @@ def cmd_briefing(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Run diagnostic collector or auto-fix diagnosis."""
+    from core.discovery.state import StateManager
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+
+    from core.doctor.diagnose import DiagnosticCollector
+    dc = DiagnosticCollector(data_dir=data_dir)
+    context = dc.collect()
+
+    if getattr(args, "auto_fix", False):
+        from core.doctor.autofix import AutoFixer
+        af = AutoFixer(data_dir=data_dir)
+        result = af.diagnose_and_propose()
+        if result["success"]:
+            print("Diagnosis:", result.get("diagnosis", "No issues"))
+        else:
+            print("Error:", result.get("error", "Unknown"))
+    else:
+        print(dc.format_prompt(context))
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Run pre-deploy validation and print report."""
+    from core.doctor.validate_remote import validate_local, format_report
+
+    results = validate_local()
+    print(format_report(results))
+    return 0
+
+
+def cmd_setup_coding_tool(args: argparse.Namespace) -> int:
+    """Generate and write Aider config, print setup script."""
+    from core.tools.setup_aider import (
+        generate_aider_config,
+        write_aider_config,
+        generate_setup_script,
+    )
+
+    provider = getattr(args, "provider", "groq")
+    config = generate_aider_config(provider=provider)
+    config_path = write_aider_config(config)
+    print("Aider config written to:", config_path)
+    print()
+    print(generate_setup_script(provider=provider))
+    return 0
+
+
 def cmd_integrity(args: argparse.Namespace) -> None:
     """Verify file integrity against manifest."""
     from core.security.integrity import verify_integrity
@@ -467,6 +518,17 @@ def build_parser() -> argparse.ArgumentParser:
     reject_parser.add_argument("proposal_id", help="Proposal ID to reject")
     reject_parser.add_argument("--reason", "-r", default="", help="Rejection reason")
 
+    doctor_parser = sub.add_parser("doctor", help="Run diagnostics or auto-fix")
+    doctor_parser.add_argument("--auto-fix", action="store_true", dest="auto_fix",
+                               help="Run LLM-based diagnosis and propose fixes")
+
+    sub.add_parser("validate", help="Run pre-deploy validation checks")
+
+    setup_ct_parser = sub.add_parser("setup-coding-tool",
+                                     help="Generate Aider coding tool config")
+    setup_ct_parser.add_argument("--provider", default="groq",
+                                 help="LLM provider (default: groq)")
+
     return parser
 
 
@@ -489,6 +551,9 @@ def main() -> None:
         "proposals": cmd_proposals,
         "approve": cmd_approve,
         "reject": cmd_reject,
+        "doctor": cmd_doctor,
+        "validate": cmd_validate,
+        "setup-coding-tool": cmd_setup_coding_tool,
     }
 
     if args.command == "bundle":
