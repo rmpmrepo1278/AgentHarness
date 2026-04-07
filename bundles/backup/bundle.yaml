@@ -1,0 +1,17 @@
+# =============================================================================
+# backup/bundle.yaml — Backup to USB drive
+# =============================================================================
+
+tools:
+  run_backup:
+    approval: approve
+    execution: direct
+    description: "Backup configs and state to USB drive"
+
+harnesses:
+  backup:
+    enabled: true
+    script: "backup.sh"
+    window: offline
+    frequency: daily
+    description: "Backup configs and state to USB drive"

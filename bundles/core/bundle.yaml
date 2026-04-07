@@ -1,0 +1,49 @@
+# =============================================================================
+# core/bundle.yaml — System health checks and trend projections
+# =============================================================================
+
+checks:
+  disk_usage:
+    enabled: true
+    command: "df / | awk 'NR==2 {gsub(/%/,\"\"); print $5}'"
+    type: threshold
+    warn: 80
+    critical: 90
+    unit: "%"
+    message: "Disk usage at {value}%"
+
+  swap_usage:
+    enabled: true
+    command: "free -m | awk '/Swap/ {print $3}'"
+    type: threshold
+    warn: 500
+    critical: 2000
+    unit: "MB"
+    message: "Swap at {value}MB — possible memory pressure"
+
+  ram_usage:
+    enabled: true
+    command: "free | awk '/Mem/ {printf \"%.0f\", $3/$2*100}'"
+    type: threshold
+    warn: 85
+    critical: 95
+    unit: "%"
+    message: "RAM at {value}%"
+
+  cpu_temperature:
+    enabled: true
+    command: "sensors 2>/dev/null | grep -oP '\\+\\K[0-9]+(?=\\.[0-9]+°C)' | sort -rn | head -1 || echo 0"
+    type: threshold
+    warn: 80
+    critical: 90
+    unit: "°C"
+    message: "CPU temperature at {value}°C"
+    requires: sensors
+
+harnesses:
+  trend_projections:
+    enabled: true
+    script: "trend_projector.sh"
+    window: offline
+    frequency: "6h"
+    description: "Sample metrics and project when thresholds will be hit"

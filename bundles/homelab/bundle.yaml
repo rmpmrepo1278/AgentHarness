@@ -1,0 +1,71 @@
+# =============================================================================
+# homelab/bundle.yaml — Docker + service monitoring
+# =============================================================================
+
+checks:
+  llm_server:
+    enabled: true
+    command: "curl -sf --max-time 5 http://localhost:8080/health"
+    type: http_probe
+    url: "http://localhost:8080/health"
+    message: "Primary LLM server not responding"
+
+  docker_unhealthy:
+    enabled: true
+    command: "docker ps --filter 'health=unhealthy' --format '{{.Names}}' | head -5"
+    type: command_output
+    message: "Unhealthy containers: {value}"
+
+  docker_crashed:
+    enabled: true
+    command: "docker ps -a --filter 'status=exited' --format '{{.Names}} {{.Status}}' | grep -v 'Exited (0)' | head -5"
+    type: command_output
+    message: "Crashed containers: {value}"
+
+tools:
+  deploy_repo:
+    approval: approve
+    execution: containerized
+    description: "Deploy a repository as a container"
+
+  cleanup_system:
+    approval: approve
+    execution: direct
+    description: "Clean up Docker, packages, logs, temp files"
+
+  check_updates:
+    approval: auto
+    execution: direct
+    description: "Check for container image updates"
+
+  diagnose_system:
+    approval: auto
+    execution: direct
+    description: "Run system diagnostics"
+
+  check_trends:
+    approval: auto
+    execution: direct
+    description: "Check metric trends and projections"
+
+harnesses:
+  cleanup:
+    enabled: true
+    script: "cleanup.sh"
+    window: offline
+    frequency: "3d"
+    description: "Clean up Docker, packages, logs, temp files"
+
+  update_watcher:
+    enabled: true
+    script: "update_watcher.sh"
+    window: online
+    frequency: weekly
+    description: "Check for container image updates"
+
+  mcp_gateway:
+    enabled: true
+    script: "mcp_gateway.sh"
+    window: offline
+    frequency: "6h"
+    description: "Discover MCP servers and generate bridge skills"

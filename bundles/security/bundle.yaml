@@ -1,0 +1,17 @@
+# =============================================================================
+# security/bundle.yaml — Security auditing
+# =============================================================================
+
+tools:
+  run_security_audit:
+    approval: notify
+    execution: direct
+    description: "Security boundary checks"
+
+harnesses:
+  security_audit:
+    enabled: true
+    script: "security_audit.sh"
+    window: offline
+    frequency: weekly
+    description: "Security boundary checks"

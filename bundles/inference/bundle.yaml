@@ -1,0 +1,29 @@
+# =============================================================================
+# inference/bundle.yaml — LLM engine management
+# =============================================================================
+
+tools:
+  run_benchmark:
+    approval: notify
+    execution: direct
+    description: "Re-benchmark all model x engine combos"
+
+  search_new_tools:
+    approval: auto
+    execution: direct
+    description: "Search for new models, tools, techniques"
+
+harnesses:
+  benchmark:
+    enabled: true
+    script: "benchmark.sh"
+    window: offline
+    frequency: weekly
+    description: "Re-benchmark all model x engine combos"
+
+  weekly_optimize:
+    enabled: true
+    script: "weekly_optimize.sh"
+    window: online
+    frequency: weekly
+    description: "Search for new models, tools, techniques"
