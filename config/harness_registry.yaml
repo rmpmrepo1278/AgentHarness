@@ -164,6 +164,35 @@ harnesses:
     time_window: "07:00-08:00"  # Only run during this hour
     description: "Send morning status briefing via Telegram"
 
+  pattern_analysis:
+    enabled: true
+    script: "pattern_analyzer.sh"
+    window: offline
+    frequency: weekly
+    description: "Analyze interaction patterns and behavioral trends"
+
+  nightly_study:
+    enabled: true
+    script: "nightly_study.sh"
+    window: offline
+    frequency: daily
+    description: "Review failures, research gaps, self-improve"
+    depends_on: daily_analysis
+
+  trend_projections:
+    enabled: true
+    script: "trend_projector.sh"
+    window: offline
+    frequency: "6h"
+    description: "Sample metrics and project when thresholds will be hit"
+
+  update_watcher:
+    enabled: true
+    script: "update_watcher.sh"
+    window: online
+    frequency: weekly
+    description: "Check for container image updates"
+
   # --- Add your custom harnesses below ---
   # Example: Check for Immich face recognition updates
   # immich_faces:
