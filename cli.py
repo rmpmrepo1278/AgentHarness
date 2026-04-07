@@ -421,6 +421,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_smoketest(args: argparse.Namespace) -> int:
+    """Run full post-deploy smoketest."""
+    from core.doctor.smoketest import run_smoketest, format_report
+
+    data_dir = _data_dir()
+    result = run_smoketest(data_dir=data_dir)
+    print(format_report(result))
+    return 0 if result["overall"] != "fail" else 1
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     """Run pre-deploy validation and print report."""
     from core.doctor.validate_remote import validate_local, format_report
@@ -522,6 +532,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument("--auto-fix", action="store_true", dest="auto_fix",
                                help="Run LLM-based diagnosis and propose fixes")
 
+    sub.add_parser("smoketest", help="Run full post-deploy smoketest")
     sub.add_parser("validate", help="Run pre-deploy validation checks")
 
     setup_ct_parser = sub.add_parser("setup-coding-tool",
@@ -552,6 +563,7 @@ def main() -> None:
         "approve": cmd_approve,
         "reject": cmd_reject,
         "doctor": cmd_doctor,
+        "smoketest": cmd_smoketest,
         "validate": cmd_validate,
         "setup-coding-tool": cmd_setup_coding_tool,
     }
