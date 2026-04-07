@@ -81,6 +81,46 @@ scan_env_files() {
                     [ -z "${CONFIG[N8N_API_KEY]:-}" ] && CONFIG[N8N_API_KEY]="${value}" && \
                         log_ok "    Found N8N_API_KEY in ${envfile}"
                     ;;
+                SONARR_API_KEY|sonarr_api_key|SONARR__AUTH__APIKEY)
+                    [ -z "${CONFIG[SONARR_API_KEY]:-}" ] && CONFIG[SONARR_API_KEY]="${value}" && \
+                        log_ok "    Found SONARR_API_KEY in ${envfile}"
+                    ;;
+                RADARR_API_KEY|radarr_api_key|RADARR__AUTH__APIKEY)
+                    [ -z "${CONFIG[RADARR_API_KEY]:-}" ] && CONFIG[RADARR_API_KEY]="${value}" && \
+                        log_ok "    Found RADARR_API_KEY in ${envfile}"
+                    ;;
+                PROWLARR_API_KEY|prowlarr_api_key|PROWLARR__AUTH__APIKEY)
+                    [ -z "${CONFIG[PROWLARR_API_KEY]:-}" ] && CONFIG[PROWLARR_API_KEY]="${value}" && \
+                        log_ok "    Found PROWLARR_API_KEY in ${envfile}"
+                    ;;
+                JELLYFIN_API_KEY|jellyfin_api_key|JELLYFIN_TOKEN)
+                    [ -z "${CONFIG[JELLYFIN_API_KEY]:-}" ] && CONFIG[JELLYFIN_API_KEY]="${value}" && \
+                        log_ok "    Found JELLYFIN_API_KEY in ${envfile}"
+                    ;;
+                IMMICH_API_KEY|immich_api_key)
+                    [ -z "${CONFIG[IMMICH_API_KEY]:-}" ] && CONFIG[IMMICH_API_KEY]="${value}" && \
+                        log_ok "    Found IMMICH_API_KEY in ${envfile}"
+                    ;;
+                NEXTCLOUD_PASSWORD|nextcloud_password|NEXTCLOUD_ADMIN_PASSWORD)
+                    [ -z "${CONFIG[NEXTCLOUD_PASSWORD]:-}" ] && CONFIG[NEXTCLOUD_PASSWORD]="${value}" && \
+                        log_ok "    Found NEXTCLOUD_PASSWORD in ${envfile}"
+                    ;;
+                NEXTCLOUD_USER|NEXTCLOUD_ADMIN_USER)
+                    [ -z "${CONFIG[NEXTCLOUD_USER]:-}" ] && CONFIG[NEXTCLOUD_USER]="${value}" && \
+                        log_ok "    Found NEXTCLOUD_USER in ${envfile}"
+                    ;;
+                NPM_EMAIL|npm_email)
+                    [ -z "${CONFIG[NPM_EMAIL]:-}" ] && CONFIG[NPM_EMAIL]="${value}" && \
+                        log_ok "    Found NPM_EMAIL in ${envfile}"
+                    ;;
+                NPM_PASSWORD|npm_password|INITIAL_ADMIN_PASSWORD)
+                    [ -z "${CONFIG[NPM_PASSWORD]:-}" ] && CONFIG[NPM_PASSWORD]="${value}" && \
+                        log_ok "    Found NPM_PASSWORD in ${envfile}"
+                    ;;
+                PIHOLE_API_TOKEN|pihole_api_token|WEBPASSWORD)
+                    [ -z "${CONFIG[PIHOLE_API_TOKEN]:-}" ] && CONFIG[PIHOLE_API_TOKEN]="${value}" && \
+                        log_ok "    Found PIHOLE_API_TOKEN in ${envfile}"
+                    ;;
                 SEARXNG_SECRET|SEARXNG_SECRET_KEY)
                     [ -z "${CONFIG[SEARXNG_SECRET]:-}" ] && CONFIG[SEARXNG_SECRET]="${value}" && \
                         log_ok "    Found SEARXNG_SECRET in ${envfile}"
