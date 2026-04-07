@@ -25,13 +25,19 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-REGISTRY_PATH = "/opt/agentharness/config/harness_registry.yaml"
+_AH_DATA_DIR = os.environ.get("AH_DATA_DIR", "/opt/agentharness")
+_AH_CONFIG_DIR = os.environ.get("AH_CONFIG_DIR", os.path.join(_AH_DATA_DIR, "config"))
+_AH_SCRIPTS_DIR = os.environ.get("AH_SCRIPTS_DIR", os.path.join(_AH_DATA_DIR, "scripts"))
+_AH_CUSTOM_DIR = os.environ.get("AH_CUSTOM_DIR", os.path.join(_AH_DATA_DIR, "custom"))
+_AH_LOGS_DIR = os.environ.get("AH_LOGS_DIR", os.path.join(_AH_DATA_DIR, "logs"))
+
+REGISTRY_PATH = os.path.join(_AH_CONFIG_DIR, "harness_registry.yaml")
 FALLBACK_REGISTRY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                   "config", "harness_registry.yaml")
-STATE_FILE = "/opt/agentharness/registry_state.json"
-SCRIPTS_DIR = "/opt/agentharness/scripts"
-CUSTOM_DIR = "/opt/agentharness/custom"
-LOG_DIR = "/opt/agentharness/logs"
+STATE_FILE = os.path.join(_AH_DATA_DIR, "registry_state.json")
+SCRIPTS_DIR = _AH_SCRIPTS_DIR
+CUSTOM_DIR = _AH_CUSTOM_DIR
+LOG_DIR = _AH_LOGS_DIR
 
 
 def load_registry():

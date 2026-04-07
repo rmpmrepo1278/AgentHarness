@@ -17,7 +17,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
 
 main() {
     log_header "Mini PC Setup Playbook"
@@ -61,7 +60,7 @@ main() {
     fi
 
     if [ -z "${minipc_ip}" ]; then
-        log_warn "No mini PC IP configured. Set MINIPC_IP in /opt/agentharness/.env"
+        log_warn "No mini PC IP configured. Set MINIPC_IP in your .env"
         log_info "Once you know the IP, update .env and re-run this script."
         return 1
     fi
@@ -75,10 +74,10 @@ main() {
     fi
 
     # Save to .env
-    if ! grep -q "MINIPC_IP" /opt/agentharness/.env 2>/dev/null; then
-        echo "" >> /opt/agentharness/.env
-        echo "# --- Mini PC ---" >> /opt/agentharness/.env
-        echo "MINIPC_IP=${minipc_ip}" >> /opt/agentharness/.env
+    if ! grep -q "MINIPC_IP" "${AH_DATA_DIR}/.env" 2>/dev/null; then
+        echo "" >> "${AH_DATA_DIR}/.env"
+        echo "# --- Mini PC ---" >> "${AH_DATA_DIR}/.env"
+        echo "MINIPC_IP=${minipc_ip}" >> "${AH_DATA_DIR}/.env"
         log_ok "Saved MINIPC_IP=${minipc_ip} to .env"
     fi
 

@@ -11,17 +11,14 @@ set -euo pipefail
 #   3. Identify gaps (what's missing)
 #   4. Wire into existing automations
 #
-# Output: /opt/agentharness/automation_catalog.json
+# Output: ${AH_DATA_DIR}/automation_catalog.json
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-CATALOG="/opt/agentharness/automation_catalog.json"
+CATALOG="${AH_DATA_DIR}/automation_catalog.json"
 LLM_URL="${LLM_PRIMARY_URL:-http://localhost:8080}"
-
-# Load env if exists
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
 
 # =============================================================================
 # Collectors — each scans one type of automation
@@ -446,7 +443,7 @@ print(json.dumps({
 collect_openclaw() {
     log_info "Scanning for OpenClaw installation..."
 
-    local openclaw_paths="/opt/agentharness/openclaw_paths.env"
+    local openclaw_paths="${AH_DATA_DIR}/openclaw_paths.env"
     > "${openclaw_paths}"
 
     # Find openclaw binary
@@ -652,7 +649,7 @@ except:
 assemble_catalog() {
     log_header "Assembling Automation Catalog"
 
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     # Collect all items into a single JSON array
     {
@@ -799,7 +796,7 @@ print_summary() {
     python3 << 'PYEOF'
 import json
 
-catalog = json.load(open("/opt/agentharness/automation_catalog.json"))
+catalog = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/automation_catalog.json"))
 items = catalog["items"]
 
 # Group by type
@@ -853,7 +850,7 @@ if "recommendations" in analysis:
         print(f"    - {rec}")
 
 print(f"\n  Total: {catalog['total_items']} automations discovered")
-print(f"  Catalog: /opt/agentharness/automation_catalog.json")
+print(f"  Catalog: {os.environ.get('AH_DATA_DIR', '/opt/agentharness')}/automation_catalog.json")
 PYEOF
 }
 
@@ -866,7 +863,7 @@ main() {
     log_info "Docker configs, n8n workflows, and automation configs..."
     echo ""
 
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     assemble_catalog
     analyze_with_llm

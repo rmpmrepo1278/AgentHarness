@@ -11,11 +11,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-INSTALL_DIR="/opt/agentharness"
+INSTALL_DIR="${AH_INSTALL_DIR}"
 REPO_DIR="${INSTALL_DIR}/repo"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/openclaw_paths.env ] && source /opt/agentharness/openclaw_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
 main() {
     log_header "AgentHarness Self-Update"
@@ -71,7 +70,7 @@ main() {
     new_hash=$(git rev-parse --short HEAD)
     log_ok "Updated: ${current_hash} → ${new_hash}"
 
-    # Re-copy scripts to /opt/agentharness/scripts/
+    # Re-copy scripts to ${AH_SCRIPTS_DIR}/
     if [ "${git_dir}" != "${INSTALL_DIR}" ]; then
         log_info "Syncing scripts..."
         rsync -a --exclude='.git' --exclude='.env' \

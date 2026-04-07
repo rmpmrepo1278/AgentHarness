@@ -8,18 +8,18 @@ set -euo pipefail
 #        Docker container mounts, existing tools, existing agents, and
 #        all paths needed for integration.
 #
-# Saves to: /opt/agentharness/chaguli_paths.env
+# Saves to: ${AH_DATA_DIR}/chaguli_paths.env
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-CHAGULI_PATHS="/opt/agentharness/chaguli_paths.env"
+CHAGULI_PATHS="${AH_DATA_DIR}/chaguli_paths.env"
 
 main() {
     log_info "Discovering Chaguli agent architecture..."
 
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
     > "${CHAGULI_PATHS}"
 
     # --- Find the Chaguli container ---

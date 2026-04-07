@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-MODEL_DIR="/opt/models"
-CATALOG_FILE="/opt/agentharness/model_catalog.json"
+MODEL_DIR="${AH_MODEL_DIR:-/opt/models}"
+CATALOG_FILE="${AH_DATA_DIR}/model_catalog.json"
 
 # -----------------------------------------------------------------------------
 # Model registry — edit this to add/remove models
@@ -28,8 +28,8 @@ declare -a MODEL_REGISTRY=(
 select_models() {
     log_info "Selecting models based on available RAM..."
 
-    if [ -f /opt/agentharness/hw_profile.env ]; then
-        source /opt/agentharness/hw_profile.env
+    if [ -f "${AH_DATA_DIR}/hw_profile.env" ]; then
+        source "${AH_DATA_DIR}/hw_profile.env"
     else
         TOTAL_RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
     fi
@@ -197,7 +197,7 @@ main() {
     fi
 
     mkdir -p "${MODEL_DIR}"
-    mkdir -p /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     select_models
 

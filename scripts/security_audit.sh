@@ -14,17 +14,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/openclaw_paths.env ] && source /opt/agentharness/openclaw_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
-SECURITY_REPORT="/opt/agentharness/reports/security_$(timestamp).md"
-AUDIT_LOG="/opt/agentharness/logs/exec_audit.log"
+SECURITY_REPORT="${AH_REPORTS_DIR}/security_$(timestamp).md"
+AUDIT_LOG="${AH_LOGS_DIR}/exec_audit.log"
 
 main() {
     log_header "Security Audit"
 
-    ensure_dir /opt/agentharness/reports
-    ensure_dir /opt/agentharness/logs
+    ensure_dir "${AH_REPORTS_DIR}"
+    ensure_dir "${AH_LOGS_DIR}"
 
     cat > "${SECURITY_REPORT}" << EOF
 # Security Audit Report

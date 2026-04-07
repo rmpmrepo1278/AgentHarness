@@ -12,12 +12,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-REPORT_DIR="/opt/agentharness/reports"
-CLEANUP_REPORT="/opt/agentharness/reports/cleanup_$(timestamp).md"
+CLEANUP_REPORT="${AH_REPORTS_DIR}/cleanup_$(timestamp).md"
 LLM_URL="${LLM_PRIMARY_URL:-http://localhost:8080}"
-
-# Load env
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
 
 # Track totals
 TOTAL_FREED_KB=0
@@ -212,16 +208,16 @@ cleanup_logs() {
 
     # --- Old AgentHarness reports (keep 30 days of daily, 90 days of weekly) ---
     local old_daily
-    old_daily=$(find /opt/agentharness/reports -name "daily_*" -mtime +30 2>/dev/null | wc -l)
+    old_daily=$(find "${AH_REPORTS_DIR}" -name "daily_*" -mtime +30 2>/dev/null | wc -l)
     local old_weekly
-    old_weekly=$(find /opt/agentharness/reports -name "weekly_*" -mtime +90 2>/dev/null | wc -l)
+    old_weekly=$(find "${AH_REPORTS_DIR}" -name "weekly_*" -mtime +90 2>/dev/null | wc -l)
 
     if [ "${old_daily}" -gt 0 ]; then
-        find /opt/agentharness/reports -name "daily_*" -mtime +30 -delete 2>/dev/null
+        find "${AH_REPORTS_DIR}" -name "daily_*" -mtime +30 -delete 2>/dev/null
         echo "- Removed ${old_daily} daily reports older than 30 days" >> "${CLEANUP_REPORT}"
     fi
     if [ "${old_weekly}" -gt 0 ]; then
-        find /opt/agentharness/reports -name "weekly_*" -mtime +90 -delete 2>/dev/null
+        find "${AH_REPORTS_DIR}" -name "weekly_*" -mtime +90 -delete 2>/dev/null
         echo "- Removed ${old_weekly} weekly reports older than 90 days" >> "${CLEANUP_REPORT}"
     fi
 
@@ -255,11 +251,11 @@ cleanup_models() {
     echo "" >> "${CLEANUP_REPORT}"
 
     # Find GGUF files not in the current catalog
-    if [ -f /opt/agentharness/model_catalog.json ]; then
+    if [ -f "${AH_DATA_DIR}/model_catalog.json" ]; then
         local cataloged_paths
         cataloged_paths=$(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/model_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
 for m in catalog:
     print(m['gguf_path'])
 " 2>/dev/null)

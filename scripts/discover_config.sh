@@ -6,14 +6,14 @@ set -euo pipefail
 #
 # Scans for API keys, service URLs, tokens, and settings already configured
 # in .env files, Docker containers, environment variables, config files, etc.
-# Generates /opt/agentharness/.env by merging discovered values with template.
+# Generates ${AH_DATA_DIR}/.env by merging discovered values with template.
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-DISCOVERED="/opt/agentharness/discovered_config.json"
-ENV_FILE="/opt/agentharness/.env"
+DISCOVERED="${AH_DATA_DIR}/discovered_config.json"
+ENV_FILE="${AH_DATA_DIR}/.env"
 
 # Associative array for discovered values
 declare -A CONFIG
@@ -433,7 +433,7 @@ print(f'Saved {len(config)} discovered values to ${DISCOVERED}')
 main() {
     log_header "Config Discovery"
 
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     scan_env_files
     scan_environment

@@ -12,10 +12,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/openclaw_paths.env ] && source /opt/agentharness/openclaw_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
-SECURITY_LOG="/opt/agentharness/logs/harden.log"
+SECURITY_LOG="${AH_LOGS_DIR}/harden.log"
 ISSUES=0
 FIXED=0
 
@@ -33,7 +32,7 @@ fix() {
 
 main() {
     log_header "Security Hardening"
-    ensure_dir /opt/agentharness/logs
+    ensure_dir "${AH_LOGS_DIR}"
 
     echo "$(date -Iseconds) — Hardening run started" >> "${SECURITY_LOG}"
 
@@ -42,10 +41,10 @@ main() {
     # =========================================================================
     log_info "[1/8] Locking down secret files..."
 
-    for secret_file in /opt/agentharness/.env \
-                       /opt/agentharness/discovered_config.json \
-                       /opt/agentharness/openclaw_paths.env \
-                       /opt/agentharness/storage_paths.env; do
+    for secret_file in "${AH_DATA_DIR}/.env" \
+                       "${AH_DATA_DIR}/discovered_config.json" \
+                       "${AH_DATA_DIR}/openclaw_paths.env" \
+                       "${AH_DATA_DIR}/storage_paths.env"; do
         if [ -f "${secret_file}" ]; then
             local perms
             perms=$(stat -c '%a' "${secret_file}" 2>/dev/null || echo "777")
@@ -124,7 +123,7 @@ else:
     fi
 
     # Create a deploy policy file that the deploy script reads
-    cat > /opt/agentharness/deploy_policy.json << 'POLICY'
+    cat > "${AH_DATA_DIR}/deploy_policy.json" << 'POLICY'
 {
   "blocked_commands": [
     "rm -rf /",
@@ -170,8 +169,8 @@ else:
   ]
 }
 POLICY
-    chmod 644 /opt/agentharness/deploy_policy.json
-    log_ok "  Deploy policy written to /opt/agentharness/deploy_policy.json"
+    chmod 644 "${AH_DATA_DIR}/deploy_policy.json"
+    log_ok "  Deploy policy written to ${AH_DATA_DIR}/deploy_policy.json"
 
     # =========================================================================
     # 4. Encrypt backup secrets
@@ -180,12 +179,12 @@ POLICY
 
     if command -v gpg &>/dev/null; then
         # Create a symmetric encryption wrapper for backups
-        cat > /opt/agentharness/scripts/encrypt_backup.sh << 'ENCRYPT'
+        cat > "${AH_SCRIPTS_DIR}/encrypt_backup.sh" << 'ENCRYPT'
 #!/bin/bash
 # Encrypt sensitive backup files with a passphrase
 # Usage: encrypt_backup.sh <backup_dir>
 BACKUP_DIR="${1:?Usage: encrypt_backup.sh <backup_dir>}"
-PASSPHRASE_FILE="/opt/agentharness/.backup_passphrase"
+PASSPHRASE_FILE="${AH_DATA_DIR:-.}/.backup_passphrase"
 
 if [ ! -f "${PASSPHRASE_FILE}" ]; then
     openssl rand -base64 32 > "${PASSPHRASE_FILE}"
@@ -199,7 +198,7 @@ find "${BACKUP_DIR}" -name ".env" -o -name "*.key" -o -name "*secret*" -o -name 
     echo "Encrypted: ${f}"
 done
 ENCRYPT
-        chmod 700 /opt/agentharness/scripts/encrypt_backup.sh
+        chmod 700 "${AH_SCRIPTS_DIR}/encrypt_backup.sh"
         log_ok "  Backup encryption script created"
     else
         log_warn "  gpg not installed — backups will be unencrypted"
@@ -211,7 +210,7 @@ ENCRYPT
     # =========================================================================
     log_info "[5/8] Setting up command audit trail..."
 
-    local audit_log="/opt/agentharness/logs/exec_audit.log"
+    local audit_log="${AH_LOGS_DIR}/exec_audit.log"
     touch "${audit_log}"
     chmod 600 "${audit_log}"
 
@@ -233,7 +232,7 @@ requires:
 IMPORTANT: Before running ANY exec command that modifies the system (not just reads), log it first:
 
 ```bash
-echo "$(date -Iseconds) | $(whoami) | COMMAND_HERE" >> /opt/agentharness/logs/exec_audit.log
+echo "$(date -Iseconds) | $(whoami) | COMMAND_HERE" >> ${AH_LOGS_DIR}/exec_audit.log
 ```
 
 Commands that MUST be logged:
@@ -269,14 +268,14 @@ AUDITSKILL
     echo ""
 
     # Create a vetted skills allowlist
-    cat > /opt/agentharness/clawhub_allowlist.txt << 'ALLOWLIST'
+    cat > "${AH_DATA_DIR}/clawhub_allowlist.txt" << 'ALLOWLIST'
 # ClawHub Skills Allowlist
 # Only install skills listed here. Add new ones after reviewing source.
 capability-evolver
 tavily
 memory-context
 ALLOWLIST
-    log_ok "  Allowlist created at /opt/agentharness/clawhub_allowlist.txt"
+    log_ok "  Allowlist created at ${AH_DATA_DIR}/clawhub_allowlist.txt"
 
     # =========================================================================
     # 7. Network exposure check

@@ -84,7 +84,7 @@ detect_existing() {
     log_info "Scanning your homelab — Chaguli agent, services, configs, LLM stack..."
     echo ""
 
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     # --- 0a: Discover Chaguli's actual architecture ---
     bash "${SCRIPT_DIR}/scripts/discover_chaguli.sh"
@@ -96,7 +96,7 @@ detect_existing() {
     EXISTING=()
     BENCHMARK_TOOLS=()
 
-    [ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
+    [ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
     # Chaguli
     [ -n "${CHAGULI_CONTAINER:-}" ] && EXISTING+=("chaguli:${CHAGULI_CONTAINER}")
@@ -185,11 +185,10 @@ build_engines() {
     else
         log_info "Skipping engine build (already installed)"
         # Still need hardware profile
-        if [ ! -f /opt/agentharness/hw_profile.env ]; then
-            source "${SCRIPT_DIR}/scripts/common.sh"
+        if [ ! -f "${AH_DATA_DIR}/hw_profile.env" ]; then
             # Minimal hardware detection
-            mkdir -p /opt/agentharness
-            cat > /opt/agentharness/hw_profile.env << EOF
+            ensure_dir "${AH_DATA_DIR}"
+            cat > "${AH_DATA_DIR}/hw_profile.env" << EOF
 CPU_MODEL="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
 CPU_CORES=$(nproc)
 TOTAL_RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
@@ -271,14 +270,14 @@ setup_searxng() {
 setup_services() {
     log_header "Phase 5: Setting Up Systemd Services"
 
-    source /opt/agentharness/hw_profile.env
+    source "${AH_DATA_DIR}/hw_profile.env"
 
     # Determine model paths from catalog
     local primary_model fast_model
-    if [ -f /opt/agentharness/model_catalog.json ]; then
+    if [ -f "${AH_DATA_DIR}/model_catalog.json" ]; then
         primary_model=$(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/model_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
 # Prefer MoE models for primary
 for m in catalog:
     if m['type'] == 'moe' and 'draft' not in m['name']:
@@ -292,7 +291,7 @@ else:
 
         fast_model=$(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/model_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
 # Find smallest non-draft dense model
 dense = [m for m in catalog if m['type'] == 'dense' and 'draft' not in m['name']]
 dense.sort(key=lambda x: float(x.get('actual_size_gb', 999)))
@@ -361,10 +360,10 @@ run_benchmarks() {
         for tool in "${BENCHMARK_TOOLS[@]}"; do
             if [[ "${tool}" == *.py ]]; then
                 log_info "Running: python3 ${tool}"
-                python3 "${tool}" 2>&1 | tee "/opt/agentharness/reports/existing_bench_$(basename "${tool}" .py)_$(timestamp).txt" || true
+                python3 "${tool}" 2>&1 | tee "${AH_REPORTS_DIR}/existing_bench_$(basename "${tool}" .py)_$(timestamp).txt" || true
             elif [[ "${tool}" == *.sh ]]; then
                 log_info "Running: bash ${tool}"
-                bash "${tool}" 2>&1 | tee "/opt/agentharness/reports/existing_bench_$(basename "${tool}" .sh)_$(timestamp).txt" || true
+                bash "${tool}" 2>&1 | tee "${AH_REPORTS_DIR}/existing_bench_$(basename "${tool}" .sh)_$(timestamp).txt" || true
             fi
         done
         echo ""
@@ -380,20 +379,20 @@ run_benchmarks() {
 setup_env() {
     log_header "Phase 7: Environment Configuration"
 
-    [ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
+    [ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
     # Symlink to master .env instead of creating a new one
     if [ -n "${MASTER_ENV:-}" ] && [ -f "${MASTER_ENV}" ]; then
-        if [ ! -f /opt/agentharness/.env ]; then
-            ln -sf "${MASTER_ENV}" /opt/agentharness/.env
+        if [ ! -f "${AH_DATA_DIR}/.env" ]; then
+            ln -sf "${MASTER_ENV}" "${AH_DATA_DIR}/.env"
             log_ok "Linked to master .env: ${MASTER_ENV}"
         else
-            log_info ".env already exists at /opt/agentharness/.env"
+            log_info ".env already exists at ${AH_DATA_DIR}/.env"
         fi
         log_info "All secrets come from: ${MASTER_ENV}"
     else
         log_warn "Master .env not found. AgentHarness scripts will need GROQ_API_KEY etc."
-        log_info "Set MASTER_ENV in /opt/agentharness/chaguli_paths.env"
+        log_info "Set MASTER_ENV in ${AH_DATA_DIR}/chaguli_paths.env"
     fi
 }
 
@@ -403,7 +402,7 @@ setup_env() {
 setup_scheduler() {
     log_header "Phase 8: Setting Up Smart Scheduler"
 
-    ensure_dir /opt/agentharness/logs
+    ensure_dir "${AH_LOGS_DIR}"
 
     # Install scheduler as a cron that runs every 15 minutes
     # The scheduler itself decides what to run based on network state + time
@@ -418,7 +417,7 @@ setup_scheduler() {
     # Add the smart scheduler (every 15 minutes)
     if ! echo "${new_cron}" | grep -q "scheduler.sh"; then
         new_cron+=$'\n'"# AgentHarness: Smart scheduler (network-aware, runs every 15 min)"
-        new_cron+=$'\n'"*/15 * * * * /bin/bash ${SCRIPT_DIR}/scripts/scheduler.sh >> /opt/agentharness/logs/scheduler.log 2>&1"
+        new_cron+=$'\n'"*/15 * * * * /bin/bash ${SCRIPT_DIR}/scripts/scheduler.sh >> ${AH_LOGS_DIR}/scheduler.log 2>&1"
         log_ok "Added smart scheduler cron (every 15 minutes)"
     else
         log_info "Smart scheduler cron already exists"
@@ -431,7 +430,7 @@ setup_scheduler() {
     echo "  ONLINE  (7:15 AM - 11 PM PT): model downloads, web searches, git pulls, GitHub deploys"
     echo "  LAN-ONLY (offline + ethernet): above + cross-machine tasks with mini PC"
     echo ""
-    log_info "Override schedule in /opt/agentharness/.env:"
+    log_info "Override schedule in your .env:"
     echo "  OFFLINE_START_HOUR=23"
     echo "  ONLINE_START_HOUR=7"
     echo "  MINIPC_IP=192.168.x.x  (set when mini PC arrives)"
@@ -445,22 +444,22 @@ setup_scheduler() {
 setup_registry() {
     log_header "Phase 8.5: Plugin Registry"
 
-    # Copy registry to /opt/agentharness/config/
-    ensure_dir /opt/agentharness/config
-    if [ ! -f /opt/agentharness/config/harness_registry.yaml ]; then
-        cp "${SCRIPT_DIR}/config/harness_registry.yaml" /opt/agentharness/config/
-        log_ok "Registry installed: /opt/agentharness/config/harness_registry.yaml"
+    # Copy registry to ${AH_CONFIG_DIR}/
+    ensure_dir "${AH_CONFIG_DIR}"
+    if [ ! -f "${AH_CONFIG_DIR}/harness_registry.yaml" ]; then
+        cp "${SCRIPT_DIR}/config/harness_registry.yaml" "${AH_CONFIG_DIR}/"
+        log_ok "Registry installed: ${AH_CONFIG_DIR}/harness_registry.yaml"
     else
         log_info "Registry already exists. Preserving existing config."
     fi
 
     # Create custom scripts directory
-    ensure_dir /opt/agentharness/custom
-    log_info "Drop custom scripts in: /opt/agentharness/custom/"
+    ensure_dir "${AH_CUSTOM_DIR}"
+    log_info "Drop custom scripts in: ${AH_CUSTOM_DIR}/"
 
     # Copy bundled skills to discovered OpenClaw skills directory
-    if [ -f /opt/agentharness/openclaw_paths.env ]; then
-        source /opt/agentharness/openclaw_paths.env
+    if [ -f "${AH_DATA_DIR}/openclaw_paths.env" ]; then
+        source "${AH_DATA_DIR}/openclaw_paths.env"
         if [ -n "${OPENCLAW_SKILLS_DIR:-}" ]; then
             for skill_dir in "${SCRIPT_DIR}/config/skills"/*/; do
                 local skill_name
@@ -550,10 +549,10 @@ setup_registry() {
 setup_aliases() {
     log_header "Phase 9: Setting Up Convenience Aliases"
 
-    local alias_file="/opt/agentharness/aliases.sh"
+    local alias_file="${AH_DATA_DIR}/aliases.sh"
     cat > "${alias_file}" << 'ALIASES'
 # === AgentHarness Aliases ===
-# Source this from your .bashrc: source /opt/agentharness/aliases.sh
+# Source this from your .bashrc
 
 # LLM management
 alias llm-status='echo "=== LLM Servers ==="; curl -s http://localhost:8080/health 2>/dev/null && echo " Primary:8080 UP" || echo " Primary:8080 DOWN"; curl -s http://localhost:8081/health 2>/dev/null && echo " Fast:8081 UP" || echo " Fast:8081 DOWN"'
@@ -570,16 +569,16 @@ alias aide-fast='aider --model openai/local --openai-api-base http://localhost:8
 alias websearch='f(){ curl -s "http://localhost:8888/search?q=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1")&format=json" | python3 -c "import sys,json; [print(r[\"title\"]) for r in json.load(sys.stdin).get(\"results\",[])[:5]]"; }; f'
 
 # AgentHarness management
-alias ah-validate='bash /opt/agentharness/scripts/validate.sh'
-alias ah-benchmark='bash /opt/agentharness/scripts/benchmark.sh'
+alias ah-validate='bash "${AH_SCRIPTS_DIR}/validate.sh"'
+alias ah-benchmark='bash "${AH_SCRIPTS_DIR}/benchmark.sh"'
 
-alias ah-weekly='bash /opt/agentharness/scripts/weekly_optimize.sh'
-alias ah-reports='ls -lt /opt/agentharness/reports/ | head -10'
-alias ah-best='cat /opt/agentharness/best_config.env 2>/dev/null || echo "No benchmark results yet"'
-alias ah-doctor='bash /opt/agentharness/scripts/doctor.sh'
-alias ah-doctor-fix='bash /opt/agentharness/scripts/doctor.sh --fix'
-alias ah-registry='python3 /opt/agentharness/scripts/registry_engine.py list'
-alias ah-status='python3 /opt/agentharness/scripts/registry_engine.py status'
+alias ah-weekly='bash "${AH_SCRIPTS_DIR}/weekly_optimize.sh"'
+alias ah-reports='ls -lt "${AH_REPORTS_DIR}/" | head -10'
+alias ah-best='cat "${AH_DATA_DIR}/best_config.env" 2>/dev/null || echo "No benchmark results yet"'
+alias ah-doctor='bash "${AH_SCRIPTS_DIR}/doctor.sh"'
+alias ah-doctor-fix='bash "${AH_SCRIPTS_DIR}/doctor.sh" --fix'
+alias ah-registry='python3 "${AH_SCRIPTS_DIR}/registry_engine.py" list'
+alias ah-status='python3 "${AH_SCRIPTS_DIR}/registry_engine.py" status'
 
 # Docker helpers
 alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
@@ -592,7 +591,7 @@ ALIASES
     if ! grep -q "agentharness/aliases.sh" ~/.bashrc 2>/dev/null; then
         echo "" >> ~/.bashrc
         echo "# AgentHarness aliases" >> ~/.bashrc
-        echo "[ -f /opt/agentharness/aliases.sh ] && source /opt/agentharness/aliases.sh" >> ~/.bashrc
+        echo "[ -f \"${AH_DATA_DIR}/aliases.sh\" ] && source \"${AH_DATA_DIR}/aliases.sh\"" >> ~/.bashrc
         log_ok "Added aliases to ~/.bashrc"
     else
         log_info "Aliases already in .bashrc"
@@ -793,7 +792,7 @@ for dir in /opt/mcp-servers/*/; do
         (cd "${dir}" && docker compose up -d 2>/dev/null) || echo "    Failed — check config"
     fi
 done
-echo "Done. Run 'bash /opt/agentharness/scripts/mcp_gateway.sh' to discover tools."
+echo "Done. Run 'bash ${AH_SCRIPTS_DIR}/scripts/mcp_gateway.sh' to discover tools."
 STARTALL
     chmod +x /opt/mcp-servers/start_all.sh
 
@@ -921,8 +920,8 @@ main() {
     echo "    OFFLINE (11PM-7:15AM): benchmarks, cleanup, backup, analysis"
     echo "    ONLINE  (7:15AM-11PM): briefing, downloads, syncs, deploys"
     echo ""
-    echo "  Reports: /opt/agentharness/reports/"
-    echo "  Logs:    /opt/agentharness/logs/"
+    echo "  Reports: ${AH_REPORTS_DIR}/"
+    echo "  Logs:    ${AH_LOGS_DIR}/"
     echo ""
 }
 

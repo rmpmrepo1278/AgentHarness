@@ -39,8 +39,8 @@ detect_cpu_features() {
     log_info "NUMA nodes: ${NUMA_NODES}"
 
     # Store for other scripts
-    mkdir -p /opt/agentharness
-    cat > /opt/agentharness/hw_profile.env << EOF
+    ensure_dir "${AH_DATA_DIR}"
+    cat > "${AH_DATA_DIR}/hw_profile.env" << EOF
 CPU_MODEL="${CPU_MODEL}"
 CPU_CORES=${CPU_CORES}
 TOTAL_RAM_GB=${TOTAL_RAM_GB}
@@ -50,7 +50,7 @@ HAS_FMA=${HAS_FMA}
 NUMA_NODES=${NUMA_NODES}
 DETECTED_AT="$(date -Iseconds)"
 EOF
-    log_ok "Hardware profile saved to /opt/agentharness/hw_profile.env"
+    log_ok "Hardware profile saved to ${AH_DATA_DIR}/hw_profile.env"
 }
 
 # -----------------------------------------------------------------------------
@@ -135,7 +135,7 @@ build_llama_variant() {
     fi
 
     # Record build info
-    cat >> /opt/agentharness/hw_profile.env << EOF
+    cat >> "${AH_DATA_DIR}/hw_profile.env" << EOF
 ${bin_prefix^^}_GIT_HASH="${git_hash}"
 ${bin_prefix^^}_GIT_DATE="${git_date}"
 ${bin_prefix^^}_BUILD_DATE="$(date -Iseconds)"

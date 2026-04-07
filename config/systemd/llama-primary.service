@@ -24,7 +24,7 @@ RestartSec=10
 LimitMEMLOCK=infinity
 # Protect system
 ProtectSystem=strict
-ReadWritePaths=/opt/models /opt/agentharness /tmp
+ReadWritePaths=/opt/models /tmp
 NoNewPrivileges=true
 
 [Install]

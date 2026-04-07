@@ -14,19 +14,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-SCHEDULER_STATE="/opt/agentharness/scheduler_state.json"
-TASK_QUEUE="/opt/agentharness/task_queue.json"
-LOG_FILE="/opt/agentharness/logs/scheduler.log"
+SCHEDULER_STATE="${AH_DATA_DIR}/scheduler_state.json"
+TASK_QUEUE="${AH_DATA_DIR}/task_queue.json"
+LOG_FILE="${AH_LOGS_DIR}/scheduler.log"
 
 # Network schedule (PT timezone)
-# These can be overridden in /opt/agentharness/.env
+# These can be overridden in .env
 OFFLINE_START_HOUR="${OFFLINE_START_HOUR:-23}"    # 11 PM PT
 ONLINE_START_HOUR="${ONLINE_START_HOUR:-7}"       # 7 AM PT (conservative)
 TIMEZONE="America/Los_Angeles"
 
-# Load env (symlinked to master .env at the Chaguli project root)
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
+# Load Chaguli paths
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
 # -----------------------------------------------------------------------------
 # Determine current network state
@@ -89,7 +88,7 @@ run_offline_tasks() {
 
     # 1. Benchmarks (heavy, no internet needed)
     local last_bench
-    last_bench=$(stat -c %Y /opt/agentharness/benchmark_results.json 2>/dev/null || echo "0")
+    last_bench=$(stat -c %Y "${AH_DATA_DIR}/benchmark_results.json" 2>/dev/null || echo "0")
     local now
     now=$(date +%s)
     local bench_age=$(( (now - last_bench) / 86400 ))
@@ -101,7 +100,7 @@ run_offline_tasks() {
 
     # 2. System cleanup
     local last_cleanup
-    last_cleanup=$(stat -c %Y /opt/agentharness/reports/cleanup_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
+    last_cleanup=$(stat -c %Y "${AH_REPORTS_DIR}"/cleanup_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
     local cleanup_age=$(( (now - last_cleanup) / 86400 ))
 
     if [ "${cleanup_age}" -gt 3 ]; then
@@ -111,7 +110,7 @@ run_offline_tasks() {
 
     # 3. Backup (nightly, during offline window)
     local last_backup
-    last_backup=$(stat -c %Y /opt/agentharness/reports/backup_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
+    last_backup=$(stat -c %Y "${AH_REPORTS_DIR}"/backup_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
     local backup_age=$(( (now - last_backup) / 86400 ))
     if [ "${backup_age}" -gt 0 ]; then
         log_info "Running nightly backup..."
@@ -122,7 +121,7 @@ run_offline_tasks() {
 
     # 7. Security audit (weekly)
     local last_security
-    last_security=$(stat -c %Y /opt/agentharness/reports/security_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
+    last_security=$(stat -c %Y "${AH_REPORTS_DIR}"/security_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
     local security_age=$(( (now - last_security) / 86400 ))
     if [ "${security_age}" -gt 7 ]; then
         log_info "Running weekly security audit..."
@@ -165,7 +164,7 @@ run_online_tasks() {
 
     # 1. Weekly optimization search (if due)
     local last_weekly
-    last_weekly=$(stat -c %Y /opt/agentharness/reports/weekly_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
+    last_weekly=$(stat -c %Y "${AH_REPORTS_DIR}"/weekly_*.md 2>/dev/null | sort -rn | head -1 || echo "0")
     local now
     now=$(date +%s)
     local weekly_age=$(( (now - last_weekly) / 86400 ))
@@ -303,7 +302,7 @@ PYEOF
 # GitHub repo install queue
 # -----------------------------------------------------------------------------
 process_github_queue() {
-    local github_queue="/opt/agentharness/github_queue.json"
+    local github_queue="${AH_DATA_DIR}/github_queue.json"
     [ -f "${github_queue}" ] || return 0
 
     local pending
@@ -343,7 +342,7 @@ EOF
 # Main
 # -----------------------------------------------------------------------------
 main() {
-    ensure_dir /opt/agentharness/logs
+    ensure_dir "${AH_LOGS_DIR}"
     init_queue
 
     local network_state

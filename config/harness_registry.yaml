@@ -166,9 +166,7 @@ harnesses:
 
 
 # --- Custom scripts directory ---
-# Drop scripts in /opt/agentharness/custom/ and reference them above.
+# Drop scripts in the custom/ directory and reference them above.
 # They'll have access to all discovered paths and configs via:
-#   source /opt/agentharness/scripts/common.sh
-#   source /opt/agentharness/.env
-#   source /opt/agentharness/openclaw_paths.env
-custom_scripts_dir: "/opt/agentharness/custom"
+#   source scripts/common.sh  (provides AH_* variables)
+custom_scripts_dir: "auto"

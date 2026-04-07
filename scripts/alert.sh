@@ -7,9 +7,10 @@
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/common.sh"
 
-ALERT_QUEUE="/opt/agentharness/alert_queue.json"
+ALERT_QUEUE="${AH_DATA_DIR}/alert_queue.json"
 
 case "${1:-}" in
     flush)
@@ -43,7 +44,7 @@ json.dump(queue, open('${ALERT_QUEUE}','w'), indent=2)
         fi
 
         # Queue if offline
-        mkdir -p /opt/agentharness
+        ensure_dir "${AH_DATA_DIR}"
         [ -f "${ALERT_QUEUE}" ] || echo '[]' > "${ALERT_QUEUE}"
         python3 -c "
 import json

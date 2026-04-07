@@ -10,11 +10,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-STORAGE_PATHS="/opt/agentharness/storage_paths.env"
-BACKUP_REPORT="/opt/agentharness/reports/backup_$(timestamp).md"
+STORAGE_PATHS="${AH_DATA_DIR}/storage_paths.env"
+BACKUP_REPORT="${AH_REPORTS_DIR}/backup_$(timestamp).md"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/openclaw_paths.env ] && source /opt/agentharness/openclaw_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
 # =============================================================================
 # Discover backup target
@@ -166,28 +165,28 @@ backup_agentharness() {
     echo "## AgentHarness" >> "${BACKUP_REPORT}"
 
     # Core state files
-    for f in /opt/agentharness/*.json /opt/agentharness/*.env; do
+    for f in "${AH_DATA_DIR}"/*.json "${AH_DATA_DIR}"/*.env; do
         [ -f "$f" ] && cp "$f" "${dest}/" 2>/dev/null || true
     done
 
     # Scripts (the whole project)
-    if [ -d /opt/agentharness/scripts ]; then
-        cp -r /opt/agentharness/scripts "${dest}/"
+    if [ -d "${AH_SCRIPTS_DIR}" ]; then
+        cp -r "${AH_SCRIPTS_DIR}" "${dest}/"
     fi
 
     # Last 10 reports
-    if [ -d /opt/agentharness/reports ]; then
+    if [ -d "${AH_REPORTS_DIR}" ]; then
         mkdir -p "${dest}/reports"
-        ls -t /opt/agentharness/reports/*.md 2>/dev/null | head -10 | while read -r report; do
+        ls -t "${AH_REPORTS_DIR}"/*.md 2>/dev/null | head -10 | while read -r report; do
             cp "${report}" "${dest}/reports/"
         done
     fi
 
     # Improvement tasks
-    [ -d /opt/agentharness/improvements ] && cp -r /opt/agentharness/improvements "${dest}/"
+    [ -d "${AH_DATA_DIR}/improvements" ] && cp -r "${AH_DATA_DIR}/improvements" "${dest}/"
 
     # Chaguli memory (if exists)
-    [ -f /opt/agentharness/chaguli_memory.json ] && cp /opt/agentharness/chaguli_memory.json "${dest}/"
+    [ -f "${AH_DATA_DIR}/chaguli_memory.json" ] && cp "${AH_DATA_DIR}/chaguli_memory.json" "${dest}/"
 
     echo "- State files, scripts, recent reports, improvements" >> "${BACKUP_REPORT}"
     log_ok "AgentHarness state backed up"
@@ -256,7 +255,7 @@ rotate_backups() {
 main() {
     log_header "Homelab Backup"
 
-    ensure_dir /opt/agentharness/reports
+    ensure_dir "${AH_REPORTS_DIR}"
 
     cat > "${BACKUP_REPORT}" << EOF
 # Backup Report

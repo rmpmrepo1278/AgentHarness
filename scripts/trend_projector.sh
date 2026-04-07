@@ -12,10 +12,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-
-TREND_DATA="/opt/agentharness/trend_data.csv"
-TREND_REPORT="/opt/agentharness/reports/trends_$(timestamp).md"
+TREND_DATA="${AH_DATA_DIR}/trend_data.csv"
+TREND_REPORT="${AH_REPORTS_DIR}/trends_$(timestamp).md"
 
 # =============================================================================
 # Sample current metrics
@@ -56,7 +54,7 @@ import csv
 import json
 from datetime import datetime, timedelta
 
-data_file = "/opt/agentharness/trend_data.csv"
+data_file = os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/trend_data.csv"
 alerts = []
 
 try:
@@ -143,7 +141,7 @@ result = {
                         datetime.fromisoformat(recent[0]["timestamp"].split("+")[0])).days if len(recent) > 1 else 0
 }
 
-json.dump(result, open("/opt/agentharness/latest_trends.json", "w"), indent=2)
+json.dump(result, open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/latest_trends.json", "w"), indent=2)
 
 for alert in alerts:
     print(f"PROJECTION: {alert}")
@@ -157,18 +155,18 @@ PYEOF
 # Alert on concerning projections
 # =============================================================================
 send_projection_alerts() {
-    if [ ! -f /opt/agentharness/latest_trends.json ]; then
+    if [ ! -f "${AH_DATA_DIR}/latest_trends.json" ]; then
         return 0
     fi
 
     python3 -c "
 import json, subprocess
 
-trends = json.load(open('/opt/agentharness/latest_trends.json'))
+trends = json.load(open(os.environ.get('AH_DATA_DIR', '/opt/agentharness') + '/latest_trends.json'))
 for projection in trends.get('projections', []):
     severity = 'CRITICAL' if 'CRITICAL' in projection else 'WARN'
     subprocess.run([
-        'bash', '/opt/agentharness/scripts/alert.sh', severity, projection
+        'bash', os.environ.get('AH_SCRIPTS_DIR', '/opt/agentharness/scripts') + '/alert.sh', severity, projection
     ], capture_output=True, timeout=10)
 " 2>/dev/null
 }
@@ -185,10 +183,10 @@ generate_report() {
 
 EOF
 
-    if [ -f /opt/agentharness/latest_trends.json ]; then
+    if [ -f "${AH_DATA_DIR}/latest_trends.json" ]; then
         python3 -c "
-import json
-t = json.load(open('/opt/agentharness/latest_trends.json'))
+import json, os
+t = json.load(open(os.environ.get('AH_DATA_DIR', '/opt/agentharness') + '/latest_trends.json'))
 
 print(f'Data points: {t[\"data_points\"]} over {t[\"data_range_days\"]} days')
 print(f'Current: disk {t[\"current\"][\"disk_pct\"]:.0f}%, swap {t[\"current\"][\"swap_mb\"]:.0f}MB, {t[\"current\"][\"containers\"]} containers')
@@ -210,7 +208,7 @@ else:
 # =============================================================================
 main() {
     log_header "Trend Projector"
-    ensure_dir /opt/agentharness/reports
+    ensure_dir "${AH_REPORTS_DIR}"
 
     sample_metrics
     project_trends

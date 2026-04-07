@@ -16,10 +16,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/openclaw_paths.env ] && source /opt/agentharness/openclaw_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
-MCP_CATALOG="/opt/agentharness/mcp_catalog.json"
+MCP_CATALOG="${AH_DATA_DIR}/mcp_catalog.json"
 MCP_SKILLS_PREFIX="mcp"
 
 # =============================================================================
@@ -347,7 +346,7 @@ for s in servers:
 # =============================================================================
 main() {
     log_header "MCP Gateway"
-    ensure_dir /opt/agentharness
+    ensure_dir "${AH_DATA_DIR}"
 
     discover_mcp_servers
     build_catalog

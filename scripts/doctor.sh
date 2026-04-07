@@ -219,7 +219,7 @@ check_models() {
     fi
 
     # Model catalog
-    if [ -f /opt/agentharness/model_catalog.json ]; then
+    if [ -f "${AH_DATA_DIR}/model_catalog.json" ]; then
         diagnose "Model catalog" "ok" "exists"
     else
         diagnose "Model catalog" "warn" "missing — run download_models.sh" \
@@ -270,8 +270,8 @@ check_searxng() {
 check_openclaw() {
     section "OpenClaw / Chaguli"
 
-    if [ -f /opt/agentharness/openclaw_paths.env ]; then
-        source /opt/agentharness/openclaw_paths.env
+    if [ -f "${AH_DATA_DIR}/openclaw_paths.env" ]; then
+        source "${AH_DATA_DIR}/openclaw_paths.env"
         diagnose "OpenClaw discovery" "ok" "paths discovered"
 
         [ -n "${OPENCLAW_BIN:-}" ] && diagnose "Binary" "ok" "${OPENCLAW_BIN}" || \
@@ -302,14 +302,14 @@ check_agentharness() {
     section "AgentHarness State"
 
     for f in \
-        "/opt/agentharness/.env|Environment config" \
-        "/opt/agentharness/hw_profile.env|Hardware profile" \
-        "/opt/agentharness/openclaw_paths.env|OpenClaw paths" \
-        "/opt/agentharness/automation_catalog.json|Automation catalog" \
-        "/opt/agentharness/service_registry.json|Service registry" \
-        "/opt/agentharness/model_catalog.json|Model catalog" \
-        "/opt/agentharness/benchmark_results.json|Benchmark results" \
-        "/opt/agentharness/chaguli_memory.json|Chaguli memory"; do
+        "${AH_DATA_DIR}/.env|Environment config" \
+        "${AH_DATA_DIR}/hw_profile.env|Hardware profile" \
+        "${AH_DATA_DIR}/openclaw_paths.env|OpenClaw paths" \
+        "${AH_DATA_DIR}/automation_catalog.json|Automation catalog" \
+        "${AH_DATA_DIR}/service_registry.json|Service registry" \
+        "${AH_DATA_DIR}/model_catalog.json|Model catalog" \
+        "${AH_DATA_DIR}/benchmark_results.json|Benchmark results" \
+        "${AH_DATA_DIR}/chaguli_memory.json|Chaguli memory"; do
 
         local path desc
         IFS='|' read -r path desc <<< "${f}"
@@ -332,11 +332,11 @@ check_agentharness() {
     fi
 
     # Registry
-    if [ -f /opt/agentharness/config/harness_registry.yaml ]; then
+    if [ -f "${AH_CONFIG_DIR}/harness_registry.yaml" ]; then
         diagnose "Plugin registry" "ok" "exists"
     else
         diagnose "Plugin registry" "warn" "missing" \
-            "cp ${PROJECT_DIR}/config/harness_registry.yaml /opt/agentharness/config/"
+            "cp ${PROJECT_DIR}/config/harness_registry.yaml ${AH_CONFIG_DIR}/"
     fi
 }
 
@@ -346,8 +346,8 @@ check_agentharness() {
 check_storage() {
     section "Backup Storage"
 
-    if [ -f /opt/agentharness/storage_paths.env ]; then
-        source /opt/agentharness/storage_paths.env
+    if [ -f "${AH_DATA_DIR}/storage_paths.env" ]; then
+        source "${AH_DATA_DIR}/storage_paths.env"
         if [ -n "${BACKUP_DRIVE:-}" ] && [ -d "${BACKUP_DRIVE}" ]; then
             local avail
             avail=$(df -h "${BACKUP_DRIVE}" 2>/dev/null | awk 'NR==2 {print $4}')
@@ -390,7 +390,7 @@ check_logs() {
     section "Recent Errors"
 
     # Scheduler log
-    local sched_log="/opt/agentharness/logs/scheduler.log"
+    local sched_log="${AH_LOGS_DIR}/scheduler.log"
     if [ -f "${sched_log}" ]; then
         local recent_errors
         recent_errors=$(tail -100 "${sched_log}" 2>/dev/null | grep -i "error\|fail\|exception" | tail -5)

@@ -8,7 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-STORAGE_PATHS="/opt/agentharness/storage_paths.env"
+STORAGE_PATHS="${AH_DATA_DIR}/storage_paths.env"
 
 main() {
     log_info "Discovering storage devices..."
@@ -112,13 +112,13 @@ main() {
 
     # Check for existing backup scripts/cron
     local existing_backup_scripts=()
-    if [ -f /opt/agentharness/automation_catalog.json ]; then
+    if [ -f "${AH_DATA_DIR}/automation_catalog.json" ]; then
         while IFS= read -r path; do
             [ -n "${path}" ] && existing_backup_scripts+=("${path}") && \
                 log_info "Found existing backup automation: ${path}"
         done < <(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/automation_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/automation_catalog.json'))
 for item in catalog.get('items', []):
     if 'backup' in item.get('capabilities', []) or 'backup' in item.get('path', '').lower():
         print(item.get('path', ''))

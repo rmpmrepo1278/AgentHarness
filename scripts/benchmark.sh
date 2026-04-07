@@ -9,9 +9,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-REPORT_DIR="/opt/agentharness/reports"
-BENCHMARK_RESULTS="/opt/agentharness/benchmark_results.json"
-BEST_CONFIG="/opt/agentharness/best_config.env"
+BENCHMARK_RESULTS="${AH_DATA_DIR}/benchmark_results.json"
+BEST_CONFIG="${AH_DATA_DIR}/best_config.env"
 
 # Test prompts for different capabilities
 TOOL_CALL_PROMPT='You have access to a function called check_container(name: str) -> str. The user asks: "Is jellyfin running?" Call the appropriate function.'
@@ -36,8 +35,8 @@ detect_benchmark_tools() {
 
     # Check for custom benchmark scripts in common locations
     for path in \
-        /opt/agentharness/benchmark_*.py \
-        /opt/agentharness/bench_*.sh \
+        "${AH_DATA_DIR}"/benchmark_*.py \
+        "${AH_DATA_DIR}"/bench_*.sh \
         ~/benchmark*.py \
         ~/bench*.sh \
         /opt/llm-bench/*.py \
@@ -284,14 +283,14 @@ run_all_benchmarks() {
     log_header "Running Full Benchmark Suite"
 
     # Load model catalog
-    if [ ! -f /opt/agentharness/model_catalog.json ]; then
+    if [ ! -f "${AH_DATA_DIR}/model_catalog.json" ]; then
         log_error "Model catalog not found. Run download_models.sh first."
         return 1
     fi
 
     # Load hardware profile
-    if [ -f /opt/agentharness/hw_profile.env ]; then
-        source /opt/agentharness/hw_profile.env
+    if [ -f "${AH_DATA_DIR}/hw_profile.env" ]; then
+        source "${AH_DATA_DIR}/hw_profile.env"
     else
         CPU_CORES=$(nproc)
     fi
@@ -300,7 +299,7 @@ run_all_benchmarks() {
     local models
     models=$(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/model_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
 for m in catalog:
     if 'draft' not in m['name']:
         print(f\"{m['name']}|{m['gguf_path']}|{m['type']}\")
@@ -429,7 +428,7 @@ generate_comparison_chart() {
 import json
 from datetime import datetime
 
-results = json.load(open("/opt/agentharness/benchmark_results.json"))
+results = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/benchmark_results.json"))
 results.sort(key=lambda x: x["composite_score"], reverse=True)
 
 # ASCII table
@@ -448,7 +447,7 @@ print(f"Scoring: 40% speed + 40% quality + 20% interactive responsiveness")
 
 # Save best config
 best = results[0]
-with open("/opt/agentharness/best_config.env", "w") as f:
+with open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/best_config.env", "w") as f:
     f.write(f'BEST_MODEL="{best["model"]}"\n')
     f.write(f'BEST_ENGINE="{best["engine"]}"\n')
     f.write(f'BEST_COMPOSITE={best["composite_score"]}\n')
@@ -456,7 +455,7 @@ with open("/opt/agentharness/best_config.env", "w") as f:
     f.write(f'BENCHMARK_DATE="{datetime.now().isoformat()}"\n')
 
 print(f"\nBest config: {best['model']} on {best['engine']} (score: {best['composite_score']:.2f}/10)")
-print(f"Saved to /opt/agentharness/best_config.env")
+print(f"Saved to {os.environ.get('AH_DATA_DIR', '/opt/agentharness')}/best_config.env")
 PYSCRIPT
 
     # HTML report
@@ -464,7 +463,7 @@ PYSCRIPT
 import json
 from datetime import datetime
 
-results = json.load(open("/opt/agentharness/benchmark_results.json"))
+results = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/benchmark_results.json"))
 results.sort(key=lambda x: x["composite_score"], reverse=True)
 
 html = f"""<!DOCTYPE html>
@@ -497,7 +496,7 @@ for i, r in enumerate(results):
 
 html += "</table></body></html>"
 
-report_path = "/opt/agentharness/reports/benchmark_" + datetime.now().strftime('%Y%m%d_%H%M') + ".html"
+report_path = os.environ.get("AH_REPORTS_DIR", "/opt/agentharness/reports") + "/benchmark_" + datetime.now().strftime('%Y%m%d_%H%M') + ".html"
 with open(report_path, "w") as f:
     f.write(html)
 print(f"HTML report: {report_path}")
@@ -529,7 +528,7 @@ auto_switch() {
 
     model_path=$(python3 -c "
 import json
-catalog = json.load(open('/opt/agentharness/model_catalog.json'))
+catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
 for m in catalog:
     if m['name'] == '${BEST_MODEL}':
         print(m['gguf_path'])

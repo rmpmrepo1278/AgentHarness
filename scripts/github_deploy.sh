@@ -22,11 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 DEPLOY_DIR="/opt/deployments"
-GITHUB_QUEUE="/opt/agentharness/github_queue.json"
+GITHUB_QUEUE="${AH_DATA_DIR}/github_queue.json"
 LLM_URL="${LLM_PRIMARY_URL:-http://localhost:8080}"
-
-# Load env
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
 
 # =============================================================================
 # Queue management
@@ -373,7 +370,7 @@ deploy_repo() {
         log_info "Refreshing service registry after deployment..."
         bash "${SCRIPT_DIR}/service_registry.sh" 2>/dev/null || true
         bash "${SCRIPT_DIR}/openclaw_sync.sh" 2>/dev/null || {
-            touch /opt/agentharness/service_registry_dirty
+            touch "${AH_DATA_DIR}/service_registry_dirty"
         }
 
         return 0
@@ -393,7 +390,7 @@ process_queue() {
 import json, subprocess, os
 from datetime import datetime
 
-queue_path = os.environ.get('GITHUB_QUEUE', '/opt/agentharness/github_queue.json')
+queue_path = os.environ.get('GITHUB_QUEUE', os.environ.get('AH_DATA_DIR', '/opt/agentharness') + '/github_queue.json')
 queue = json.load(open(queue_path))
 
 pending = [r for r in queue if r['status'] == 'pending']
@@ -401,7 +398,7 @@ if not pending:
     print("No pending repos to deploy")
     exit(0)
 
-script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in dir() else '/opt/agentharness'
+script_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in dir() else os.environ.get('AH_SCRIPTS_DIR', '/opt/agentharness/scripts')
 
 for repo in pending:
     repo['status'] = 'deploying'
@@ -411,7 +408,7 @@ for repo in pending:
     print(f"Deploying: {repo['name']} ({repo['url']})")
 
     result = subprocess.run(
-        ['bash', '-c', f"source /opt/agentharness/scripts/common.sh && source /opt/agentharness/scripts/github_deploy.sh && deploy_repo '{repo['url']}' '{repo['name']}'"],
+        ['bash', '-c', f"source {os.environ.get('AH_SCRIPTS_DIR', '/opt/agentharness/scripts')}/common.sh && source {os.environ.get('AH_SCRIPTS_DIR', '/opt/agentharness/scripts')}/github_deploy.sh && deploy_repo '{repo['url']}' '{repo['name']}'"],
         capture_output=True, text=True, timeout=1800
     )
 

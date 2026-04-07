@@ -17,7 +17,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/chaguli_paths.env ] && source /opt/agentharness/chaguli_paths.env
+[ -f "${AH_DATA_DIR}/chaguli_paths.env" ] && source "${AH_DATA_DIR}/chaguli_paths.env"
 
 CHAGULI_DIR="${CHAGULI_APP_DIR:-}"
 AGENTHARNESS_SCRIPTS="${SCRIPT_DIR}"
@@ -56,7 +56,7 @@ import os
 
 log = logging.getLogger("agentharness_tools")
 
-SCRIPTS_DIR = os.environ.get("AGENTHARNESS_SCRIPTS", "/opt/agentharness/scripts")
+SCRIPTS_DIR = os.environ.get("AH_SCRIPTS_DIR", os.environ.get("AGENTHARNESS_SCRIPTS", "/opt/agentharness/scripts"))
 
 # ── Tool schema definitions ───────────────────────────────────────────────────
 
@@ -196,7 +196,7 @@ def _run_script(script_name: str, args: str = "", timeout: int = 300) -> str:
             output += f"\n\nErrors:\n{result.stderr.strip()[-500:]}"
         # Truncate for Telegram
         if len(output) > 3000:
-            output = output[:2900] + "\n\n... (truncated, see full output in /opt/agentharness/reports/)"
+            output = output[:2900] + "\n\n... (truncated, see full output in " + os.environ.get("AH_REPORTS_DIR", "/opt/agentharness/reports") + "/)"
         return output or "Completed (no output)"
     except subprocess.TimeoutExpired:
         return f"{script_name} timed out after {timeout}s. It may still be running in the background."
@@ -326,8 +326,8 @@ else:
     if [ -z "${has_env}" ]; then
         log_warn "Chaguli container needs AGENTHARNESS_SCRIPTS env var."
         log_info "Add to your Chaguli docker-compose or docker run:"
-        echo "  -e AGENTHARNESS_SCRIPTS=/opt/agentharness/scripts"
-        echo "  -v /opt/agentharness/scripts:/opt/agentharness/scripts:ro"
+        echo "  -e AH_SCRIPTS_DIR=${AH_SCRIPTS_DIR}"
+        echo "  -v ${AH_SCRIPTS_DIR}:${AH_SCRIPTS_DIR}:ro"
         echo ""
         log_info "Then restart Chaguli: docker restart ${CHAGULI_CONTAINER:-chaguli}"
     fi
@@ -340,8 +340,8 @@ else:
 
 # ── AgentHarness integration (auto-added) ─────────────────────────────────────
 agentharness:
-  scripts_dir: "/opt/agentharness/scripts"
-  reports_dir: "/opt/agentharness/reports"
+  scripts_dir: "auto"  # Resolved from state.json at runtime
+  reports_dir: "auto"  # Resolved from state.json at runtime
   # New tools added: deploy_repo, run_benchmark, cleanup_system, check_trends,
   #                  check_updates, run_security_audit, diagnose_system,
   #                  search_new_tools, run_backup
@@ -383,8 +383,8 @@ YAMLCFG
     echo "    docker restart ${CHAGULI_CONTAINER:-chaguli}"
     echo ""
     echo "  NOTE: Chaguli's container needs these mounts for full functionality:"
-    echo "    -v /opt/agentharness/scripts:/opt/agentharness/scripts:ro"
-    echo "    -e AGENTHARNESS_SCRIPTS=/opt/agentharness/scripts"
+    echo "    -v ${AH_SCRIPTS_DIR}:${AH_SCRIPTS_DIR}:ro"
+    echo "    -e AH_SCRIPTS_DIR=${AH_SCRIPTS_DIR}"
     echo ""
 }
 

@@ -10,15 +10,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-REPORT_DIR="/opt/agentharness/reports"
 SEARXNG_URL="${SEARXNG_URL:-http://localhost:8888}"
 LLM_URL="${LLM_PRIMARY_URL:-http://localhost:8080}"
-WEEKLY_REPORT="/opt/agentharness/reports/weekly_$(timestamp).md"
+WEEKLY_REPORT="${AH_REPORTS_DIR}/weekly_$(timestamp).md"
 
 # Load environment
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-[ -f /opt/agentharness/hw_profile.env ] && source /opt/agentharness/hw_profile.env
-[ -f /opt/agentharness/best_config.env ] && source /opt/agentharness/best_config.env
+[ -f "${AH_DATA_DIR}/hw_profile.env" ] && source "${AH_DATA_DIR}/hw_profile.env"
+[ -f "${AH_DATA_DIR}/best_config.env" ] && source "${AH_DATA_DIR}/best_config.env"
 
 # -----------------------------------------------------------------------------
 # Search SearXNG and return results as JSON

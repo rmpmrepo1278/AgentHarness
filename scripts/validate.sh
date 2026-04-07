@@ -58,12 +58,12 @@ main() {
     # --- Section 2: Models ---
     echo "  [Models]"
 
-    if [ -f /opt/agentharness/model_catalog.json ]; then
+    if [ -f "${AH_DATA_DIR}/model_catalog.json" ]; then
         local model_count
-        model_count=$(python3 -c "import json; print(len(json.load(open('/opt/agentharness/model_catalog.json'))))" 2>/dev/null || echo "0")
+        model_count=$(python3 -c "import json; print(len(json.load(open('${AH_DATA_DIR}/model_catalog.json'))))" 2>/dev/null || echo "0")
         check "Model catalog" "ok" "${model_count} model(s)"
     else
-        check "Model catalog" "fail" "/opt/agentharness/model_catalog.json not found"
+        check "Model catalog" "fail" "model_catalog.json not found"
     fi
 
     for model_dir in /opt/models/*/; do
@@ -183,8 +183,8 @@ main() {
     # --- Section 9: Hardware Profile ---
     echo "  [Hardware]"
 
-    if [ -f /opt/agentharness/hw_profile.env ]; then
-        source /opt/agentharness/hw_profile.env
+    if [ -f "${AH_DATA_DIR}/hw_profile.env" ]; then
+        source "${AH_DATA_DIR}/hw_profile.env"
         check "Hardware profile" "ok" "${CPU_MODEL}, ${TOTAL_RAM_GB}GB RAM"
     else
         check "Hardware profile" "fail" "not detected (run build_inference.sh first)"

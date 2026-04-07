@@ -11,14 +11,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-[ -f /opt/agentharness/.env ] && source /opt/agentharness/.env
-
-VERSIONS_FILE="/opt/agentharness/container_versions.json"
-UPDATE_REPORT="/opt/agentharness/reports/updates_$(timestamp).md"
+VERSIONS_FILE="${AH_DATA_DIR}/container_versions.json"
+UPDATE_REPORT="${AH_REPORTS_DIR}/updates_$(timestamp).md"
 
 main() {
     log_header "Update Watcher"
-    ensure_dir /opt/agentharness/reports
+    ensure_dir "${AH_REPORTS_DIR}"
 
     cat > "${UPDATE_REPORT}" << EOF
 # Container Update Report
@@ -67,7 +65,7 @@ for line in result.stdout.strip().split("\n"):
 # Load previous versions for comparison
 prev = {}
 try:
-    prev = json.load(open("/opt/agentharness/container_versions.json"))
+    prev = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/container_versions.json"))
 except:
     pass
 
@@ -107,7 +105,7 @@ for name, info in containers.items():
         pass
 
 # Save current state
-json.dump(containers, open("/opt/agentharness/container_versions.json", "w"), indent=2)
+json.dump(containers, open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/container_versions.json", "w"), indent=2)
 
 # Report
 print(f"## Current Images ({len(containers)})\n")
