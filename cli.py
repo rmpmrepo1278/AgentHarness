@@ -238,6 +238,68 @@ def cmd_audit(args: argparse.Namespace) -> None:
             print(f"  [malformed] {line[:80]}")
 
 
+def cmd_budget(args: argparse.Namespace) -> int:
+    """Show LLM budget status."""
+    from core.discovery.state import StateManager
+    from core.providers.budget import BudgetTracker
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir", ".")
+
+    bt = BudgetTracker(data_dir=data_dir)
+    print(bt.daily_report())
+    return 0
+
+
+def cmd_migrate_scheduler(args: argparse.Namespace) -> int:
+    """Migrate from bash scheduler (cron) to Python scheduler (systemd)."""
+    from core.discovery.state import StateManager
+    import subprocess
+
+    sm = StateManager()
+    state = sm.read()
+    data_dir = state.get("paths", {}).get("data_dir")
+
+    if not data_dir:
+        print("Error: Run 'agentharness discover' first.")
+        return 1
+
+    if args.rollback:
+        print("Rolling back to bash scheduler...")
+        # Re-enable cron
+        subprocess.run("(crontab -l 2>/dev/null; echo '*/15 * * * * ...') | crontab -", shell=True)
+        # Disable systemd
+        subprocess.run(["systemctl", "--user", "stop", "agentharness-scheduler"], capture_output=True)
+        subprocess.run(["systemctl", "--user", "disable", "agentharness-scheduler"], capture_output=True)
+        print("Rolled back to bash scheduler (cron).")
+        return 0
+
+    print("Migrating to Python scheduler...")
+    print("Step 1: Removing cron entry for scheduler.sh...")
+    subprocess.run("crontab -l 2>/dev/null | grep -v 'scheduler.sh' | crontab -", shell=True)
+
+    print("Step 2: Testing one scheduler tick...")
+    from core.scheduler.scheduler import Scheduler
+    try:
+        sched = Scheduler(data_dir=data_dir)
+        result = sched.tick()
+        print(f"  Tick OK: {result['checks_run']} checks, {result['harnesses_run']} harnesses, window={result['window']}")
+    except Exception as e:
+        print(f"  Tick FAILED: {e}")
+        print("  Aborting migration. Cron entry was removed — re-add manually or run --rollback.")
+        return 1
+
+    print("Step 3: Enable systemd service...")
+    subprocess.run(["systemctl", "--user", "enable", "agentharness-scheduler"], capture_output=True)
+    subprocess.run(["systemctl", "--user", "start", "agentharness-scheduler"], capture_output=True)
+
+    print("Migration complete. Python scheduler is now active.")
+    print("  Check status: systemctl --user status agentharness-scheduler")
+    print("  Rollback:     agentharness migrate-scheduler --rollback")
+    return 0
+
+
 def cmd_integrity(args: argparse.Namespace) -> None:
     """Verify file integrity against manifest."""
     from core.security.integrity import verify_integrity
@@ -295,6 +357,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("circuits", help="Show open circuit breakers")
     sub.add_parser("audit", help="Show recent audit log entries")
     sub.add_parser("integrity", help="Verify file integrity")
+    sub.add_parser("budget", help="Show LLM budget status")
+    migrate_parser = sub.add_parser("migrate-scheduler", help="Migrate to Python scheduler")
+    migrate_parser.add_argument("--rollback", action="store_true")
 
     return parser
 
@@ -312,6 +377,8 @@ def main() -> None:
         "circuits": cmd_circuits,
         "audit": cmd_audit,
         "integrity": cmd_integrity,
+        "budget": cmd_budget,
+        "migrate-scheduler": cmd_migrate_scheduler,
     }
 
     if args.command == "bundle":
