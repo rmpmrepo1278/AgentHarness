@@ -63,20 +63,106 @@ echo "=== All ports in use ==="
 done; ss -tlnp 2>/dev/null | awk '/LISTEN/ {split($4,a,":"); split($NF,b,"\""); printf "  :%s — %s (system)\n", a[length(a)], b[2]}') | sort -t: -k2 -n | uniq
 ```
 
-3. **Volume storage location** — check available space:
+3. **Volume storage location** — determine where data should go based on service type and available space:
 
 ```bash
-echo "=== Disk space ==="
-df -h / | awk 'NR==2 {print "Root: " $4 " free"}'
+echo "=== Storage Map ==="
+echo ""
+
+# Available drives
+echo "DRIVES:"
+df -h / | awk 'NR==2 {printf "  SSD (/):     %s free / %s total (%s used)\n", $4, $2, $5}'
 if [ -f /opt/agentharness/storage_paths.env ]; then
     source /opt/agentharness/storage_paths.env
-    [ -n "${BACKUP_DRIVE:-}" ] && df -h "${BACKUP_DRIVE}" | awk 'NR==2 {print "USB: " $4 " free"}'
+    [ -n "${BACKUP_DRIVE:-}" ] && [ -d "${BACKUP_DRIVE}" ] && \
+        df -h "${BACKUP_DRIVE}" | awk 'NR==2 {printf "  USB (%s): %s free / %s total\n", "'${BACKUP_DRIVE}'", $4, $2}'
 fi
+# Check for any other large mounts
+df -h 2>/dev/null | awk 'NR>1 && $2 ~ /[TG]/ && $6 !~ /^\/boot|^\/snap|^\/$/ {printf "  %s (%s): %s free / %s total\n", $6, $1, $4, $2}'
 echo ""
-echo "=== Existing volume locations ==="
-docker volume ls --format "{{.Name}}" | head -10
-ls -d /opt/*/data 2>/dev/null || true
+
+# Existing data directories (discover what's already in use)
+echo "EXISTING SERVICE DATA:"
+for d in /opt/*/; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    size=$(du -sh "$d" 2>/dev/null | cut -f1)
+    has_compose=$([ -f "${d}docker-compose.yml" ] || [ -f "${d}compose.yml" ] && echo " [compose]" || echo "")
+    echo "  /opt/${name}: ${size}${has_compose}"
+done
+echo ""
+
+# Shared directories (media, downloads — used by multiple services)
+echo "SHARED DIRECTORIES:"
+for shared in /media /downloads /data /srv /mnt/media /opt/media; do
+    [ -d "${shared}" ] && echo "  ${shared}: $(du -sh "${shared}" 2>/dev/null | cut -f1)" || true
+done
+# Also check what containers currently mount
+echo ""
+echo "VOLUME MOUNTS IN USE:"
+docker ps --format "{{.Names}}" 2>/dev/null | while read -r c; do
+    docker inspect --format "{{.Name}}: {{range .Mounts}}{{.Source}}:{{.Destination}} {{end}}" "$c" 2>/dev/null
+done | grep -v "^$" | sed 's|^/||' | head -20
 ```
+
+### Storage Decision Rules
+
+Based on the output above, decide where to put data:
+
+**Config-only services** (pihole, homarr, npm, portainer):
+- Small data. Always on SSD: `/opt/SERVICE/config`
+- Typically < 500MB
+
+**Media-heavy services** (jellyfin, immich, nextcloud, stump):
+- Large data. Check if a shared media directory exists.
+- If `/media` or `/srv/media` exists and is on a large drive, USE IT — don't create a new path
+- If no shared media dir exists, use the largest available drive
+- NEVER put 100GB+ media on the 256GB SSD
+
+**Download services** (arr stack, transmission, qbittorrent):
+- Check for existing `/downloads` directory
+- Must be accessible by both the download client AND the media server
+- Same filesystem as the media library (avoids slow cross-device copies)
+
+**Database-backed services** (nextcloud, immich, gitea):
+- Database on SSD for speed: `/opt/SERVICE/db`
+- User data on larger drive: `/media/SERVICE/` or `/opt/SERVICE/data`
+
+**Shared volume detection** — CRITICAL:
+
+```bash
+# Find which services share volumes (e.g., arr stack + jellyfin sharing /media)
+echo "=== Shared Mounts ==="
+docker inspect $(docker ps -q) 2>/dev/null | python3 -c "
+import sys, json
+mounts = {}
+containers = json.load(sys.stdin)
+for c in containers:
+    name = c['Name'].strip('/')
+    for m in c.get('Mounts', []):
+        src = m.get('Source', '')
+        if src and not src.startswith('/var/lib/docker'):
+            mounts.setdefault(src, []).append(name)
+
+for src, users in sorted(mounts.items()):
+    if len(users) > 1:
+        print(f'  {src} — shared by: {', '.join(users)}')
+" 2>/dev/null
+```
+
+**IMPORTANT**: If the new service needs access to media/downloads that other services already use:
+1. Find the existing shared path
+2. Mount the SAME path — don't create a duplicate
+3. Tell the user: "Your arr stack uses /media for downloads. I'll mount the same path in the new container."
+
+**IMPORTANT**: If SSD free space is below 20GB, warn:
+> "SSD has only Xgb free. This service's data should go on the USB drive instead. Config will stay on SSD for speed."
+
+**IMPORTANT**: Always ask before creating new top-level directories. Show what you plan:
+> "I'll create:
+>   /opt/calibre/config (SSD, ~50MB)
+>   /opt/calibre/library → /media/books (USB drive, for the actual library)
+> Sound good?"
 
 4. **Docker network** — find which network other services use:
 
