@@ -457,6 +457,16 @@ def cmd_setup_coding_tool(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_resources(args: argparse.Namespace) -> int:
+    """Show current resource usage and 24h summary."""
+    from core.observe.resource_monitor import ResourceMonitor
+
+    data_dir = _data_dir()
+    rm = ResourceMonitor(data_dir=data_dir)
+    print(rm.format_report())
+    return 0
+
+
 def cmd_integrity(args: argparse.Namespace) -> None:
     """Verify file integrity against manifest."""
     from core.security.integrity import verify_integrity
@@ -516,6 +526,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("briefing", help="Show latest infrastructure briefing")
     sub.add_parser("integrity", help="Verify file integrity")
     sub.add_parser("budget", help="Show LLM budget status")
+    sub.add_parser("resources", help="Show resource usage (CPU/RAM/disk)")
     migrate_parser = sub.add_parser("migrate-scheduler", help="Migrate to Python scheduler")
     migrate_parser.add_argument("--rollback", action="store_true")
 
@@ -558,6 +569,7 @@ def main() -> None:
         "briefing": cmd_briefing,
         "integrity": cmd_integrity,
         "budget": cmd_budget,
+        "resources": cmd_resources,
         "migrate-scheduler": cmd_migrate_scheduler,
         "proposals": cmd_proposals,
         "approve": cmd_approve,
