@@ -1,0 +1,89 @@
+# config/providers.yaml — LLM provider configuration
+#
+# Each provider maps to a Python class in core/providers/.
+# API keys are read from environment variables (never stored here).
+# Set daily_limit to 0 for unlimited (paid tiers).
+
+providers:
+  llamacpp_small:
+    type: llamacpp
+    tier: local
+    endpoint: auto
+    model_hint: "9B"
+    enabled: true
+
+  llamacpp_large:
+    type: llamacpp
+    tier: local
+    endpoint: auto
+    model_hint: "35B"
+    enabled: true
+
+  groq:
+    type: groq
+    tier: cloud_free
+    api_key_env: GROQ_API_KEY
+    model: llama-3.3-70b-versatile
+    daily_limit: 200
+    enabled: true
+
+  google:
+    type: google
+    tier: cloud_free
+    api_key_env: GOOGLE_API_KEY
+    model: gemini-2.5-flash
+    daily_limit: 1500
+    enabled: true
+
+  cerebras:
+    type: cerebras
+    tier: cloud_free
+    api_key_env: CEREBRAS_API_KEY
+    model: llama-3.3-70b
+    daily_limit: 1000
+    enabled: true
+
+  sambanova:
+    type: sambanova
+    tier: cloud_free
+    api_key_env: SAMBANOVA_API_KEY
+    model: Meta-Llama-3.3-70B-Instruct
+    daily_limit: 500
+    enabled: true
+
+  openrouter:
+    type: openrouter
+    tier: cloud_free
+    api_key_env: OPENROUTER_API_KEY
+    model: meta-llama/llama-3.3-70b-instruct:free
+    daily_limit: 50
+    enabled: true
+
+  openai:
+    type: openai_compat
+    tier: cloud_paid
+    api_key_env: OPENAI_API_KEY
+    endpoint: https://api.openai.com/v1/chat/completions
+    model: gpt-4o-mini
+    monthly_budget_usd: 5.00
+    enabled: false
+
+  anthropic:
+    type: anthropic
+    tier: cloud_paid
+    api_key_env: ANTHROPIC_API_KEY
+    model: claude-sonnet-4-6
+    monthly_budget_usd: 10.00
+    enabled: false
+
+routing:
+  low: [llamacpp_small, llamacpp_large]
+  medium: [llamacpp_large, google, cerebras, openrouter]
+  high: [google, groq, sambanova, llamacpp_large]
+  critical: [groq, google, openai, anthropic, llamacpp_large]
+
+policies:
+  - match: "backup|cleanup|disk"
+    force: llamacpp_small
+  - match: "security|audit"
+    force: llamacpp_large
