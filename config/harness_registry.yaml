@@ -193,6 +193,13 @@ harnesses:
     frequency: weekly
     description: "Check for container image updates"
 
+  mcp_gateway:
+    enabled: true
+    script: "mcp_gateway.sh"
+    window: offline
+    frequency: "6h"
+    description: "Discover MCP servers and generate bridge skills"
+
   # --- Add your custom harnesses below ---
   # Example: Check for Immich face recognition updates
   # immich_faces:
