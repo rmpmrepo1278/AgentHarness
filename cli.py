@@ -300,6 +300,74 @@ def cmd_migrate_scheduler(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_proposals(args: argparse.Namespace) -> int:
+    """List pending proposals."""
+    from core.approval.gateway import ApprovalGateway
+    from core.discovery.state import StateManager
+
+    sm = StateManager()
+    proposals_dir = sm.resolve("proposals_dir", "proposals")
+
+    gw = ApprovalGateway(proposals_dir=proposals_dir)
+    pending = gw.list_pending()
+
+    if not pending:
+        print("No pending proposals.")
+        return 0
+
+    print(f"{'ID':<8} {'Tool':<25} {'Type':<20} {'Reason'}")
+    print("-" * 80)
+    for p in pending:
+        print(f"{p.proposal_id:<8} {p.tool_name:<25} {p.proposal_type:<20} {p.reason}")
+
+    print(f"\n{len(pending)} pending proposal(s)")
+    return 0
+
+
+def cmd_approve(args: argparse.Namespace) -> int:
+    """Approve a pending proposal."""
+    from core.approval.gateway import ApprovalGateway
+    from core.approval.auth import validate_and_approve, ApprovalValidationError
+    from core.discovery.state import StateManager
+
+    sm = StateManager()
+    proposals_dir = sm.resolve("proposals_dir", "proposals")
+    gw = ApprovalGateway(proposals_dir=proposals_dir)
+
+    try:
+        proposal = validate_and_approve(gw, args.proposal_id, source="cli")
+        print(f"Approved proposal {proposal.proposal_id} ({proposal.tool_name})")
+        print(f"Will execute in next scheduler tick.")
+        return 0
+    except ApprovalValidationError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_reject(args: argparse.Namespace) -> int:
+    """Reject a pending proposal."""
+    from core.approval.gateway import ApprovalGateway
+    from core.approval.auth import validate_and_reject, ApprovalValidationError
+    from core.discovery.state import StateManager
+
+    sm = StateManager()
+    proposals_dir = sm.resolve("proposals_dir", "proposals")
+    gw = ApprovalGateway(proposals_dir=proposals_dir)
+
+    reason = args.reason or ""
+    try:
+        proposal = validate_and_reject(
+            gw, args.proposal_id, reason=reason, source="cli",
+        )
+        print(f"Rejected proposal {proposal.proposal_id} ({proposal.tool_name})")
+        if reason:
+            print(f"Reason: {reason}")
+        return 0
+    except ApprovalValidationError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def cmd_integrity(args: argparse.Namespace) -> None:
     """Verify file integrity against manifest."""
     from core.security.integrity import verify_integrity
@@ -361,6 +429,15 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_parser = sub.add_parser("migrate-scheduler", help="Migrate to Python scheduler")
     migrate_parser.add_argument("--rollback", action="store_true")
 
+    sub.add_parser("proposals", help="List pending approval proposals")
+
+    approve_parser = sub.add_parser("approve", help="Approve a proposal")
+    approve_parser.add_argument("proposal_id", help="Proposal ID to approve")
+
+    reject_parser = sub.add_parser("reject", help="Reject a proposal")
+    reject_parser.add_argument("proposal_id", help="Proposal ID to reject")
+    reject_parser.add_argument("--reason", "-r", default="", help="Rejection reason")
+
     return parser
 
 
@@ -379,6 +456,9 @@ def main() -> None:
         "integrity": cmd_integrity,
         "budget": cmd_budget,
         "migrate-scheduler": cmd_migrate_scheduler,
+        "proposals": cmd_proposals,
+        "approve": cmd_approve,
+        "reject": cmd_reject,
     }
 
     if args.command == "bundle":
