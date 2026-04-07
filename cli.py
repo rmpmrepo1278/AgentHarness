@@ -473,6 +473,91 @@ def cmd_setup_coding_tool(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_generate_agent_plugin(args: argparse.Namespace) -> int:
+    """Generate an agent plugin package for inbox watching."""
+    from core.agents.plugin_generator import generate_plugin
+
+    data_dir = _data_dir()
+    output_dir = getattr(args, "output", "./agentharness-plugin")
+    agent_type = getattr(args, "agent", "generic")
+
+    result = generate_plugin(
+        output_dir=output_dir,
+        inbox_dir=data_dir,
+        agent_type=agent_type,
+    )
+    print(f"Plugin generated: {result}")
+    print(f"\nNext steps:")
+    print(f"  1. Copy {result} to your agent's machine")
+    print(f"  2. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID")
+    print(f"  3. Run: python3 inbox_watcher.py --inbox-dir {data_dir} --once")
+    print(f"  4. Verify: agentharness test-agent-link")
+    return 0
+
+
+def cmd_test_agent_link(args: argparse.Namespace) -> int:
+    """Send a test alert and wait for the agent to deliver it."""
+    from core.agents.link_test import test_agent_link
+
+    data_dir = _data_dir()
+    timeout = getattr(args, "timeout", 120)
+
+    print(f"Sending test alert to {data_dir}/alerts_inbox.jsonl ...")
+    print(f"Waiting up to {timeout}s for the agent to deliver it...")
+    result = test_agent_link(data_dir=data_dir, timeout=timeout)
+
+    status = result["status"]
+    if status == "working":
+        print(f"\nSUCCESS: {result['detail']}")
+        return 0
+    elif status == "timeout":
+        print(f"\nTIMEOUT: {result['detail']}")
+        return 1
+    else:
+        print(f"\nERROR: {result['detail']}")
+        return 1
+
+
+def cmd_alerts(args: argparse.Namespace) -> int:
+    """Show pending and recent alerts."""
+    from core.alerts.sender import AlertSender
+    from core.agents.link_test import check_delivery_health
+
+    data_dir = _data_dir()
+    sender = AlertSender(data_dir=data_dir)
+
+    # Delivery health
+    health = check_delivery_health(data_dir=data_dir)
+    print(f"Delivery: {health['status']} — {health['detail']}")
+    print()
+
+    # Pending alerts
+    pending = sender.get_pending()
+    if pending:
+        print(f"Pending alerts ({len(pending)}):")
+        for a in pending:
+            sev = a.get("severity", "?").upper()
+            msg = a.get("message", "?")
+            ts = a.get("timestamp", "?")
+            print(f"  [{sev}] {msg}  ({ts})")
+        print()
+
+    # Recent alerts (last 20)
+    recent = sender.get_all(limit=20)
+    delivered = [a for a in recent if a.get("delivered")]
+    if delivered:
+        print(f"Recently delivered ({len(delivered)}):")
+        for a in delivered[-10:]:
+            sev = a.get("severity", "?").upper()
+            msg = a.get("message", "?")
+            ts = a.get("timestamp", "?")
+            print(f"  [{sev}] {msg}  ({ts})")
+    elif not pending:
+        print("No alerts.")
+
+    return 0
+
+
 def cmd_resources(args: argparse.Namespace) -> int:
     """Show current resource usage and 24h summary."""
     from core.observe.resource_monitor import ResourceMonitor
@@ -568,6 +653,20 @@ def build_parser() -> argparse.ArgumentParser:
     setup_ct_parser.add_argument("--provider", default="groq",
                                  help="LLM provider (default: groq)")
 
+    gen_plugin_parser = sub.add_parser("generate-agent-plugin",
+                                        help="Generate agent inbox watcher plugin")
+    gen_plugin_parser.add_argument("--agent", default="generic",
+                                    help="Agent type (e.g. chaguli)")
+    gen_plugin_parser.add_argument("--output", default="./agentharness-plugin",
+                                    help="Output directory for plugin files")
+
+    test_link_parser = sub.add_parser("test-agent-link",
+                                       help="Test that the agent is reading the inbox")
+    test_link_parser.add_argument("--timeout", type=int, default=120,
+                                   help="Seconds to wait for delivery (default: 120)")
+
+    sub.add_parser("alerts", help="Show pending and recent alerts")
+
     return parser
 
 
@@ -596,6 +695,9 @@ def main() -> None:
         "validate": cmd_validate,
         "troubleshoot": cmd_troubleshoot,
         "setup-coding-tool": cmd_setup_coding_tool,
+        "generate-agent-plugin": cmd_generate_agent_plugin,
+        "test-agent-link": cmd_test_agent_link,
+        "alerts": cmd_alerts,
     }
 
     if args.command == "bundle":
