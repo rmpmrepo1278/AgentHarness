@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  file-mcp:
+    build: ${BUILD_DIR:-/home/rohit/agentharness/file-mcp}
+    container_name: file-mcp
+    network_mode: host
+    volumes:
+      - /mnt/usb:/mnt/usb:rw
+      - /home/rohit/openclaw/data:/home/rohit/openclaw/data:rw
+      - /opt:/opt:rw
+      - /home/rohit/agentharness/mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8097
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+    restart: unless-stopped

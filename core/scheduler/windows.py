@@ -76,6 +76,12 @@ def parse_frequency(freq_str: str) -> int:
     """
     if freq_str == "daily":
         return 86400
+    if freq_str == "weekly":
+        return 604800
+    if freq_str == "monthly":
+        return 2592000
+    if freq_str == "on_boot":
+        return 0
 
     match = re.fullmatch(r"(\d+)([smhd])", freq_str)
     if match:

@@ -11,6 +11,18 @@ source "${SCRIPT_DIR}/common.sh"
 
 BENCHMARK_RESULTS="${AH_DATA_DIR}/benchmark_results.json"
 BEST_CONFIG="${AH_DATA_DIR}/best_config.env"
+BENCH_TEST_PORT=8090
+_BENCH_SERVER_PIDS=()
+
+# Kill any orphaned benchmark servers from previous interrupted runs
+cleanup_bench_servers() {
+    for pid in "${_BENCH_SERVER_PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+    # Also kill anything left on the benchmark port
+    fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+}
+trap cleanup_bench_servers EXIT INT TERM
 
 # Test prompts for different capabilities
 TOOL_CALL_PROMPT='You have access to a function called check_container(name: str) -> str. The user asks: "Is jellyfin running?" Call the appropriate function.'
@@ -71,29 +83,58 @@ run_throughput_bench() {
     local model_name="$3"
     local engine_name="$4"
 
-    log_info "Benchmarking throughput: ${model_name} on ${engine_name}..."
+    log_info "Benchmarking throughput: ${model_name} on ${engine_name}..." >&2
+
+    # Scale bench params by model size — large models on CPU are slow
+    local model_size_mb pp_tokens n_tokens reps
+    model_size_mb=$(( $(stat -c%s "${model_path}" 2>/dev/null || echo 0) / 1048576 ))
+    if [ "${model_size_mb}" -gt 8000 ]; then
+        # Large models (>8GB): lighter bench to finish in reasonable time
+        pp_tokens=128; n_tokens=64; reps=1
+        log_info "Large model (${model_size_mb}MB) — using lighter bench params (pp${pp_tokens}/tg${n_tokens}/r${reps})" >&2
+    else
+        pp_tokens=512; n_tokens=128; reps=1
+    fi
 
     local output
     output=$("${engine_bin}" \
         -m "${model_path}" \
         -t "${CPU_CORES:-8}" \
-        -p 512 -n 128 \
-        -r 3 \
-        2>&1) || {
-        log_warn "Throughput benchmark failed for ${model_name} on ${engine_name}"
+        -p "${pp_tokens}" -n "${n_tokens}" \
+        -r "${reps}" \
+        2>&1)
+    local bench_exit=$?
+
+    # Always save raw output for troubleshooting
+    echo "${output}" > "${AH_DATA_DIR}/bench_raw_${model_name}_${engine_name}.txt"
+
+    if [ "${bench_exit}" -ne 0 ]; then
+        log_warn "Throughput benchmark failed (exit ${bench_exit}) for ${model_name} on ${engine_name}" >&2
+        log_warn "Raw output saved to ${AH_DATA_DIR}/bench_raw_${model_name}_${engine_name}.txt" >&2
         echo "FAILED"
         return
-    }
+    fi
 
     # Parse llama-bench output — extract pp (prompt processing) and tg (token generation) speeds
+    # llama-bench output is typically a markdown table or CSV with columns like:
+    #   model | size | ... | test | t/s
+    # where test is "pp512" or "tg128" and t/s is the speed
     local pp_speed tg_speed
-    pp_speed=$(echo "${output}" | grep -oP 'pp512[^\d]*\K[\d.]+' | tail -1 || echo "0")
-    tg_speed=$(echo "${output}" | grep -oP 'tg128[^\d]*\K[\d.]+' | tail -1 || echo "0")
 
-    # Fallback: try alternate parsing
-    if [ "${pp_speed}" = "0" ] || [ "${tg_speed}" = "0" ]; then
-        pp_speed=$(echo "${output}" | awk '/pp/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+$/) {print $i; exit}}' || echo "0")
-        tg_speed=$(echo "${output}" | awk '/tg/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+$/) {print $i; exit}}' || echo "0")
+    # llama-bench outputs a markdown table like:
+    #   | model | size | params | backend | threads | test | t/s |
+    #   | ...   | ...  | ...    | ...     |       8 | pp512 | 74.40 ± 2.38 |
+    # The t/s column has "VALUE ± STDEV". We want VALUE (before ±).
+    # Use awk to split on | and grab the t/s column (last data column).
+    pp_speed=$(echo "${output}" | awk -F'|' '/pp[0-9]/{gsub(/[± ].*/,"",$NF); for(i=NF;i>=1;i--) if($i ~ /[0-9]+\.[0-9]+/) {gsub(/^ +| +$/,"",$i); split($i,a," "); print a[1]; exit}}' || echo "")
+    tg_speed=$(echo "${output}" | awk -F'|' '/tg[0-9]/{gsub(/[± ].*/,"",$NF); for(i=NF;i>=1;i--) if($i ~ /[0-9]+\.[0-9]+/) {gsub(/^ +| +$/,"",$i); split($i,a," "); print a[1]; exit}}' || echo "")
+
+    # Final fallback: if still empty, set to 0
+    pp_speed="${pp_speed:-0}"
+    tg_speed="${tg_speed:-0}"
+
+    if [ "${pp_speed}" = "0" ] && [ "${tg_speed}" = "0" ]; then
+        log_warn "Could not parse throughput numbers. Raw output saved to ${AH_DATA_DIR}/bench_raw_${model_name}_${engine_name}.txt" >&2
     fi
 
     echo "${pp_speed}|${tg_speed}"
@@ -106,7 +147,7 @@ run_quality_bench() {
     local server_url="$1"
     local model_name="$2"
 
-    log_info "Benchmarking quality: ${model_name}..."
+    log_info "Benchmarking quality: ${model_name}..." >&2
 
     local scores=()
 
@@ -202,7 +243,7 @@ measure_interactive_speed() {
     local server_url="$1"
     local prompt="List 3 Docker best practices. Be brief."
 
-    log_info "Measuring interactive response speed..."
+    log_info "Measuring interactive response speed..." >&2
 
     local start_ms
     start_ms=$(date +%s%N)
@@ -249,31 +290,58 @@ start_temp_server() {
     fuser -k "${port}/tcp" 2>/dev/null || true
     sleep 1
 
-    "${engine_bin}" \
-        --model "${model_path}" \
-        --threads "${CPU_CORES:-8}" \
-        --numa distribute \
-        --mlock \
-        --ctx-size 4096 \
-        --host 127.0.0.1 \
-        --port "${port}" \
-        &>/dev/null &
+    # Build server args — only add flags the hardware actually supports
+    local server_args=(
+        --model "${model_path}"
+        --threads "${CPU_CORES:-8}"
+        --ctx-size 4096
+        --host 127.0.0.1
+        --port "${port}"
+    )
+
+    # Only use --numa if the system has multiple NUMA nodes
+    local numa_nodes
+    numa_nodes=$(lscpu 2>/dev/null | awk '/NUMA node\(s\):/{print $NF}')
+    if [ "${numa_nodes:-1}" -gt 1 ]; then
+        server_args+=(--numa distribute)
+    fi
+
+    # Only use --mlock if the model fits comfortably in RAM (leave 2GB headroom)
+    local model_size_mb avail_mb
+    model_size_mb=$(( $(stat -c%s "${model_path}" 2>/dev/null || echo 0) / 1048576 ))
+    avail_mb=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
+    if [ "${model_size_mb}" -gt 0 ] && [ "${avail_mb}" -gt $(( model_size_mb + 2048 )) ]; then
+        server_args+=(--mlock)
+    else
+        log_info "Skipping --mlock (model ${model_size_mb}MB, available ${avail_mb}MB)" >&2
+    fi
+
+    # Log server stderr so failures are visible
+    local server_log="${AH_DATA_DIR}/bench_server.log"
+    "${engine_bin}" "${server_args[@]}" >"${server_log}" 2>&1 &
 
     local server_pid=$!
+    _BENCH_SERVER_PIDS+=("${server_pid}")
     echo "${server_pid}"
 
-    # Wait for server to be ready
+    # Wait for server to be ready (check process is still alive too)
     local tries=0
     while ! curl -sf "http://127.0.0.1:${port}/health" &>/dev/null; do
+        if ! kill -0 "${server_pid}" 2>/dev/null; then
+            log_error "Server process died. Last 10 lines of log:" >&2
+            tail -10 "${server_log}" >&2
+            return 1
+        fi
         sleep 2
         ((tries++))
         if [ "${tries}" -gt 120 ]; then
-            log_error "Server failed to start within 4 minutes"
+            log_error "Server failed to start within 4 minutes" >&2
+            tail -10 "${server_log}" >&2
             kill "${server_pid}" 2>/dev/null || true
             return 1
         fi
     done
-    log_ok "Server ready on port ${port} (PID ${server_pid})"
+    log_ok "Server ready on port ${port} (PID ${server_pid})" >&2
 }
 
 # -----------------------------------------------------------------------------
@@ -282,28 +350,36 @@ start_temp_server() {
 run_all_benchmarks() {
     log_header "Running Full Benchmark Suite"
 
-    # Load model catalog
-    if [ ! -f "${AH_DATA_DIR}/model_catalog.json" ]; then
-        log_error "Model catalog not found. Run download_models.sh first."
-        return 1
-    fi
+    # Kill any orphaned servers from previous interrupted benchmark runs
+    fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+    sleep 1
 
     # Load hardware profile
     if [ -f "${AH_DATA_DIR}/hw_profile.env" ]; then
         source "${AH_DATA_DIR}/hw_profile.env"
     else
-        CPU_CORES=$(nproc)
+        CPU_CORES=$(nproc 2>/dev/null || echo 8)
     fi
 
-    # Get list of models and engines
-    local models
-    models=$(python3 -c "
-import json
-catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
-for m in catalog:
-    if 'draft' not in m['name']:
-        print(f\"{m['name']}|{m['gguf_path']}|{m['type']}\")
-" 2>/dev/null)
+    # Discover models dynamically from disk — no stale catalog needed
+    local model_dir="${AH_MODEL_DIR:-/home/rohit/models}"
+    local models=""
+    for gguf in "${model_dir}"/*.gguf; do
+        [ -f "$gguf" ] || continue
+        local name
+        name="$(basename "$gguf")"
+        # Skip draft/speculative decoding models
+        echo "$name" | grep -qi 'draft' && continue
+        [ -n "$models" ] && models+=$'\n'
+        models+="${name}|${gguf}|chat"
+    done
+
+    if [ -z "$models" ]; then
+        log_error "No .gguf models found in ${model_dir}"
+        return 1
+    fi
+
+    log_info "Found $(echo "$models" | wc -l) model(s) in ${model_dir}"
 
     local engines=()
     if command -v ik-llama-bench &>/dev/null; then
@@ -321,7 +397,7 @@ for m in catalog:
     # Results array
     local results_json="["
     local first_result=true
-    local test_port=8090
+    local test_port="${BENCH_TEST_PORT}"
 
     while IFS='|' read -r model_name model_path model_type; do
         for engine_entry in "${engines[@]}"; do
@@ -329,11 +405,24 @@ for m in catalog:
 
             log_header "Testing: ${model_name} on ${engine_name}"
 
+            # Skip models that don't exist on disk
+            if [ ! -f "${model_path}" ]; then
+                log_warn "Model file not found: ${model_path} — skipping"
+                continue
+            fi
+
+
             # 1. Throughput benchmark (doesn't need server)
             local throughput
             throughput=$(run_throughput_bench "${bench_bin}" "${model_path}" "${model_name}" "${engine_name}")
             local pp_speed tg_speed
-            IFS='|' read -r pp_speed tg_speed <<< "${throughput}"
+            if [ "${throughput}" = "FAILED" ]; then
+                pp_speed="0"; tg_speed="0"
+            else
+                IFS='|' read -r pp_speed tg_speed <<< "${throughput}"
+            fi
+            pp_speed="${pp_speed:-0}"
+            tg_speed="${tg_speed:-0}"
 
             # 2. Start temp server for quality + interactive tests
             local quality_total="0" quality_detail="skipped" interactive_ms="0" interactive_tps="0"
@@ -365,9 +454,9 @@ for m in catalog:
             # Speed: 40%, Quality: 40%, Interactive: 20%
             local composite
             composite=$(python3 -c "
-tg = float('${tg_speed}') if '${tg_speed}' != 'FAILED' else 0
-quality = int('${quality_total}')
-interactive_tps = float('${interactive_tps}')
+tg = float('${tg_speed}' or '0') if '${tg_speed}' != 'FAILED' else 0
+quality = int('${quality_total}' or '0')
+interactive_tps = float('${interactive_tps}' or '0')
 
 # Normalize: tg_speed out of 20 tok/s max, quality out of 4, interactive out of 15 tok/s
 speed_norm = min(tg / 20.0, 1.0) * 10
@@ -393,11 +482,11 @@ print(f'{composite:.2f}')
     "engine": "${engine_name}",
     "pp_tok_s": ${pp_speed:-0},
     "tg_tok_s": ${tg_speed:-0},
-    "quality_score": ${quality_total},
+    "quality_score": ${quality_total:-0},
     "quality_detail": "${quality_detail}",
-    "interactive_ms": ${interactive_ms},
-    "interactive_tps": ${interactive_tps},
-    "composite_score": ${composite},
+    "interactive_ms": ${interactive_ms:-0},
+    "interactive_tps": ${interactive_tps:-0},
+    "composite_score": ${composite:-0},
     "tested_at": "$(date -Iseconds)"
   }
 ENTRY
@@ -425,7 +514,7 @@ generate_comparison_chart() {
 
     # ASCII chart
     python3 << 'PYSCRIPT'
-import json
+import json, os
 from datetime import datetime
 
 results = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/benchmark_results.json"))
@@ -460,7 +549,7 @@ PYSCRIPT
 
     # HTML report
     python3 << 'PYSCRIPT'
-import json
+import json, os
 from datetime import datetime
 
 results = json.load(open(os.environ.get("AH_DATA_DIR", "/opt/agentharness") + "/benchmark_results.json"))
@@ -526,14 +615,8 @@ auto_switch() {
         server_bin="llama-server"
     fi
 
-    model_path=$(python3 -c "
-import json
-catalog = json.load(open('${AH_DATA_DIR}/model_catalog.json'))
-for m in catalog:
-    if m['name'] == '${BEST_MODEL}':
-        print(m['gguf_path'])
-        break
-" 2>/dev/null)
+    local model_dir="${AH_MODEL_DIR:-/home/rohit/models}"
+    model_path="${model_dir}/${BEST_MODEL}"
 
     if [ -z "${model_path}" ]; then
         log_error "Could not find model path for ${BEST_MODEL}"

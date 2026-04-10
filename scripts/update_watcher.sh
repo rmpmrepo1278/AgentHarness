@@ -28,7 +28,7 @@ EOF
 
     # Get current container images and versions
     python3 << 'PYEOF' >> "${UPDATE_REPORT}"
-import json, subprocess, re
+import json, subprocess, re, os
 from datetime import datetime
 
 containers = {}

@@ -1,0 +1,186 @@
+version: "3.8"
+
+# Chaguli uses host networking, so these containers also use host networking
+# for direct communication. No bridge network needed.
+
+services:
+  mcp-gateway:
+    build: ./mcp-gateway
+    container_name: mcp-gateway
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./mcp-gateway/data:/data
+      - ./templates/docker:/templates/repo:ro
+      - ~/mcp-gateway/templates:/templates/local
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - GATEWAY_PORT=8096
+      - HEALTH_CHECK_INTERVAL=60
+      - CHAGULI_ALERTS_DIR=/data/alerts
+      - GATEWAY_STATE_FILE=/data/gateway_state.json
+      - GATEWAY_LOG_FILE=/data/gateway.log
+    restart: unless-stopped
+
+  docker-mcp:
+    build: ./docker-mcp
+    container_name: docker-mcp
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./templates/docker:/templates/repo:ro
+      - ~/mcp-gateway/templates:/templates/local
+      - ~/mcp-gateway/secrets:/secrets
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - mcp-stacks:/data/stacks
+    environment:
+      - MCP_PORT=8095
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - TEMPLATES_REPO_DIR=/templates/repo
+      - TEMPLATES_LOCAL_DIR=/templates/local
+      - SECRETS_DIR=/secrets
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  file-mcp:
+    build: ./file-mcp
+    container_name: file-mcp
+    network_mode: host
+    volumes:
+      - /mnt/usb:/mnt/usb:rw
+      - /home/rohit/openclaw/data:/home/rohit/openclaw/data:rw
+      - /opt:/opt:rw
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8097
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  n8n-mcp:
+    build: ./n8n-mcp
+    container_name: n8n-mcp
+    network_mode: host
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/openclaw/data/provider_keys.env:/data/.env:ro
+    environment:
+      - MCP_PORT=8098
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - N8N_URL=http://127.0.0.1:5678
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  paperless-mcp:
+    build: ./paperless-mcp
+    container_name: paperless-mcp
+    network_mode: host
+    volumes:
+      - /home/rohit/openclaw/data/paperless/consume:/consume:rw
+      - /mnt/usb:/mnt/usb:ro
+      - /home/rohit/openclaw/data:/home/rohit/openclaw/data:ro
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8099
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - PAPERLESS_URL=http://127.0.0.1:8000
+      - CONSUME_DIR=/consume
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  git-mcp:
+    build: ./git-mcp
+    container_name: git-mcp
+    network_mode: host
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8100
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - GITEA_URL=http://127.0.0.1:3001
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  media-mcp:
+    build: ./media-mcp
+    container_name: media-mcp
+    network_mode: host
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/openclaw/data/provider_keys.env:/data/.env:ro
+    environment:
+      - MCP_PORT=8101
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - SONARR_URL=http://127.0.0.1:8989
+      - RADARR_URL=http://127.0.0.1:7878
+      - LIDARR_URL=http://127.0.0.1:8686
+      - JELLYFIN_URL=http://127.0.0.1:8096
+      - QBIT_URL=http://127.0.0.1:8085
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  backup-mcp:
+    build: ./backup-mcp
+    container_name: backup-mcp
+    network_mode: host
+    volumes:
+      - /mnt/usb:/mnt/usb:rw
+      - /home/rohit/agentharness/scripts:/scripts:ro
+      - /home/rohit/agentharness/data:/data:rw
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8102
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - USB_MOUNT=/mnt/usb
+      - BACKUP_SCRIPT=/scripts/backup_volumes.sh
+      - REPORTS_DIR=/data/reports
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  network-mcp:
+    build: ./network-mcp
+    container_name: network-mcp
+    network_mode: host
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    environment:
+      - MCP_PORT=8103
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+      - HOST_IP=192.168.29.10
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+  rss-mcp:
+    build: ./rss-mcp
+    container_name: rss-mcp
+    network_mode: host
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - rss-data:/data
+    environment:
+      - MCP_PORT=8104
+      - GATEWAY_URL=http://127.0.0.1:8096
+      - MCP_BASE_DIR=/mcp-base
+    restart: unless-stopped
+    depends_on:
+      - mcp-gateway
+
+volumes:
+  mcp-stacks:
+  rss-data:

@@ -95,6 +95,9 @@ class StateManager:
             while True:
                 try:
                     fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    # Write PID so stale lock recovery can identify the holder
+                    lock_fd.write(str(os.getpid()))
+                    lock_fd.flush()
                     break
                 except (IOError, OSError):
                     if time.monotonic() >= deadline:
@@ -125,6 +128,10 @@ class StateManager:
                 try:
                     fcntl.flock(lock_fd, fcntl.LOCK_UN)
                     lock_fd.close()
+                except OSError:
+                    pass
+                try:
+                    os.unlink(str(self._lock_file))
                 except OSError:
                     pass
 

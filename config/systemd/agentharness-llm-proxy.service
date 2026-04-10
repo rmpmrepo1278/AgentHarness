@@ -1,0 +1,18 @@
+[Unit]
+Description=AgentHarness LLM Proxy — routes to best available provider
+After=network.target llama-primary.service
+Wants=llama-primary.service
+
+[Service]
+Type=simple
+User=rohit
+WorkingDirectory=/home/rohit/agentharness
+ExecStart=/home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data
+EnvironmentFile=-/home/rohit/agentharness/data/.env
+Environment=AH_DATA_DIR=/home/rohit/agentharness/data
+Environment=LOCAL_LLM_URL=http://localhost:8081
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -165,6 +165,44 @@ def run_command(command, timeout=300):
         return -1, "", str(e)
 
 
+def _should_suppress_alert(name, severity, state):
+    """Suppress repeated alerts for the same check within a cooldown period.
+
+    Rules:
+    - CRITICAL: suppress for 2 hours (no need to spam every 15 min)
+    - WARN: suppress for 1 hour
+    - Escalation (WARN -> CRITICAL): always send immediately
+    - Recovery (was alerting, now OK): not handled here (no alert generated)
+    """
+    alert_state = state.get(f"alert_{name}", {})
+    last_severity = alert_state.get("severity", "")
+    last_time = alert_state.get("time", "")
+
+    # Escalation always goes through
+    severity_rank = {"WARN": 1, "CRITICAL": 2}
+    if severity_rank.get(severity, 0) > severity_rank.get(last_severity, 0):
+        return False
+
+    if not last_time:
+        return False
+
+    try:
+        elapsed = datetime.now() - datetime.fromisoformat(last_time)
+    except (ValueError, TypeError):
+        return False
+
+    cooldown = timedelta(hours=2) if severity == "CRITICAL" else timedelta(hours=1)
+    return elapsed < cooldown
+
+
+def _record_alert(name, severity, state):
+    """Record that an alert was sent for cooldown tracking."""
+    state[f"alert_{name}"] = {
+        "severity": severity,
+        "time": datetime.now().isoformat(),
+    }
+
+
 def run_checks(window="any"):
     """Run all enabled checks for the current window."""
     registry = load_registry()
@@ -198,40 +236,50 @@ def run_checks(window="any"):
             message = message_template.replace("{value}", str(int(value)))
 
             if value >= critical:
-                alerts.append(("CRITICAL", message))
+                alerts.append((name, "CRITICAL", message))
             elif value >= warn:
-                alerts.append(("WARN", message))
+                alerts.append((name, "WARN", message))
 
         elif check_type == "http_probe":
             if code != 0 or "error" in stdout.lower():
                 message = message_template.replace("{value}", stderr or "unreachable")
-                alerts.append(("WARN", message))
+                alerts.append((name, "WARN", message))
 
         elif check_type == "command_output":
             if stdout:
                 message = message_template.replace("{value}", stdout[:200])
-                alerts.append(("WARN", message))
+                alerts.append((name, "WARN", message))
 
         elif check_type == "regex_match":
             expected = config.get("expected", "")
             if expected and not re.search(expected, stdout):
                 message = message_template.replace("{value}", stdout[:100])
-                alerts.append(("WARN", message))
+                alerts.append((name, "WARN", message))
 
         elif check_type == "command_exit":
             if code != 0:
                 message = message_template.replace("{value}", stderr[:200])
-                alerts.append(("WARN", message))
+                alerts.append((name, "WARN", message))
 
-    # Send alerts
-    for severity, message in alerts:
+    # Send alerts (with suppression for repeated identical alerts)
+    sent = 0
+    suppressed = 0
+    for check_name, severity, message in alerts:
+        if _should_suppress_alert(check_name, severity, state):
+            suppressed += 1
+            print(f"[{severity}] {message} (suppressed — cooldown active)")
+            continue
+
         subprocess.run(
             ["bash", f"{SCRIPTS_DIR}/alert.sh", severity, message],
             capture_output=True, timeout=30
         )
+        _record_alert(check_name, severity, state)
+        sent += 1
         print(f"[{severity}] {message}")
 
-    print(f"Ran {len(checks)} checks, {len(alerts)} alert(s)")
+    save_state(state)
+    print(f"Ran {len(checks)} checks, {sent} alert(s) sent, {suppressed} suppressed")
     return alerts
 
 

@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    ports:
+      - "${PORT:-8222}:80"
+    volumes:
+      - ${DATA_DIR:-/opt/vaultwarden}/data:/data
+    environment:
+      DOMAIN: "https://vaultwarden.${DOMAIN:-chagulihome.duckdns.org}"
+    restart: unless-stopped

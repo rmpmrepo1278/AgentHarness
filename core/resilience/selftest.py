@@ -137,7 +137,7 @@ def run_selftest(data_dir: str) -> Dict[str, Any]:
             pass
 
     # 2. reports_dir writable
-    reports_dir = state.get("reports_dir", "")
+    reports_dir = state.get("paths", {}).get("reports_dir", "") if isinstance(state.get("paths"), dict) else state.get("reports_dir", "")
     checks.append(
         _check(
             "reports_dir_writable",
@@ -147,7 +147,7 @@ def run_selftest(data_dir: str) -> Dict[str, Any]:
     )
 
     # 3. logs_dir writable
-    logs_dir = state.get("logs_dir", "")
+    logs_dir = state.get("paths", {}).get("logs_dir", "") if isinstance(state.get("paths"), dict) else state.get("logs_dir", "")
     checks.append(
         _check(
             "logs_dir_writable",

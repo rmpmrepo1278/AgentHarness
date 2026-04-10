@@ -61,7 +61,7 @@ class DiagnosticCollector:
         cb_state = safe_read_json(
             self.data_dir / "circuit_breaker.json", default={}
         )
-        open_circuits = [k for k, v in cb_state.items() if v.get("open")]
+        open_circuits = [k for k, v in cb_state.items() if isinstance(v, dict) and v.get("open")]
         if open_circuits:
             context["suppressed_checks"] = open_circuits
 

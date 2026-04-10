@@ -9,6 +9,16 @@ __pycache__/
 .env
 *.env.local
 
+# Runtime data
+data/
+venv/
+models
+*.gguf
+*.log
+*.lock
+.context/
+reports/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx
+    ports:
+      - "${PORT:-8010}:8000"
+    volumes:
+      - ${DATA_DIR:-/opt/paperless}/data:/usr/src/paperless/data
+      - ${DATA_DIR:-/opt/paperless}/media:/usr/src/paperless/media
+      - ${DATA_DIR:-/opt/paperless}/consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_SECRET_KEY: ${SECRET_KEY:-changeme}
+      PAPERLESS_URL: http://${HOST_IP:-192.168.29.10}:${PORT:-8010}
+      PAPERLESS_ADMIN_USER: ${ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+    restart: unless-stopped

@@ -1,31 +1,22 @@
 [Unit]
-Description=ik_llama.cpp Server - Primary Model
+Description=ik_llama.cpp Server - Primary Model (Gemma 4 26B-A4B)
 After=network.target
 Documentation=https://github.com/ikawrakow/ik_llama.cpp
 
 [Service]
 Type=simple
-User=root
-# __MODEL_PATH__ is replaced by install.sh with the actual best model path
+User=rohit
 ExecStart=/usr/local/bin/ik-llama-server \
-  --model __MODEL_PATH__ \
-  --threads __THREADS__ \
-  --numa distribute \
-  --mlock \
-  --ctx-size 8192 \
-  --ctk q8_0 --ctv q4_0 \
-  --batch-size 512 \
-  --ubatch-size 256 \
+  --model /home/rohit/models/gemma-4-26B-A4B-it-Q4_K_M.gguf \
+  --threads 8 \
+  --ctx-size 4096 \
+  --jinja \
   --host 0.0.0.0 \
-  --port 8080 \
+  --port 8081 \
   --metrics
 Restart=always
 RestartSec=10
 LimitMEMLOCK=infinity
-# Protect system
-ProtectSystem=strict
-ReadWritePaths=/opt/models /tmp
-NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
