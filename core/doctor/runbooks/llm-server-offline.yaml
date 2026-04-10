@@ -1,0 +1,64 @@
+name: llm-server-offline
+version: 1
+trigger: "health_check_fail:llm_server|health_check_fail:llm_local"
+priority: critical
+notify: critical
+description: >
+  Diagnose and recover LLM proxy (port 8080) and local LLM server (port 8081).
+  Restarts failed services, reads journalctl on persistent failure, and runs
+  an end-to-end inference test to confirm recovery.
+
+steps:
+  - name: check-llm-proxy
+    check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health"
+    expect_contains: "200"
+    on_fail:
+      - name: restart-llm-proxy
+        fix: "sudo systemctl restart agentharness-llm-proxy"
+        wait: 5
+      - name: verify-llm-proxy
+        check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health"
+        expect_contains: "200"
+        on_fail:
+          - name: read-proxy-logs
+            check: "journalctl -u agentharness-llm-proxy --no-pager -n 50 --since '5 min ago'"
+            interpret: llm
+            on_known:
+              "Address already in use": "runbook:service-wont-start"
+              "permission denied": "runbook:service-wont-start"
+            on_unknown:
+              escalate: true
+
+  - name: check-local-llm
+    check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/health"
+    expect_contains: "200"
+    on_fail:
+      - name: restart-local-llm
+        fix: "sudo systemctl restart llama-primary"
+        wait: 15
+      - name: verify-local-llm
+        check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/health"
+        expect_contains: "200"
+        on_fail:
+          - name: read-llm-logs
+            check: "journalctl -u llama-primary --no-pager -n 80 --since '5 min ago'"
+            interpret: llm
+            on_known:
+              "Address already in use": "runbook:service-wont-start"
+              "Out of memory": "escalate:OOM — local LLM killed by kernel. Check RAM usage and model size."
+              "OOM": "escalate:OOM — local LLM killed by kernel. Check RAM usage and model size."
+              "No such file": "runbook:service-wont-start"
+              "model not found": "escalate:Model file missing. Re-download or fix LLM_MODEL_PATH in service config."
+              "failed to load model": "escalate:Model file corrupt or incompatible. Re-download the GGUF."
+            on_unknown:
+              escalate: true
+
+  - name: end-to-end-inference-test
+    check: >
+      curl -sf -X POST http://127.0.0.1:8080/v1/chat/completions
+      -H 'Content-Type: application/json'
+      -d '{"model":"local","messages":[{"role":"user","content":"ping"}],"max_tokens":5}'
+      --max-time 30
+    expect_contains: "choices"
+    on_fail:
+      - escalate: "LLM services are up but end-to-end inference failed. Manual investigation needed."

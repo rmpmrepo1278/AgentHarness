@@ -1,0 +1,12 @@
+# AgentHarness Doctor — limited sudo for autonomous repair
+# Install: sudo cp config/sudoers.d/agentharness /etc/sudoers.d/agentharness && sudo chmod 440 /etc/sudoers.d/agentharness
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart llama-primary
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart llama-fast
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart agentharness-*
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl start llama-primary
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl start llama-fast
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl start agentharness-*
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop llama-primary
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop llama-fast
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop agentharness-*

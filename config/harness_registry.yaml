@@ -19,6 +19,7 @@ checks:
     critical: 90
     unit: "%"
     message: "Disk usage at {value}%"
+    runbook: disk-pressure
 
   swap_usage:
     enabled: true
@@ -54,6 +55,9 @@ checks:
     type: http_probe
     url: "http://localhost:8080/health"
     message: "Primary LLM server not responding"
+    priority: 1
+    runbook: llm-server-offline
+    restart_cmd: "sudo systemctl restart agentharness-llm-proxy"
 
   # --- Docker container checks ---
   # These are auto-generated from running containers but you can add specific ones:
@@ -68,6 +72,26 @@ checks:
     command: "docker ps -a --filter 'status=exited' --format '{{.Names}} {{.Status}}' | grep -v 'Exited (0)' | head -5"
     type: command_output
     message: "Crashed containers: {value}"
+    runbook: container-crashed
+
+  llm_local:
+    enabled: true
+    command: "curl -sf --max-time 5 http://localhost:8081/health"
+    type: http_probe
+    url: "http://localhost:8081/health"
+    message: "Local LLM engine not responding"
+    priority: 1
+    runbook: llm-server-offline
+    restart_cmd: "sudo systemctl restart llama-primary"
+
+  chaguli_container:
+    enabled: true
+    command: "docker inspect chaguli --format '{{.State.Status}}' 2>/dev/null | grep -q running"
+    type: command_exit
+    message: "Chaguli agent container is not running"
+    priority: 4
+    runbook: chaguli-down
+    restart_cmd: "docker restart chaguli"
 
   # --- Add your custom checks below ---
   # Example: Monitor Jellyfin transcoding queue

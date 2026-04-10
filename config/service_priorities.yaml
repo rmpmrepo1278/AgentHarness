@@ -1,0 +1,14 @@
+# Service priority list for RAM pressure decisions
+# Lower number = higher priority = last to be killed
+# Services not listed default to priority 10
+priorities:
+  1: llama-primary
+  2: agentharness-llm-proxy
+  3: agentharness-scheduler
+  4: chaguli
+  5: searxng
+  6: mcp-gateway
+  7: pihole
+  8: n8n
+  9: gitea
+  10: default

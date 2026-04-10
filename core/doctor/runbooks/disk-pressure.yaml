@@ -1,0 +1,48 @@
+name: disk-pressure
+version: 1
+trigger: "health_check_fail:disk_usage"
+priority: high
+notify: critical
+description: >
+  Free disk space on the 256GB SSD when usage exceeds threshold.
+  Prunes Docker artifacts, compresses old logs, and cleans Python caches.
+  Escalates if usage remains above 80% after cleanup.
+
+steps:
+  - name: check-disk-usage
+    check: "df -h / | awk 'NR==2 {print $5}'"
+    expect_regex: "^[0-7][0-9]?%$"
+    on_fail:
+      - name: report-current-usage
+        check: "df -h / && echo '---' && du -sh /var/log /tmp /home/rohit/.cache /var/lib/docker 2>/dev/null | sort -rh"
+        expect_exit_code: 0
+
+  - name: prune-docker-images
+    fix: "docker image prune -af --filter 'until=168h'"
+    wait: 5
+
+  - name: prune-docker-builder
+    fix: "docker builder prune -af"
+    wait: 3
+
+  - name: prune-docker-volumes
+    fix: "docker volume prune -f --filter 'dangling=true'"
+    wait: 3
+
+  - name: compress-old-logs
+    fix: "find /var/log -name '*.log' -mtime +3 -size +1M -exec gzip -q {} \\; 2>/dev/null; find /home/rohit -path '*/logs/*.log' -mtime +3 -size +1M -exec gzip -q {} \\; 2>/dev/null || true"
+    wait: 2
+
+  - name: clean-pycache
+    fix: "find /home/rohit -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null; find /home/rohit -name '*.pyc' -delete 2>/dev/null || true"
+    wait: 2
+
+  - name: clean-tmp
+    fix: "find /tmp -maxdepth 1 -user rohit -mtime +7 -exec rm -rf {} + 2>/dev/null || true"
+    wait: 1
+
+  - name: recheck-disk-usage
+    check: "df -h / | awk 'NR==2 {print $5}'"
+    expect_regex: "^[0-7][0-9]?%$"
+    on_fail:
+      - escalate: "Disk usage still above 80% after cleanup. Manual intervention needed — check large files with: du -ah / | sort -rh | head -20"

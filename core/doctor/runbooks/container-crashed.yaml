@@ -1,0 +1,42 @@
+name: container-crashed
+version: 1
+trigger: "health_check_fail:docker_crashed"
+priority: high
+notify: critical
+description: >
+  Detect exited Docker containers, restart them, and check for OOM kills (exit 137).
+  Escalates if containers refuse to stay up.
+
+steps:
+  - name: list-exited-containers
+    check: "docker ps -a --filter 'status=exited' --format '{{.Names}} (exit {{.Status}})'"
+    expect_contains: ""
+    # If output is empty, no exited containers — all good.
+    # If there are exited containers, proceed to fix.
+    on_fail:
+      - escalate: "Unexpected error listing containers."
+
+  - name: check-oom-kills
+    check: "docker ps -a --filter 'status=exited' --filter 'exited=137' --format '{{.Names}}'"
+    expect_contains: ""
+    on_fail:
+      - name: log-oom-warning
+        check: "echo 'OOM-killed containers detected. Restarting but may recur if RAM is tight.'"
+        expect_exit_code: 0
+
+  - name: restart-exited-containers
+    fix: "docker ps -a --filter 'status=exited' --format '{{.Names}}' | xargs -r docker restart"
+    wait: 10
+
+  - name: verify-no-exited
+    check: "docker ps -a --filter 'status=exited' --format '{{.Names}}'"
+    expect_contains: ""
+    on_fail:
+      - name: read-failing-logs
+        check: "docker ps -a --filter 'status=exited' --format '{{.Names}}' | head -3 | xargs -I{} docker logs --tail 30 {}"
+        interpret: llm
+        on_known:
+          "OOMKilled": "escalate:Containers keep getting OOM-killed. Reduce memory usage or add swap."
+          "port is already allocated": "escalate:Port conflict — another process holds the port. Check with ss -tlnp."
+        on_unknown:
+          escalate: true

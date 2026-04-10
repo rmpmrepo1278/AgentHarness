@@ -1,0 +1,40 @@
+name: service-wont-start
+version: 1
+trigger: manual
+priority: high
+notify: critical
+description: >
+  Generic diagnostic runbook for systemd services that refuse to start.
+  Chained from other runbooks. Reads journalctl, identifies known failure
+  patterns, and escalates with actionable context if the cause is unknown.
+
+steps:
+  - name: identify-failed-services
+    check: "systemctl list-units --state=failed --no-legend --no-pager"
+    expect_contains: ""
+    on_fail:
+      - name: read-failed-service-logs
+        check: "systemctl list-units --state=failed --no-legend --no-pager | awk '{print $1}' | head -3 | xargs -I{} sh -c 'echo \"=== {} ===\"; journalctl -u {} --no-pager -n 60 --since \"10 min ago\"'"
+        interpret: llm
+        on_known:
+          "Permission denied": "escalate:Service failed with permission denied. Check file ownership, SELinux/AppArmor, and sudoers config."
+          "permission denied": "escalate:Service failed with permission denied. Check file ownership, SELinux/AppArmor, and sudoers config."
+          "Address already in use": "escalate:Port conflict. Find the process holding the port with: ss -tlnp | grep <port>"
+          "address already in use": "escalate:Port conflict. Find the process holding the port with: ss -tlnp | grep <port>"
+          "No such file or directory": "escalate:Missing file or binary. Verify ExecStart path in the unit file and reinstall if needed."
+          "no such file": "escalate:Missing file or binary. Verify ExecStart path in the unit file and reinstall if needed."
+          "Failed to set up mount namespacing": "escalate:Systemd sandboxing conflict. Check ProtectSystem/PrivateTmp directives in the unit file."
+          "namespace": "escalate:Systemd namespace/sandbox error. Review sandboxing directives (ProtectSystem, PrivateTmp, etc.) in the unit file."
+          "sandbox": "escalate:Systemd sandbox error. Disable or adjust sandboxing directives in the unit file."
+        on_unknown:
+          escalate: true
+
+  - name: check-resource-exhaustion
+    check: "echo \"MEM: $(free -h | awk '/Mem:/{print $3\"/\"$2}') | DISK: $(df -h / | awk 'NR==2{print $5}') | PROCS: $(ps aux | wc -l)\""
+    expect_exit_code: 0
+    interpret: llm
+    on_known:
+      "100%": "runbook:disk-pressure"
+      "9[0-9]%": "runbook:disk-pressure"
+    on_unknown:
+      escalate: true
