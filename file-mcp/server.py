@@ -21,7 +21,7 @@ log = logging.getLogger("file-mcp")
 ALLOWED_ROOTS = [
     "/mnt/usb",
     "/data",
-    "/home/rohit/openclaw/data",
+    os.environ.get("OPENCLAW_DATA_DIR", "/home/rohit/openclaw/data"),
     "/opt",
 ]
 

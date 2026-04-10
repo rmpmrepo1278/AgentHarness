@@ -116,7 +116,7 @@ checks:
 
   filesystem_writable:
     enabled: true
-    command: "touch /home/rohit/agentharness/data/.write_test && rm -f /home/rohit/agentharness/data/.write_test"
+    command: "touch ${AH_DATA_DIR:-/home/rohit/agentharness/data}/.write_test && rm -f ${AH_DATA_DIR:-/home/rohit/agentharness/data}/.write_test"
     type: command_exit
     message: "Filesystem is read-only — data directory not writable"
     priority: 1

@@ -6,6 +6,7 @@ and creates an approval proposal with the suggested fix.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +67,7 @@ class AutoFixer:
             # Try local first
             try:
                 local = LlamaCppProvider(
-                    name="local", endpoint="http://localhost:8080"
+                    name="local", endpoint=os.environ.get("LOCAL_LLM_URL", "http://localhost:8080")
                 )
                 if local.is_available():
                     providers.append(local)

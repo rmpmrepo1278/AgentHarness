@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ PROVIDER_CONFIGS = {
         "api_key_env": "GROQ_API_KEY",
     },
     "local": {
-        "api_base": "http://localhost:8080/v1",
+        "api_base": os.environ.get("LLM_PRIMARY_URL", "http://localhost:8080") + "/v1",
         "model": "openai/local-model",
         "api_key_env": "",
     },

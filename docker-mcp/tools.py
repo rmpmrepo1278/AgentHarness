@@ -302,7 +302,7 @@ def _try_self_heal(stack_name: str, crash_looping: list, compose_yaml: str,
                 f.write(new_yaml)
             log.info("Self-heal: saved working compose as template: %s" % template_path)
 
-        host_ip = "192.168.29.10"
+        host_ip = os.environ.get("HOST_IP", "192.168.29.10")
         port = ""
         for p in service.get("ports", []):
             port = str(p).split(":")[0]
@@ -461,7 +461,7 @@ def deploy_stack(args: dict) -> dict:
             }
 
         port = variables.get("PORT", "")
-        host_ip = "192.168.29.10"
+        host_ip = os.environ.get("HOST_IP", "192.168.29.10")
         url = f"http://{host_ip}:{port}" if port else None
 
         return {
