@@ -17,6 +17,7 @@ ExecStart=/usr/local/bin/ik-llama-server \
 Restart=always
 RestartSec=10
 LimitMEMLOCK=infinity
+OOMScoreAdjust=-900
 
 [Install]
 WantedBy=multi-user.target

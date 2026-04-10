@@ -339,15 +339,22 @@ graph LR
 
 ## 7. Health Check Registry
 
-| Check | Type | What | Threshold |
-|-------|------|------|-----------|
-| disk_usage | threshold | `df /` | warn 80%, crit 90% |
-| ram_usage | threshold | `free` | warn 85%, crit 95% |
-| swap_usage | threshold | `free -m` | warn 500MB, crit 2000MB |
-| cpu_temperature | threshold | `sensors` | warn 80C, crit 90C |
-| llm_server | http_probe | `curl :8080/health` | — |
-| docker_unhealthy | command_output | `docker ps --filter health=unhealthy` | non-empty = alert |
-| docker_crashed | command_output | `docker ps -a --filter status=exited` | non-empty = alert |
+| Check | Type | What | Threshold | Auto-Heal Runbook |
+|-------|------|------|-----------|-------------------|
+| disk_usage | threshold | `df /` | warn 80%, crit 90% | disk-pressure |
+| ram_usage | threshold | `free` | warn 85%, crit 95% | — |
+| swap_usage | threshold | `free -m` | warn 500MB, crit 2000MB | — |
+| cpu_temperature | threshold | `sensors` | warn 80C, crit 90C | — |
+| llm_server | http_probe | `curl :8080/health` | — | llm-server-offline |
+| llm_local | http_probe | `curl :8081/health` | — | llm-server-offline |
+| docker_unhealthy | command_output | `docker ps --filter health=unhealthy` | non-empty = alert | — |
+| docker_crashed | command_output | `docker ps -a --filter status=exited` | non-empty = alert | container-crashed |
+| chaguli_container | command_exit | `docker inspect chaguli` | not running | chaguli-down |
+| network_health | command_exit | `ping 8.8.8.8` | unreachable | network-down |
+| backup_freshness | command_exit | recent files on /mnt/usb | none in 48h | backup-stale |
+| filesystem_writable | command_exit | touch test file | write fails | — (escalate) |
+| time_drift | command_exit | NTP sync check | >120s drift | — (escalate) |
+| disk_trend | command_exit | growth rate projection | full in <14 days | — (alert) |
 
 ## 8. Scheduled Harnesses
 
@@ -361,3 +368,97 @@ graph LR
 | trend_projections | offline | 6h | trend_projector.sh |
 | update_watcher | online | weekly | update_watcher.sh |
 | mcp_gateway | offline | 6h | mcp_gateway.sh |
+| daily_digest | online | daily (7-8am) | send_daily_digest.sh |
+
+## 9. Homelab Doctor — Self-Healing Engine
+
+```mermaid
+graph TB
+    subgraph Triggers["Failure Detection"]
+        Scheduler["Scheduler<br/>15-min ticks"]
+        DeadMan["Dead Man Switch<br/>cron */10"]
+        AutoHeal["docker-autoheal<br/>30s interval"]
+    end
+
+    subgraph Doctor["Doctor Engine"]
+        Engine["RunbookExecutor<br/>core/doctor/engine.py"]
+        Snapshot["SnapshotManager<br/>backup before fix"]
+        Cooldown["Cooldown Timers<br/>max 3 / 10 min"]
+        Runbooks["YAML Runbooks<br/>7 decision trees"]
+        LLMFallback["LLM Interpretation<br/>for unknown errors"]
+    end
+
+    subgraph Runbook_Files["Runbooks"]
+        RB1["llm-server-offline"]
+        RB2["container-crashed"]
+        RB3["disk-pressure"]
+        RB4["chaguli-down"]
+        RB5["service-wont-start"]
+        RB6["network-down"]
+        RB7["backup-stale"]
+    end
+
+    subgraph Notify["Notifications"]
+        Silent["Silent<br/>log only"]
+        FYI["FYI<br/>Chaguli inbox"]
+        Critical["Critical<br/>direct Telegram"]
+        Digest["Daily Digest<br/>8am summary"]
+    end
+
+    subgraph Hardening["Resilience Hardening"]
+        OOM["OOM Protection<br/>score adjust -900/-800/-700"]
+        WriteTest["Filesystem Write Test"]
+        NTP["NTP Drift Check"]
+        DiskTrend["Predictive Disk Alerts"]
+    end
+
+    Scheduler -->|check fails + has runbook| Engine
+    DeadMan -->|scheduler stale| Engine
+    AutoHeal -->|unhealthy container| Docker
+
+    Engine --> Snapshot
+    Engine --> Cooldown
+    Engine --> Runbooks
+    Engine -->|unknown output| LLMFallback
+
+    Runbooks --> RB1
+    Runbooks --> RB2
+    Runbooks --> RB3
+    Runbooks --> RB4
+    Runbooks --> RB5
+    Runbooks --> RB6
+    Runbooks --> RB7
+
+    Engine -->|fixed silently| Silent
+    Engine -->|fixed, worth knowing| FYI
+    Engine -->|failed to fix| Critical
+    FYI -->|batched| Digest
+```
+
+## 10. Resilience Layers
+
+```
+Layer 0 (no intelligence):  systemd Restart=always + docker-autoheal + dead man cron
+Layer 1 (rule-based):       YAML runbooks — deterministic decision trees
+Layer 2 (LLM-assisted):     Local LLM interprets unknown log output
+Layer 3 (human):             Telegram escalation when all else fails
+```
+
+| Layer | Handles | Dependencies | Can fail if |
+|-------|---------|-------------|-------------|
+| 0 | Process died | systemd, cron | Host kernel panic |
+| 1 | Known failures | Python, YAML | AgentHarness dead (Layer 0 restarts it) |
+| 2 | Unknown failures | LLM + Layer 1 | LLM dead (Layer 1 handles that) |
+| 3 | Everything else | Telegram + human | You're asleep (daily digest catches it) |
+
+## 11. CLI Tools
+
+| Command | What |
+|---------|------|
+| `python3 scripts/doctor_check.py` | Full status report (services, disk, RAM, runbooks) |
+| `python3 scripts/doctor_check.py --fix RUNBOOK` | Run a specific runbook |
+| `python3 scripts/doctor_check.py --json` | Machine-readable status |
+| `python3 scripts/show_logs.py SERVICE` | Show recent logs for any service |
+| `python3 scripts/disk_trend.py` | Record disk usage, predict growth |
+| `python3 -m core.doctor.engine RUNBOOK --dry-run` | Test runbook without executing |
+| `bash scripts/deadman_check.sh` | Check scheduler heartbeat (cron) |

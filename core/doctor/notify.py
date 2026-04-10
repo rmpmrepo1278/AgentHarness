@@ -76,6 +76,109 @@ class NotificationRouter:
         self._write_inbox(title, body, runbook)
         self._send_alert(title, body)
 
+    # -- daily digest ----------------------------------------------------------
+
+    def generate_digest(self) -> str | None:
+        """Read doctor_log.jsonl, filter last 24h, return formatted summary.
+
+        Returns None if there are no entries in the last 24 hours.
+        """
+        if not self.log_file.exists():
+            return None
+
+        cutoff = datetime.now(timezone.utc).timestamp() - 86400  # 24h ago
+
+        entries: list[dict] = []
+        for line in self.log_file.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ts_str = entry.get("timestamp", "")
+            try:
+                ts = datetime.fromisoformat(ts_str).timestamp()
+            except (ValueError, TypeError):
+                continue
+            if ts >= cutoff:
+                entries.append(entry)
+
+        if not entries:
+            return None
+
+        # Group by result keyword found in body/title
+        buckets: dict[str, list[dict]] = {
+            "fixed": [],
+            "escalated": [],
+            "failed": [],
+            "cooldown": [],
+            "other": [],
+        }
+        for entry in entries:
+            body_lower = (entry.get("body", "") + " " + entry.get("title", "")).lower()
+            placed = False
+            for key in ("fixed", "escalated", "failed", "cooldown"):
+                if key in body_lower:
+                    buckets[key].append(entry)
+                    placed = True
+                    break
+            if not placed:
+                buckets["other"].append(entry)
+
+        lines: list[str] = ["Homelab Doctor — Daily Digest", ""]
+
+        # Auto-healed
+        healed = buckets["fixed"]
+        if healed:
+            lines.append(f"Auto-healed ({len(healed)}):")
+            for e in healed:
+                lines.append(f"- {e['title']}: {e['body']}")
+            lines.append("")
+
+        # Needs attention (escalated + failed)
+        attention = buckets["escalated"] + buckets["failed"]
+        if attention:
+            lines.append(f"Needs attention ({len(attention)}):")
+            for e in attention:
+                lines.append(f"- {e['title']}: {e['body']}")
+            lines.append("")
+
+        # Cooldown
+        cool = buckets["cooldown"]
+        if cool:
+            lines.append(f"In cooldown ({len(cool)}):")
+            for e in cool:
+                lines.append(f"- {e['title']}: {e['body']}")
+            lines.append("")
+
+        # Other
+        other = buckets["other"]
+        if other:
+            lines.append(f"Other ({len(other)}):")
+            for e in other:
+                lines.append(f"- {e['title']}: {e['body']}")
+            lines.append("")
+
+        failure_count = len(attention)
+        if failure_count == 0:
+            lines.append("All quiet: 0 failures today")
+
+        return "\n".join(lines)
+
+    def send_digest(self) -> bool:
+        """Generate the daily digest and write it to the Chaguli inbox.
+
+        Returns True if a digest was sent, False if there was nothing to report.
+        """
+        digest = self.generate_digest()
+        if digest is None:
+            return False
+
+        self._write_inbox("Homelab Doctor — Daily Digest", digest, runbook=None)
+        return True
+
     # -- internal helpers ----------------------------------------------------
 
     def _append_log(

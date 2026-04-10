@@ -21,9 +21,14 @@ import yaml
 
 from core.doctor.notify import NotificationRouter
 from core.doctor.snapshot import SnapshotManager
+from core.resilience.atomic_json import atomic_write_json, safe_read_json
 from core.resilience.watchdog import recover_stale_lock
 
 log = logging.getLogger(__name__)
+
+# Cooldown settings: max attempts within a rolling window before blocking.
+_COOLDOWN_MAX_ATTEMPTS = 3
+_COOLDOWN_WINDOW_SECONDS = 600  # 10 minutes
 
 
 # ------------------------------------------------------------------
@@ -51,7 +56,7 @@ class RunbookResult:
     steps_executed: int
     steps_passed: int
     steps_failed: int
-    result: str  # "pass", "fail", "escalated"
+    result: str  # "pass", "fail", "escalated", "cooldown"
     fix_applied: bool
     snapshot_created: bool
     llm_used: bool
@@ -128,6 +133,11 @@ class RunbookExecutor:
         self._fix_applied = False
         self._snapshot_created = False
         self._llm_used = False
+
+        # --- Cooldown check (before lock acquisition) ---
+        cooldown_result = self._check_cooldown(runbook_name, start, trigger_context)
+        if cooldown_result is not None:
+            return cooldown_result
 
         rb_path = self._find_runbook(runbook_name)
         if rb_path is None:
@@ -249,6 +259,9 @@ class RunbookExecutor:
 
         # Log to doctor_log.jsonl
         self._log_result(rb_result)
+
+        # Record this attempt for cooldown tracking
+        self._record_cooldown_attempt(runbook_name)
 
         return rb_result
 
@@ -583,6 +596,74 @@ class RunbookExecutor:
         lock_file.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------
+    # Cooldown tracking
+    # ------------------------------------------------------------------
+
+    @property
+    def _cooldowns_path(self) -> Path:
+        return self.data_dir / "doctor_cooldowns.json"
+
+    def _check_cooldown(
+        self,
+        runbook_name: str,
+        start: float,
+        trigger_context: str | None,
+    ) -> RunbookResult | None:
+        """Return a cooldown RunbookResult if the runbook has been attempted
+        too many times recently, otherwise return None."""
+        now = time.time()
+        cooldowns = safe_read_json(self._cooldowns_path, default={})
+        entry = cooldowns.get(runbook_name, {})
+        attempts = entry.get("attempts", [])
+
+        # Keep only attempts within the rolling window
+        recent = [t for t in attempts if (now - t) < _COOLDOWN_WINDOW_SECONDS]
+
+        if len(recent) >= _COOLDOWN_MAX_ATTEMPTS:
+            log.warning(
+                "Runbook %s in cooldown — %d attempts in last 10 min",
+                runbook_name,
+                len(recent),
+            )
+            # Send critical notification for manual attention
+            title = f"Doctor: {runbook_name} [cooldown]"
+            body = (
+                f"Runbook {runbook_name} in cooldown — tried {len(recent)} times "
+                f"in 10 min, needs manual attention"
+            )
+            self.notifier.notify("critical", title, body, runbook=runbook_name)
+
+            return RunbookResult(
+                runbook=runbook_name,
+                trigger=trigger_context or "",
+                steps_executed=0,
+                steps_passed=0,
+                steps_failed=0,
+                result="cooldown",
+                fix_applied=False,
+                snapshot_created=False,
+                llm_used=False,
+                duration_seconds=time.monotonic() - start,
+                notify_level="critical",
+                step_results=[],
+            )
+        return None
+
+    def _record_cooldown_attempt(self, runbook_name: str) -> None:
+        """Append the current timestamp to the runbook's cooldown attempts."""
+        now = time.time()
+        cooldowns = safe_read_json(self._cooldowns_path, default={})
+        entry = cooldowns.get(runbook_name, {})
+        attempts = entry.get("attempts", [])
+
+        # Prune old attempts outside the window to keep the file small
+        attempts = [t for t in attempts if (now - t) < _COOLDOWN_WINDOW_SECONDS]
+        attempts.append(now)
+
+        cooldowns[runbook_name] = {"attempts": attempts}
+        atomic_write_json(self._cooldowns_path, cooldowns)
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
@@ -618,6 +699,20 @@ class RunbookExecutor:
         }
         with log_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
+
+
+# ------------------------------------------------------------------
+# Cooldown management
+# ------------------------------------------------------------------
+
+
+def reset_cooldown(data_dir: str, runbook_name: str) -> None:
+    """Clear cooldown state for a specific runbook so it can run again."""
+    cooldowns_path = Path(data_dir) / "doctor_cooldowns.json"
+    cooldowns = safe_read_json(cooldowns_path, default={})
+    cooldowns.pop(runbook_name, None)
+    atomic_write_json(cooldowns_path, cooldowns)
+    log.info("Cooldown reset for runbook: %s", runbook_name)
 
 
 # ------------------------------------------------------------------

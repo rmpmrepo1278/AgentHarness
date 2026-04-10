@@ -93,6 +93,40 @@ checks:
     runbook: chaguli-down
     restart_cmd: "docker restart chaguli"
 
+  backup_freshness:
+    enabled: true
+    command: "find /mnt/usb -name '*.tar.gz' -o -name '*.sql' -mtime -2 2>/dev/null | head -1 | grep -q ."
+    type: command_exit
+    message: "No recent backups found on USB drive"
+    runbook: backup-stale
+
+  disk_trend:
+    enabled: true
+    command: "python3 scripts/disk_trend.py"
+    type: command_exit
+    message: "Disk growth trend check"
+
+  network_health:
+    enabled: true
+    command: "ping -c1 -W3 8.8.8.8 >/dev/null 2>&1"
+    type: command_exit
+    message: "Network connectivity lost — cannot reach internet"
+    priority: 1
+    runbook: network-down
+
+  filesystem_writable:
+    enabled: true
+    command: "touch /home/rohit/agentharness/data/.write_test && rm -f /home/rohit/agentharness/data/.write_test"
+    type: command_exit
+    message: "Filesystem is read-only — data directory not writable"
+    priority: 1
+
+  time_drift:
+    enabled: true
+    command: "bash scripts/check_time_drift.sh"
+    type: command_exit
+    message: "System clock drift detected — NTP may be broken"
+
   # --- Add your custom checks below ---
   # Example: Monitor Jellyfin transcoding queue
   # jellyfin_transcode:
@@ -178,6 +212,14 @@ harnesses:
     window: offline
     frequency: "6h"
     description: "Discover MCP servers and generate bridge skills"
+
+  daily_digest:
+    enabled: true
+    script: "send_daily_digest.sh"
+    window: online
+    frequency: daily
+    time_window: "07:00-08:00"
+    description: "Send daily doctor activity digest to Chaguli"
 
   # --- Add your custom harnesses below ---
   # Example: Check for Immich face recognition updates

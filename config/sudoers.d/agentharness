@@ -10,3 +10,4 @@ rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl start agentharness-*
 rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop llama-primary
 rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop llama-fast
 rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop agentharness-*
+rohit ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart agentharness-scheduler

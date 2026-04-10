@@ -203,6 +203,51 @@ def _record_alert(name, severity, state):
     }
 
 
+def _try_runbook(check_name, check_config):
+    """Attempt to run a self-healing runbook before alerting.
+
+    Returns True if the runbook executed successfully and fixed the issue,
+    meaning the alert can be skipped (the runbook's own notification handles it).
+    """
+    runbook_name = check_config.get("runbook")
+    if not runbook_name:
+        return False
+
+    try:
+        # Lazy import — only needed when a runbook field is present
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from core.doctor.engine import RunbookExecutor
+
+        data_dir = os.environ.get(
+            "AH_DATA_DIR", os.path.expanduser("~/agentharness/data")
+        )
+        runbooks_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "core", "doctor", "runbooks",
+        )
+        alert_script = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "alert.sh"
+        )
+
+        executor = RunbookExecutor(
+            data_dir=data_dir,
+            runbooks_dir=runbooks_dir,
+            alert_script=alert_script,
+        )
+        result = executor.execute(runbook_name, trigger_context=check_name)
+
+        if result.result == "fixed":
+            print(f"[RUNBOOK] {check_name}: runbook '{runbook_name}' fixed the issue")
+            return True
+
+        print(f"[RUNBOOK] {check_name}: runbook '{runbook_name}' result={result.result}, fix_applied={result.fix_applied}")
+        return False
+
+    except Exception as exc:
+        print(f"[RUNBOOK] {check_name}: runbook '{runbook_name}' error: {exc}")
+        return False
+
+
 def run_checks(window="any"):
     """Run all enabled checks for the current window."""
     registry = load_registry()
@@ -264,7 +309,14 @@ def run_checks(window="any"):
     # Send alerts (with suppression for repeated identical alerts)
     sent = 0
     suppressed = 0
+    runbook_fixed = 0
     for check_name, severity, message in alerts:
+        # Try self-healing runbook before alerting
+        check_config = checks.get(check_name, {})
+        if _try_runbook(check_name, check_config):
+            runbook_fixed += 1
+            continue
+
         if _should_suppress_alert(check_name, severity, state):
             suppressed += 1
             print(f"[{severity}] {message} (suppressed — cooldown active)")
@@ -279,7 +331,7 @@ def run_checks(window="any"):
         print(f"[{severity}] {message}")
 
     save_state(state)
-    print(f"Ran {len(checks)} checks, {sent} alert(s) sent, {suppressed} suppressed")
+    print(f"Ran {len(checks)} checks, {sent} alert(s) sent, {suppressed} suppressed, {runbook_fixed} auto-fixed")
     return alerts
 
 

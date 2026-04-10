@@ -8,6 +8,7 @@ Type=simple
 ExecStart=/bin/bash -c 'while true; do /bin/bash "${AH_SCRIPTS_DIR}/scheduler.sh" >> "${AH_LOGS_DIR}/scheduler.log" 2>&1; sleep 900; done'
 Restart=on-failure
 RestartSec=30
+OOMScoreAdjust=-700
 StartLimitIntervalSec=600
 StartLimitBurst=5
 EnvironmentFile=-/etc/agentharness/env

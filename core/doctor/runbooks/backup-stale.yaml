@@ -1,0 +1,27 @@
+name: backup-stale
+version: 1
+trigger: on_schedule:weekly
+priority: medium
+notify: fyi
+description: Verify USB backup drive is mounted and backups are recent
+
+steps:
+  - name: Check USB mount
+    check: "mountpoint -q /mnt/usb"
+    on_fail:
+      - name: Try mounting USB
+        fix: "sudo mount /mnt/usb 2>/dev/null"
+      - name: Verify mount
+        check: "mountpoint -q /mnt/usb"
+        on_fail:
+          - escalate: "USB backup drive not mounted and mount failed"
+
+  - name: Check recent backups
+    check: "find /mnt/usb -name '*.tar.gz' -o -name '*.sql' -o -name '*.json' -mtime -2 | head -1"
+    expect_regex: "."
+    on_fail:
+      - escalate: "No backup files newer than 48 hours found on USB drive"
+
+  - name: Check backup size
+    check: "du -sh /mnt/usb/ | cut -f1"
+    expect_regex: "^[0-9]"

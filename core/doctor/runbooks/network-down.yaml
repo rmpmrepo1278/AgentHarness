@@ -1,0 +1,49 @@
+name: network-down
+version: 1
+trigger: "health_check_fail:network_health"
+priority: high
+notify: critical
+description: >
+  Diagnose and attempt to recover network connectivity.
+  Checks gateway reachability, interface state, and DNS resolution.
+  Escalates if all remediation fails (likely ISP outage).
+  Network down affects every external service — treat as P1.
+
+steps:
+  - name: ping-default-gateway
+    check: "ip route | grep default | awk '{print $3}' | head -1 | xargs ping -c1 -W3"
+    expect_exit_code: 0
+    on_fail:
+      - name: show-interface-state
+        check: "ip link show"
+        expect_exit_code: 0
+
+      - name: bring-interface-up
+        fix: "sudo ip link set $(ip route | grep default | awk '{print $5}' | head -1) up"
+        wait: 5
+
+      - name: recheck-gateway-after-link-up
+        check: "ip route | grep default | awk '{print $3}' | head -1 | xargs ping -c1 -W3"
+        expect_exit_code: 0
+        on_fail:
+          - escalate: "Default gateway unreachable even after bringing interface up. Likely a physical link or ISP issue — check cable and modem."
+
+  - name: check-dns-resolution
+    check: "dig +short google.com @1.1.1.1"
+    expect_exit_code: 0
+    on_fail:
+      - name: restart-systemd-resolved
+        fix: "sudo systemctl restart systemd-resolved"
+        wait: 5
+
+      - name: recheck-dns
+        check: "dig +short google.com @1.1.1.1"
+        expect_exit_code: 0
+        on_fail:
+          - escalate: "DNS resolution failing even after restarting systemd-resolved. Gateway is reachable but DNS is broken — check upstream DNS (1.1.1.1) or firewall rules."
+
+  - name: verify-internet-reachable
+    check: "ping -c1 -W3 8.8.8.8 >/dev/null 2>&1"
+    expect_exit_code: 0
+    on_fail:
+      - escalate: "Internet still unreachable after all remediation steps. Likely ISP outage — check status page or wait and retry."

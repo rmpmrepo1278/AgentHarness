@@ -13,6 +13,7 @@ Environment=AH_DATA_DIR=/home/rohit/agentharness/data
 Environment=LOCAL_LLM_URL=http://localhost:8081
 Restart=always
 RestartSec=10
+OOMScoreAdjust=-800
 
 [Install]
 WantedBy=multi-user.target

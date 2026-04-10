@@ -110,6 +110,19 @@ def create_proxy_app(data_dir: str = "") -> object:
         messages = body.get("messages", [])
         max_tokens = body.get("max_tokens", 1024)
         temperature = body.get("temperature", 0.7)
+        tools = body.get("tools")
+        tool_choice = body.get("tool_choice")
+
+        # If tools are present, use passthrough mode — forward the full
+        # OpenAI-compatible request directly to cloud providers that support
+        # tool calling.  The local LLM does not support tools, so it is
+        # excluded from the candidate list.
+        if tools:
+            return await _tool_call_passthrough(
+                body, messages, max_tokens, temperature, tools, tool_choice,
+            )
+
+        # --- Plain text completion (existing path) ---
 
         # Extract the user prompt
         prompt_parts = []
@@ -176,6 +189,120 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "latency_ms": elapsed_ms,
             },
         })
+
+    # -- Tool calling passthrough ------------------------------------------------
+    # Cloud providers that support OpenAI-compatible tool calling, in priority
+    # order.  Each entry is (provider_name, base_url, env_key_for_api_key, default_model).
+    _TOOL_PROVIDERS = [
+        ("groq", "https://api.groq.com/openai/v1/chat/completions",
+         "GROQ_API_KEY", "llama-3.3-70b-versatile"),
+        ("google", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+         "GOOGLE_API_KEY", "gemini-2.0-flash"),
+        ("cerebras", "https://api.cerebras.ai/v1/chat/completions",
+         "CEREBRAS_API_KEY", "llama-3.3-70b"),
+        ("sambanova", "https://api.sambanova.ai/v1/chat/completions",
+         "SAMBANOVA_API_KEY", "Meta-Llama-3.3-70B-Instruct"),
+        ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
+         "OPENROUTER_API_KEY", "meta-llama/llama-3.3-70b-instruct"),
+    ]
+
+    async def _tool_call_passthrough(
+        body: dict,
+        messages: list,
+        max_tokens: int,
+        temperature: float,
+        tools: list,
+        tool_choice: Any | None,
+    ) -> JSONResponse:
+        """Forward tool-calling requests directly to cloud providers.
+
+        The local LLM cannot handle tool schemas, so we iterate through
+        cloud providers that expose an OpenAI-compatible /chat/completions
+        endpoint, forwarding the full request body.  Budget tracking is
+        still applied.
+        """
+        import httpx
+
+        router = _get_router()
+        budget = _router_cache.get("budget")
+
+        for pname, url, env_key, default_model in _TOOL_PROVIDERS:
+            api_key = os.environ.get(env_key, "")
+            if not api_key:
+                continue
+
+            # Respect budget if the provider is registered in the router
+            provider_obj = router._providers_by_name.get(pname)
+            if provider_obj is not None:
+                if not provider_obj.is_available():
+                    log.info("Tool passthrough: skipping %s (unavailable)", pname)
+                    continue
+                bs = provider_obj.budget_status()
+                if bs.estimated_remaining is not None and bs.estimated_remaining <= 0:
+                    log.info("Tool passthrough: skipping %s (budget exhausted)", pname)
+                    continue
+
+            # Build the outgoing request — use the model from the body if
+            # provided, otherwise use the provider's default.
+            payload = {
+                "model": body.get("model") or default_model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "tools": tools,
+            }
+            if tool_choice is not None:
+                payload["tool_choice"] = tool_choice
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            start = time.monotonic()
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        url, json=payload, headers=headers, timeout=60.0,
+                    )
+            except httpx.HTTPError as exc:
+                log.warning("Tool passthrough: %s HTTP error: %s", pname, exc)
+                continue
+
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+
+            if resp.status_code == 429:
+                log.warning("Tool passthrough: %s rate limited (429)", pname)
+                continue
+            if resp.status_code not in (200, 201):
+                log.warning(
+                    "Tool passthrough: %s returned %d: %s",
+                    pname, resp.status_code, resp.text[:200],
+                )
+                continue
+
+            # Success — record usage and return the response as-is, with
+            # our timing metadata injected.
+            data = resp.json()
+            usage = data.get("usage", {})
+
+            if budget is not None:
+                budget.record_usage(
+                    pname,
+                    tokens_in=usage.get("prompt_tokens", 0),
+                    tokens_out=usage.get("completion_tokens", 0),
+                    success=True,
+                )
+
+            # Inject provider info so the caller knows who handled it
+            data["timings"] = {"provider": pname, "latency_ms": elapsed_ms}
+            return JSONResponse(data)
+
+        # All providers failed
+        return JSONResponse(
+            {"error": {"message": "No cloud provider available for tool calling"}},
+            status_code=503,
+        )
 
     return app
 

@@ -1,14 +1,17 @@
 """Tests for core.doctor.engine — RunbookExecutor."""
 from __future__ import annotations
 
+import json
 import os
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
 import yaml
 
-from core.doctor.engine import RunbookExecutor, StepResult, RunbookResult
+from core.doctor.engine import RunbookExecutor, StepResult, RunbookResult, reset_cooldown
+from core.resilience.atomic_json import atomic_write_json
 
 
 @pytest.fixture()
@@ -436,3 +439,104 @@ def test_wait_step(
     wait_step = next(s for s in result.step_results if s.name == "pause")
     assert wait_step.action == "wait"
     assert wait_step.success is True
+
+
+# ------------------------------------------------------------------
+# cooldown prevents execution after max attempts
+# ------------------------------------------------------------------
+
+
+def test_cooldown_prevents_execution(
+    executor: RunbookExecutor, runbooks_dir: Path, data_dir: Path,
+) -> None:
+    """After 3 recent attempts, the 4th execution returns result='cooldown'."""
+    _write_runbook(runbooks_dir, "cool-test", {
+        "name": "cool-test",
+        "version": 1,
+        "trigger": "test",
+        "notify": "silent",
+        "steps": [
+            {"name": "ok", "check": "echo ok"},
+        ],
+    })
+
+    # Seed the cooldown file with 3 recent timestamps
+    now = time.time()
+    cooldowns = {
+        "cool-test": {
+            "attempts": [now - 60, now - 30, now - 10],
+        },
+    }
+    atomic_write_json(data_dir / "doctor_cooldowns.json", cooldowns)
+
+    result = executor.execute("cool-test", trigger_context="unit-test")
+    assert result.result == "cooldown"
+    assert result.steps_executed == 0
+    assert result.notify_level == "critical"
+
+
+def test_cooldown_allows_after_window_expires(
+    executor: RunbookExecutor, runbooks_dir: Path, data_dir: Path,
+) -> None:
+    """Old attempts outside the 10-min window do not count."""
+    _write_runbook(runbooks_dir, "stale-cool", {
+        "name": "stale-cool",
+        "version": 1,
+        "trigger": "test",
+        "notify": "silent",
+        "steps": [
+            {"name": "ok", "check": "echo ok"},
+        ],
+    })
+
+    # All attempts are older than 10 minutes
+    now = time.time()
+    cooldowns = {
+        "stale-cool": {
+            "attempts": [now - 700, now - 800, now - 900],
+        },
+    }
+    atomic_write_json(data_dir / "doctor_cooldowns.json", cooldowns)
+
+    result = executor.execute("stale-cool")
+    assert result.result == "pass"
+
+
+def test_cooldown_records_attempts(
+    executor: RunbookExecutor, runbooks_dir: Path, data_dir: Path,
+) -> None:
+    """Each execution records a timestamp in the cooldowns file."""
+    _write_runbook(runbooks_dir, "record-test", {
+        "name": "record-test",
+        "version": 1,
+        "trigger": "test",
+        "notify": "silent",
+        "steps": [
+            {"name": "ok", "check": "echo ok"},
+        ],
+    })
+
+    executor.execute("record-test")
+    executor.execute("record-test")
+
+    cooldowns_path = data_dir / "doctor_cooldowns.json"
+    cooldowns = json.loads(cooldowns_path.read_text())
+    assert len(cooldowns["record-test"]["attempts"]) == 2
+
+
+def test_reset_cooldown(
+    data_dir: Path,
+) -> None:
+    """reset_cooldown clears the runbook entry from the cooldowns file."""
+    now = time.time()
+    cooldowns = {
+        "my-rb": {"attempts": [now - 10, now - 5, now - 1]},
+        "other-rb": {"attempts": [now - 2]},
+    }
+    atomic_write_json(data_dir / "doctor_cooldowns.json", cooldowns)
+
+    reset_cooldown(str(data_dir), "my-rb")
+
+    updated = json.loads((data_dir / "doctor_cooldowns.json").read_text())
+    assert "my-rb" not in updated
+    assert "other-rb" in updated
