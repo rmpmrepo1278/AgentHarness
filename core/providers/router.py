@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # Default routing order: complexity -> list of provider names in priority order.
 _DEFAULT_ROUTING: Dict[str, List[str]] = {
     Complexity.LOW.value: ["local_small"],
-    Complexity.MEDIUM.value: ["local_small", "groq", "google"],
-    Complexity.HIGH.value: ["groq", "google", "openrouter"],
-    Complexity.CRITICAL.value: ["google", "openrouter", "anthropic"],
+    Complexity.MEDIUM.value: ["google", "groq"],
+    Complexity.HIGH.value: ["google", "groq", "openrouter"],
+    Complexity.CRITICAL.value: ["google", "groq", "openrouter", "anthropic"],
 }
 
 

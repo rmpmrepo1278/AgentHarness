@@ -274,10 +274,10 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers=providers,
             budget=bt,
             routing={
-                "low": ["local", "cerebras", "google"],
-                "medium": ["local", "cerebras", "groq", "sambanova", "openrouter", "google"],
-                "high": ["groq", "cerebras", "sambanova", "openrouter", "ollama_cloud", "google", "local"],
-                "critical": ["groq", "cerebras", "sambanova", "google", "ollama_cloud", "openrouter", "local"],
+                "low": ["local"],
+                "medium": ["google", "groq", "cerebras", "sambanova", "openrouter"],
+                "high": ["google", "groq", "cerebras", "sambanova", "openrouter", "ollama_cloud"],
+                "critical": ["google", "groq", "cerebras", "sambanova", "ollama_cloud", "openrouter"],
             },
         )
         _router_cache["router"] = router
@@ -480,7 +480,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Determine complexity from prompt length and context
         from core.providers.base import Complexity, LLMRequest
         token_estimate = len(prompt.split())
-        if token_estimate < 20:
+        if token_estimate < 5:
             complexity = Complexity.LOW
         elif token_estimate < 100:
             complexity = Complexity.MEDIUM
@@ -548,10 +548,10 @@ def create_proxy_app(data_dir: str = "") -> object:
         "openrouter": "meta-llama/llama-3.3-70b-instruct",
     }
     _TOOL_PROVIDERS = [
-        ("groq", "https://api.groq.com/openai/v1/chat/completions",
-         "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
         ("google", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
          "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google"])),
+        ("groq", "https://api.groq.com/openai/v1/chat/completions",
+         "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
         ("cerebras", "https://api.cerebras.ai/v1/chat/completions",
          "CEREBRAS_API_KEY", os.environ.get("CEREBRAS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["cerebras"])),
         ("sambanova", "https://api.sambanova.ai/v1/chat/completions",
@@ -673,7 +673,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             try:
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
-                        url, json=payload, headers=headers, timeout=60.0,
+                        url, json=payload, headers=headers, timeout=10.0,
                     )
             except httpx.HTTPError as exc:
                 log.warning("Tool passthrough: %s HTTP error: %s", pname, exc)
@@ -753,7 +753,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                     f"{local_url}/v1/chat/completions",
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=120.0,  # local model is slower
+                    timeout=30.0,  # local Qwen 9B
                 )
             if resp.status_code in (200, 201):
                 elapsed_ms = int((time.monotonic() - start) * 1000)
