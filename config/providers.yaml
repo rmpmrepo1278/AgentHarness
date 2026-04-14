@@ -31,7 +31,7 @@ providers:
     type: google
     tier: cloud_paid
     api_key_env: GOOGLE_API_KEY
-    model: gemini-2.5-flash-lite
+    model: gemini-2.5-flash
     daily_limit: 500
     enabled: true
 
