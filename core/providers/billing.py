@@ -15,12 +15,13 @@ from core.resilience.atomic_json import atomic_write_json, safe_read_json
 
 logger = logging.getLogger(__name__)
 
-# Gemini 2.5 Flash-Lite pricing (USD per 1M tokens)
+# Gemini 2.5 Flash-Lite pricing (USD per 1M tokens, under 200K context)
+# https://ai.google.dev/gemini-api/docs/pricing
 PRICING = {
     "google": {
-        "input_per_1m": 0.10,
-        "output_per_1m": 0.40,
-        "thinking_input_per_1m": 0.25,
+        "input_per_1m": 0.02,
+        "output_per_1m": 0.10,
+        "thinking_input_per_1m": 0.04,
     },
 }
 
@@ -141,9 +142,9 @@ class BillingTracker:
                 "utilization_pct": round(month_total / monthly_budget_usd * 100, 1) if monthly_budget_usd > 0 else 0,
             },
             "pricing_reference": {
-                "google_gemini_2.5_flash": {
-                    "input_per_1m_tokens": "$0.10",
-                    "output_per_1m_tokens": "$0.40",
+                "google_gemini_2.5_flash_lite": {
+                    "input_per_1m_tokens": "$0.02",
+                    "output_per_1m_tokens": "$0.10",
                 }
             },
         }

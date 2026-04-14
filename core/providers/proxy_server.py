@@ -274,10 +274,10 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers=providers,
             budget=bt,
             routing={
-                "low": ["local", "google", "cerebras"],
-                "medium": ["local", "google", "cerebras", "openrouter"],
-                "high": ["groq", "google", "ollama_cloud", "sambanova", "local"],
-                "critical": ["groq", "google", "ollama_cloud", "cerebras", "sambanova", "openrouter", "local"],
+                "low": ["local", "cerebras", "google"],
+                "medium": ["local", "cerebras", "groq", "sambanova", "openrouter", "google"],
+                "high": ["groq", "cerebras", "sambanova", "openrouter", "ollama_cloud", "google", "local"],
+                "critical": ["groq", "cerebras", "sambanova", "google", "ollama_cloud", "openrouter", "local"],
             },
         )
         _router_cache["router"] = router
@@ -522,7 +522,7 @@ def create_proxy_app(data_dir: str = "") -> object:
     # This avoids hardcoding models that change with free-tier rotations.
     _TOOL_PROVIDER_DEFAULTS = {
         "groq": "llama-3.3-70b-versatile",
-        "google": "gemini-2.5-flash",
+        "google": "gemini-2.5-flash-lite",
         "cerebras": "qwen-3-235b-a22b-instruct-2507",
         "sambanova": "Meta-Llama-3.3-70B-Instruct",
         "openrouter": "meta-llama/llama-3.3-70b-instruct",
