@@ -127,6 +127,25 @@ checks:
     type: command_exit
     message: "System clock drift detected — NTP may be broken"
 
+
+  hermes_gateway:
+    enabled: true
+    command: "systemctl --user is-active hermes-gateway"
+    type: command_exit
+    message: "Hermes gateway (Telegram) is not running"
+    priority: 3
+    runbook: hermes-gateway-down
+    restart_cmd: "systemctl --user restart hermes-gateway"
+
+  mcp_gateway_health:
+    enabled: true
+    command: "curl -sf --max-time 5 http://localhost:8090/health"
+    type: http_probe
+    url: "http://localhost:8090/health"
+    message: "MCP gateway not responding"
+    priority: 2
+    restart_cmd: "docker restart mcp-gateway"
+
   # --- Add your custom checks below ---
   # Example: Monitor Jellyfin transcoding queue
   # jellyfin_transcode:

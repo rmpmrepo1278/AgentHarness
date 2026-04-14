@@ -413,10 +413,11 @@ class Troubleshooter:
         has_cerebras = bool(os.environ.get("CEREBRAS_API_KEY", ""))
         has_sambanova = bool(os.environ.get("SAMBANOVA_API_KEY", ""))
         has_google = bool(os.environ.get("GOOGLE_API_KEY", ""))
+        has_ollama_cloud = bool(os.environ.get("OLLAMA_API_KEY", ""))
 
         has_any_cloud = any([
             has_groq, has_anthropic, has_openrouter,
-            has_cerebras, has_sambanova, has_google,
+            has_cerebras, has_sambanova, has_google, has_ollama_cloud,
         ])
 
         # Check for local LLM servers in state

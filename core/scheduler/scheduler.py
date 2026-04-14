@@ -95,6 +95,30 @@ class Scheduler:
             else:
                 checks_failed += 1
                 self._cb.record_failure(name)
+                # Auto-heal: execute restart_cmd if defined
+                restart_cmd = check.get("restart_cmd", "")
+                if restart_cmd:
+                    logger.warning(
+                        "Check %s FAILED — attempting auto-heal: %s", name, restart_cmd
+                    )
+                    try:
+                        heal_result = subprocess.run(
+                            restart_cmd,
+                            shell=True,
+                            capture_output=True,
+                            text=True,
+                            timeout=60,
+                        )
+                        if heal_result.returncode == 0:
+                            logger.info("Auto-heal for %s succeeded", name)
+                        else:
+                            logger.error(
+                                "Auto-heal for %s failed (rc=%d): %s",
+                                name, heal_result.returncode,
+                                heal_result.stderr[:200],
+                            )
+                    except subprocess.TimeoutExpired:
+                        logger.error("Auto-heal for %s timed out", name)
 
         # 5. Run due harnesses (check window + frequency + last_run)
         sched_state = safe_read_json(self._sched_state_path, default={})

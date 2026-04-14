@@ -40,7 +40,7 @@ def register_mcp():
             resp = http_requests.post(
                 address,
                 json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
-                timeout=10,
+                timeout=120,
             )
             tools = resp.json().get("result", {}).get("tools", [])
         except Exception as e:
@@ -137,7 +137,7 @@ def main():
                     tresp = http_requests.post(
                         mcp["address"],
                         json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
-                        timeout=10,
+                        timeout=120,
                     )
                     tools = tresp.json().get("result", {}).get("tools", [])
                     if tools:

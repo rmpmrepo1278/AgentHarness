@@ -100,7 +100,7 @@ class OpenAICompatProvider(LLMProvider):
         )
 
     def is_available(self) -> bool:
-        return bool(self.api_key) and self._usage_today < self.daily_limit
+        return self._usage_today < self.daily_limit
 
     def budget_status(self) -> BudgetStatus:
         return BudgetStatus(

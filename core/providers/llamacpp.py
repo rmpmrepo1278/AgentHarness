@@ -17,7 +17,7 @@ class LlamaCppProvider(LLMProvider):
         name: str = "llamacpp",
         endpoint: str = "http://localhost:8080",
         model: str = "",
-        timeout: int = 120,
+        timeout: int = 15,
         **kwargs: Any,
     ) -> None:
         super().__init__(name=name, tier=1, model=model)

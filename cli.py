@@ -558,6 +558,85 @@ def cmd_alerts(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_llm_status(args: argparse.Namespace) -> int:
+    """Fetch LLM proxy status, format it, print to stdout, and send via alert."""
+    import urllib.request
+    import urllib.error
+    from core.alerts.sender import AlertSender
+
+    proxy_url = "http://localhost:8080/v1/status"
+    try:
+        with urllib.request.urlopen(proxy_url, timeout=5) as resp:
+            data = json.loads(resp.read())
+    except (urllib.error.URLError, OSError) as exc:
+        msg = f"Could not reach LLM proxy at {proxy_url}: {exc}"
+        print(msg, file=sys.stderr)
+        return 1
+
+    # Build formatted message
+    lines = ["📊 LLM Provider Status", ""]
+
+    providers = data.get("providers", {})
+    for name, info in providers.items():
+        ptype = info.get("type", "cloud")
+        if ptype == "local":
+            healthy = info.get("healthy", False)
+            model = info.get("model", "unknown")
+            # Shorten model name for display
+            short_model = model.split("-Q")[0] if "-Q" in model else model
+            icon = "✅" if healthy else "🔴"
+            state = "healthy" if healthy else "down"
+            lines.append(f"{name.title()}: {icon} {state} ({short_model})")
+        else:
+            status = info.get("status", "unknown")
+            model = info.get("model", "")
+            if status == "ready":
+                icon = "✅"
+                state = "ready"
+            elif status.startswith("rate_limited"):
+                icon = "⚠️"
+                state = status  # already includes "(Ns)"
+            elif status == "no_api_key":
+                icon = "🔴"
+                state = "no API key"
+            elif status == "disabled_402":
+                icon = "🔴"
+                state = "disabled"
+            else:
+                icon = "⚠️"
+                state = status
+            lines.append(f"{name.title()}: {icon} {state}")
+
+    # Usage summary
+    usage = data.get("usage_today", {})
+    total_requests = 0
+    total_tokens_in = 0
+    for prov_usage in usage.values():
+        total_requests += prov_usage.get("requests", 0)
+        total_tokens_in += prov_usage.get("tokens_in", 0)
+
+    # Format token count for readability
+    if total_tokens_in >= 1_000_000:
+        tok_str = f"{total_tokens_in / 1_000_000:.1f}M"
+    elif total_tokens_in >= 1_000:
+        tok_str = f"{total_tokens_in / 1_000:.0f}K"
+    else:
+        tok_str = str(total_tokens_in)
+
+    lines.append("")
+    lines.append(f"Today: {total_requests} requests | {tok_str} tokens in")
+
+    formatted = "\n".join(lines)
+    print(formatted)
+
+    # Send as info alert
+    data_dir = _data_dir()
+    sender = AlertSender(data_dir=data_dir)
+    sender.info(formatted, source="cli:llm-status")
+    print("\nAlert queued for delivery.")
+    return 0
+
+
 def cmd_resources(args: argparse.Namespace) -> int:
     """Show current resource usage and 24h summary."""
     from core.observe.resource_monitor import ResourceMonitor
@@ -666,6 +745,7 @@ def build_parser() -> argparse.ArgumentParser:
                                    help="Seconds to wait for delivery (default: 120)")
 
     sub.add_parser("alerts", help="Show pending and recent alerts")
+    sub.add_parser("llm-status", help="Show LLM provider status and send to Telegram")
 
     return parser
 
@@ -698,6 +778,7 @@ def main() -> None:
         "generate-agent-plugin": cmd_generate_agent_plugin,
         "test-agent-link": cmd_test_agent_link,
         "alerts": cmd_alerts,
+        "llm-status": cmd_llm_status,
     }
 
     if args.command == "bundle":

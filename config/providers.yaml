@@ -59,6 +59,15 @@ providers:
     daily_limit: 50
     enabled: true
 
+  ollama_cloud:
+    type: ollama_cloud
+    tier: cloud_free
+    api_key_env: OLLAMA_API_KEY
+    endpoint: https://ollama.com/v1/chat/completions
+    model: deepseek-v3.1:671b-cloud
+    daily_limit: 200
+    enabled: true
+
   openai:
     type: openai_compat
     tier: cloud_paid
@@ -79,8 +88,8 @@ providers:
 routing:
   low: [llamacpp_small, llamacpp_large]
   medium: [llamacpp_large, google, cerebras, openrouter]
-  high: [google, groq, sambanova, llamacpp_large]
-  critical: [groq, google, openai, anthropic, llamacpp_large]
+  high: [google, groq, ollama_cloud, sambanova, llamacpp_large]
+  critical: [groq, google, ollama_cloud, openai, anthropic, llamacpp_large]
 
 policies:
   - match: "backup|cleanup|disk"

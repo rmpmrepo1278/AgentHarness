@@ -14,7 +14,7 @@ class CerebrasProvider(OpenAICompatProvider):
             "name": "cerebras",
             "endpoint": "https://api.cerebras.ai/v1/chat/completions",
             "env_key": "CEREBRAS_API_KEY",
-            "model": "llama-3.3-70b",
+            "model": "qwen-3-235b-a22b-instruct-2507",
             "daily_limit": 1000,
         }
         defaults.update(kwargs)

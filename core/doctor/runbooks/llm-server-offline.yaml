@@ -62,3 +62,25 @@ steps:
     expect_contains: "choices"
     on_fail:
       - escalate: "LLM services are up but end-to-end inference failed. Manual investigation needed."
+
+  - name: streaming-inference-test
+    check: >
+      curl -sf -N -X POST http://127.0.0.1:8080/v1/chat/completions
+      -H 'Content-Type: application/json'
+      -d '{"model":"local","messages":[{"role":"user","content":"say hello"}],"max_tokens":10,"stream":true}'
+      --max-time 30
+    expect_contains: "data: [DONE]"
+    on_fail:
+      - name: check-streaming-for-503
+        check: >
+          curl -s -N -X POST http://127.0.0.1:8080/v1/chat/completions
+          -H 'Content-Type: application/json'
+          -d '{"model":"local","messages":[{"role":"user","content":"say hello"}],"max_tokens":10,"stream":true}'
+          --max-time 30
+        interpret: llm
+        on_known:
+          "503": "escalate:LLM proxy returns 503 wrapped in fake SSE stream. Backend is down but proxy masks it."
+          "502": "escalate:LLM proxy returns 502 in stream. Backend is unreachable."
+          "error": "escalate:LLM streaming returns error. Proxy may be masking backend failure in SSE format."
+        on_unknown:
+          escalate: true

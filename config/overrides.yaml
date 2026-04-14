@@ -1,0 +1,37 @@
+providers:
+  llamacpp_small:
+    type: llamacpp
+    tier: local
+    endpoint: http://localhost:8080/v1
+    model_hint: "9B"
+    enabled: true
+  llamacpp_large:
+    type: llamacpp
+    tier: local
+    endpoint: http://localhost:8081/v1
+    model_hint: "35B"
+    enabled: true
+  groq:
+    enabled: true
+  google:
+    enabled: true
+  cerebras:
+    enabled: true
+  sambanova:
+    enabled: true
+  openrouter:
+    enabled: false
+  openai:
+    enabled: false
+  anthropic:
+    enabled: false
+
+routing:
+  low: [gemini-2.0-flash-lite, llamacpp_small, groq, sambanova, cerebras]
+  medium: [gemini-2.0-flash-lite, llamacpp_small, llamacpp_large, groq, sambanova, cerebras]
+  high: [gemini-2.0-flash-lite, llamacpp_large, llamacpp_small, groq, sambanova, cerebras]
+  critical: [gemini-2.0-flash-lite, llamacpp_large, llamacpp_small, groq, sambanova, cerebras]
+
+policies:
+  - match: ".*"
+    force: gemini-2.0-flash-lite
