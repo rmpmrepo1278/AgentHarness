@@ -57,10 +57,19 @@ fi
 
 # --- Check LLM proxy (port 8080) ---
 if ! curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
-    log "LLM proxy not responding on :8080 — checking systemd..."
-    # Don't restart here — the scheduler's restart_cmd handles this with sudo
-    # Just log and alert
-    log "LLM proxy health check failed (scheduler will handle restart)"
+    log "LLM proxy not responding on :8080 — restarting..."
+    cd /home/rohit/agentharness && source data/.env
+    nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server \
+        --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data \
+        > /home/rohit/agentharness/logs/proxy.log 2>&1 &
+    sleep 3
+    if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
+        log "LLM proxy restarted successfully"
+        ((restarts++)) || true
+    else
+        log "LLM proxy restart FAILED"
+        send_alert "CRITICAL" "LLM proxy failed to restart on port 8080"
+    fi
 fi
 
 # --- Check MCP gateway (port 8090) ---
@@ -70,6 +79,33 @@ if ! curl -sf --max-time 5 http://localhost:8090/health &>/dev/null; then
         log "mcp-gateway is running but not responding — restarting..."
         docker restart mcp-gateway 2>/dev/null && log "mcp-gateway restarted" || log "mcp-gateway restart FAILED"
         ((restarts++)) || true
+    fi
+fi
+
+# --- Check local LLM server (port 8081) ---
+if ! curl -sf --max-time 10 http://localhost:8081/health &>/dev/null; then
+    log "Local LLM (llama-primary) not responding on :8081 — restarting..."
+    sudo -n systemctl restart llama-primary 2>/dev/null && {
+        sleep 5
+        if curl -sf --max-time 10 http://localhost:8081/health &>/dev/null; then
+            log "llama-primary restarted successfully"
+            ((restarts++)) || true
+        else
+            log "llama-primary restart did not recover health"
+            send_alert "CRITICAL" "Local LLM (llama-primary) failed to restart"
+        fi
+    } || log "llama-primary restart FAILED (sudo issue?)"
+fi
+
+# --- Check shared memory DB integrity ---
+SHARED_DB="/home/rohit/shared_agent_memory/shared_facts.db"
+if [ -f "${SHARED_DB}" ]; then
+    if ! sqlite3 "${SHARED_DB}" "SELECT count(*) FROM shared_facts;" &>/dev/null; then
+        log "Shared memory DB corrupted — attempting recovery..."
+        sqlite3 "${SHARED_DB}" "PRAGMA integrity_check;" 2>/dev/null || {
+            log "Shared memory DB integrity check FAILED"
+            send_alert "WARNING" "Shared agent memory DB may be corrupted"
+        }
     fi
 fi
 

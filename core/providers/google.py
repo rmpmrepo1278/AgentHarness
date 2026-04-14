@@ -16,7 +16,7 @@ class GoogleProvider(LLMProvider):
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-2.5-flash-lite",
         daily_limit: int = 1500,
         timeout: float = 30.0,
         **kwargs: Any,
