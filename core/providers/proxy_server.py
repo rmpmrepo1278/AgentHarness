@@ -383,6 +383,26 @@ def create_proxy_app(data_dir: str = "") -> object:
             "disabled": list(_disabled_providers),
         })
 
+    @app.get("/v1/billing")
+    def billing():
+        """Return billing report with cost tracking."""
+        budget = _router_cache.get("budget")
+        if budget is None:
+            return JSONResponse({"error": "Budget tracker not initialized"}, status_code=503)
+
+        try:
+            from core.providers.billing import BillingTracker
+            data_dir = os.environ.get("AH_DATA_DIR", "data")
+            bt = BillingTracker(data_dir)
+            # Sync from budget tracker
+            bt.update_from_budget(budget._data)
+            report = bt.get_billing_report()
+            return JSONResponse(report)
+        except ImportError:
+            return JSONResponse({"error": "Billing module not available"}, status_code=503)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
         """OpenAI-compatible chat completions — routed through AgentHarness."""

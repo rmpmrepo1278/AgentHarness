@@ -24,15 +24,15 @@ providers:
     tier: cloud_free
     api_key_env: GROQ_API_KEY
     model: llama-3.3-70b-versatile
-    daily_limit: 200
+    daily_limit: 1000
     enabled: true
 
   google:
     type: google
-    tier: cloud_free
+    tier: cloud_paid
     api_key_env: GOOGLE_API_KEY
     model: gemini-2.5-flash-lite
-    daily_limit: 1500
+    daily_limit: 100
     enabled: true
 
   cerebras:
@@ -48,7 +48,7 @@ providers:
     tier: cloud_free
     api_key_env: SAMBANOVA_API_KEY
     model: Meta-Llama-3.3-70B-Instruct
-    daily_limit: 500
+    daily_limit: 1000
     enabled: true
 
   openrouter:
@@ -56,7 +56,7 @@ providers:
     tier: cloud_free
     api_key_env: OPENROUTER_API_KEY
     model: meta-llama/llama-3.3-70b-instruct:free
-    daily_limit: 50
+    daily_limit: 200
     enabled: true
 
   ollama_cloud:
