@@ -109,6 +109,9 @@ def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
             return data
         if not text:
             return data
+        # Skip if footer already present (prevents double-footer on multi-turn)
+        if '<sub>via ' in text:
+            return data
         display_model = model or data.get("model", provider)
         if "/" in display_model:
             display_model = display_model.split("/")[-1]
