@@ -110,14 +110,14 @@ def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
         if not text:
             return data
         # Skip if footer already present (prevents double-footer on multi-turn)
-        if '<sub>via ' in text:
+        if '— via ' in text:
             return data
         display_model = model or data.get("model", provider)
         if "/" in display_model:
             display_model = display_model.split("/")[-1]
         if len(display_model) > 40:
             display_model = display_model[:37] + "..."
-        footer = f"\n\n<i><sub>via {provider} \u00b7 {display_model}</sub></i>"
+        footer = f"\n\n— via {provider} · {display_model}"
         msg["content"] = text + footer
         choices[0]["message"] = msg
         data["choices"] = choices
