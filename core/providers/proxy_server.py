@@ -471,6 +471,11 @@ def create_proxy_app(data_dir: str = "") -> object:
         for msg in messages:
             role = msg.get("role", "")
             content = msg.get("content", "")
+            # Strip model footers from history
+            if content and '— via ' in content:
+                content = content.rsplit('
+
+— via ', 1)[0]
             if role == "system":
                 system_prompt = content
             elif role == "user":
@@ -612,7 +617,15 @@ def create_proxy_app(data_dir: str = "") -> object:
             "command, search the web). If the user is just chatting, reply "
             "with text — do NOT call any tools."
         )
-        patched_messages = list(messages)
+        # Strip model footers from message history to prevent accumulation
+        patched_messages = []
+        for _msg in messages:
+            _m = dict(_msg)
+            if _m.get('content') and isinstance(_m['content'], str) and '— via ' in _m['content']:
+                _m['content'] = _m['content'].rsplit('
+
+— via ', 1)[0]
+            patched_messages.append(_m)
         if patched_messages and patched_messages[0].get("role") == "system":
             patched_messages[0] = {
                 **patched_messages[0],
