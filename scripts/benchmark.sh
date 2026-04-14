@@ -165,7 +165,16 @@ JSONEOF
 )" 2>/dev/null) || tool_response=""
 
     local tool_score=0
-    if echo "${tool_response}" | grep -qi "check_container\|jellyfin"; then
+    local tool_content
+    tool_content=$(echo "${tool_response}" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d['choices'][0]['message']['content'])
+except:
+    print('')
+" 2>/dev/null || echo "")
+    if echo "${tool_content}" | grep -qi 'check_container\|jellyfin\|function_call\|tool_call'; then
         tool_score=1
     fi
     scores+=("tool:${tool_score}")
@@ -184,7 +193,16 @@ JSONEOF
 )" 2>/dev/null) || reason_response=""
 
     local reason_score=0
-    if echo "${reason_response}" | grep -qi "disk\|space\|full\|storage\|no space"; then
+    local reason_content
+    reason_content=$(echo "${reason_response}" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d['choices'][0]['message']['content'])
+except:
+    print('')
+" 2>/dev/null || echo "")
+    if echo "${reason_content}" | grep -qi 'disk\|space\|full\|storage\|no space\|ENOSPC'; then
         reason_score=1
     fi
     scores+=("reason:${reason_score}")
@@ -295,6 +313,7 @@ start_temp_server() {
         --model "${model_path}"
         --threads "${CPU_CORES:-8}"
         --ctx-size 4096
+        --jinja
         --host 127.0.0.1
         --port "${port}"
     )
@@ -349,6 +368,11 @@ start_temp_server() {
 # -----------------------------------------------------------------------------
 run_all_benchmarks() {
     log_header "Running Full Benchmark Suite"
+
+    # Stop the primary LLM to free memory for benchmark testing
+    log_info "Stopping primary LLM service to free memory for benchmarks..."
+    sudo -n systemctl stop llama-primary 2>/dev/null || true
+    sleep 3
 
     # Kill any orphaned servers from previous interrupted benchmark runs
     fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
@@ -499,6 +523,12 @@ ENTRY
     results_json+=$'\n]'
     echo "${results_json}" > "${BENCHMARK_RESULTS}"
     log_ok "Results saved to ${BENCHMARK_RESULTS}"
+
+    # Restart primary LLM service
+    log_info "Restarting primary LLM service..."
+    sudo -n systemctl start llama-primary 2>/dev/null || {
+        log_warn "Could not restart primary LLM - run: sudo systemctl start llama-primary"
+    }
 }
 
 # -----------------------------------------------------------------------------
