@@ -93,6 +93,36 @@ def _json_to_sse(data: dict) -> StreamingResponse:
     return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
+
+# -- Model footer helper --------------------------------------------------
+def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
+    """Append a small footer identifying the LLM model/provider to the
+    assistant message content. Skips tool_calls-only messages."""
+    try:
+        choices = data.get("choices", [])
+        if not choices:
+            return data
+        msg = choices[0].get("message", {})
+        text = msg.get("content") or ""
+        # Skip if the message is a tool call with no text content
+        if not text and msg.get("tool_calls"):
+            return data
+        if not text:
+            return data
+        display_model = model or data.get("model", provider)
+        if "/" in display_model:
+            display_model = display_model.split("/")[-1]
+        if len(display_model) > 40:
+            display_model = display_model[:37] + "..."
+        footer = f"\n\n<i><sub>via {provider} \u00b7 {display_model}</sub></i>"
+        msg["content"] = text + footer
+        choices[0]["message"] = msg
+        data["choices"] = choices
+    except Exception:
+        pass  # Never crash on footer injection
+    return data
+
+
 def create_proxy_app(data_dir: str = "") -> object:
     """Create the LLM proxy FastAPI app."""
     if not HAS_FASTAPI:
@@ -478,6 +508,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "latency_ms": elapsed_ms,
             },
         }
+        result = _append_model_footer(result, response.provider)
         if stream_requested:
             return _json_to_sse(result)
         return JSONResponse(result)
@@ -660,6 +691,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 
             # Inject provider info so the caller knows who handled it
             data["timings"] = {"provider": pname, "latency_ms": elapsed_ms}
+            data = _append_model_footer(data, pname, use_model)
             return JSONResponse(data)
 
         # All cloud providers failed — try local LLM as last resort.
@@ -707,6 +739,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
                 data = resp.json()
                 data["timings"] = {"provider": "local", "latency_ms": elapsed_ms}
+                data = _append_model_footer(data, "local", "local")
                 log.info("Tool passthrough: local LLM fallback succeeded (%dms)", elapsed_ms)
                 return JSONResponse(data)
             log.warning("Tool passthrough: local returned %d: %s",
