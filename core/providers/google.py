@@ -42,21 +42,12 @@ class GoogleProvider(LLMProvider):
         )
         headers = {"Content-Type": "application/json"}
 
-        # Gemini uses contents/parts format
-        contents: list[dict[str, Any]] = []
-        if request.system_prompt:
-            contents.append({
-                "role": "user",
-                "parts": [{"text": request.system_prompt}],
-            })
-            contents.append({
-                "role": "model",
-                "parts": [{"text": "Understood."}],
-            })
-        contents.append({
+        # Use systemInstruction for system prompts - enables Gemini automatic caching
+        # (repeated prefixes get cached at ~8x cheaper input token rate)
+        contents: list[dict[str, Any]] = [{
             "role": "user",
             "parts": [{"text": request.prompt}],
-        })
+        }]
 
         payload: dict[str, Any] = {
             "contents": contents,
@@ -65,6 +56,10 @@ class GoogleProvider(LLMProvider):
                 "temperature": request.temperature,
             },
         }
+        if request.system_prompt:
+            payload["systemInstruction"] = {
+                "parts": [{"text": request.system_prompt}],
+            }
 
         t0 = time.monotonic()
         try:
