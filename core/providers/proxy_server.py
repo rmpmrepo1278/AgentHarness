@@ -689,7 +689,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             try:
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
-                        url, json=payload, headers=headers, timeout=10.0,
+                        url, json=payload, headers=headers, timeout=30.0,
                     )
             except httpx.HTTPError as exc:
                 log.warning("Tool passthrough: %s HTTP error: %s", pname, exc)
