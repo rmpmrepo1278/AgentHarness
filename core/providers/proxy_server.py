@@ -499,6 +499,59 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         return JSONResponse({"error": f"Unknown action: {action}"}, status_code=400)
 
+
+    @app.get("/v1/cap")
+    async def get_caps():
+        """View provider daily caps."""
+        router = _get_router()
+        caps = {}
+        for name, provider in router._providers_by_name.items():
+            limit = getattr(provider, 'daily_limit', None)
+            usage = getattr(provider, '_usage_today', 0)
+            if limit is not None:
+                caps[name] = {"daily_limit": limit, "used_today": usage, "remaining": max(0, limit - usage)}
+        return JSONResponse({"caps": caps})
+
+    @app.post("/v1/cap")
+    async def set_cap(request: Request):
+        """Set provider daily cap at runtime."""
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+        provider_name = body.get("provider", "").strip().lower()
+        new_limit = body.get("limit")
+
+        if not provider_name or new_limit is None:
+            return JSONResponse({"error": "Required: provider, limit"}, status_code=400)
+
+        try:
+            new_limit = int(new_limit)
+        except (TypeError, ValueError):
+            return JSONResponse({"error": "limit must be an integer"}, status_code=400)
+
+        if new_limit < 0 or new_limit > 100000:
+            return JSONResponse({"error": "limit must be between 0 and 100000"}, status_code=400)
+
+        router = _get_router()
+        provider = router._providers_by_name.get(provider_name)
+        if provider is None:
+            valid = list(router._providers_by_name.keys())
+            return JSONResponse({"error": f"Unknown provider: {provider_name}. Valid: {valid}"}, status_code=400)
+
+        old_limit = getattr(provider, 'daily_limit', None)
+        if old_limit is None:
+            return JSONResponse({"error": f"{provider_name} does not have a daily_limit"}, status_code=400)
+
+        provider.daily_limit = new_limit
+        return JSONResponse({
+            "success": True,
+            "provider": provider_name,
+            "old_limit": old_limit,
+            "new_limit": new_limit,
+        })
+
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
         """OpenAI-compatible chat completions — routed through AgentHarness."""
