@@ -278,9 +278,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             budget=bt,
             routing={
                 "low": ["local"],
-                "medium": ["google", "groq", "cerebras", "sambanova", "openrouter"],
-                "high": ["google", "groq", "cerebras", "sambanova", "openrouter", "ollama_cloud"],
-                "critical": ["google", "groq", "cerebras", "sambanova", "ollama_cloud", "openrouter"],
+                "medium": ["local", "groq", "cerebras", "sambanova", "openrouter", "google"],
+                "high": ["groq", "cerebras", "sambanova", "openrouter", "google", "ollama_cloud"],
+                "critical": ["groq", "google", "cerebras", "sambanova", "ollama_cloud", "openrouter"],
             },
         )
         _router_cache["router"] = router
@@ -556,8 +556,6 @@ def create_proxy_app(data_dir: str = "") -> object:
         "openrouter": "meta-llama/llama-3.3-70b-instruct",
     }
     _TOOL_PROVIDERS = [
-        ("google", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-         "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google"])),
         ("groq", "https://api.groq.com/openai/v1/chat/completions",
          "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
         ("cerebras", "https://api.cerebras.ai/v1/chat/completions",
@@ -566,6 +564,8 @@ def create_proxy_app(data_dir: str = "") -> object:
          "SAMBANOVA_API_KEY", os.environ.get("SAMBANOVA_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["sambanova"])),
         ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
+        ("google", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+         "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google"])),
     ]
 
     # Max tools to forward — free-tier Llama models degrade with too many
