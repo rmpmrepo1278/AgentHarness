@@ -142,7 +142,9 @@ def create_proxy_app(data_dir: str = "") -> object:
     # When a provider returns 429, we skip it for _COOLDOWN_SECONDS to avoid
     # burning through all providers on rapid-fire auxiliary requests.
     _rate_cooldowns: dict[str, float] = {}
-    _COOLDOWN_SECONDS = 60  # skip provider for 60s after a 429
+    _COOLDOWN_SECONDS = 60  # initial cooldown after a 429
+    _MAX_COOLDOWN_SECONDS = 3600  # max cooldown (1 hour) after repeated 429s
+    _cooldown_hits: dict[str, int] = {}  # provider -> consecutive 429 count
 
     # Permanently disabled providers (e.g. 402 no credits).
     _disabled_providers: set[str] = set()
@@ -405,6 +407,97 @@ def create_proxy_app(data_dir: str = "") -> object:
             return JSONResponse({"error": "Billing module not available"}, status_code=503)
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/v1/cost")
+    async def cost_summary():
+        """Cost summary for Telegram /cost command."""
+        router = _get_router()
+        budget = _router_cache.get("budget")
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
+        local_ok = await _check_local_health(local_url)
+        now = time.monotonic()
+
+        # Provider status
+        providers = {}
+        for pname, url, env_key, default_model in _TOOL_PROVIDERS:
+            has_key = bool(os.environ.get(env_key, ""))
+            cooldown_until = _rate_cooldowns.get(pname, 0)
+            in_cooldown = now < cooldown_until
+            cooldown_left = max(0, int(cooldown_until - now)) if in_cooldown else 0
+            disabled = pname in _disabled_providers
+            hits = _cooldown_hits.get(pname, 0)
+
+            status = "ready"
+            if not has_key:
+                status = "no_key"
+            elif disabled:
+                status = "disabled"
+            elif in_cooldown:
+                status = f"cooldown_{cooldown_left}s"
+
+            providers[pname] = {
+                "status": status,
+                "model": default_model,
+                "cooldown_seconds": cooldown_left,
+                "consecutive_429s": hits,
+            }
+
+        providers["local"] = {
+            "status": "healthy" if local_ok else "down",
+            "model": "Qwen3.5-9B",
+            "cooldown_seconds": 0,
+            "consecutive_429s": 0,
+        }
+
+        # Usage today
+        usage = {}
+        if budget:
+            usage = budget._data.get("providers", {})
+
+        # Routing order
+        routing_order = {
+            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google"],
+            "tool_calling": [p[0] for p in _TOOL_PROVIDERS],
+        }
+
+        return JSONResponse({
+            "timestamp": int(time.time()),
+            "providers": providers,
+            "usage_today": usage,
+            "routing_order": routing_order,
+            "disabled": list(_disabled_providers),
+        })
+
+    @app.post("/v1/routing")
+    async def update_routing(request: Request):
+        """Runtime routing control — switch order from Telegram."""
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+        action = body.get("action", "")
+
+        if action == "reset_cooldowns":
+            _rate_cooldowns.clear()
+            _cooldown_hits.clear()
+            _disabled_providers.clear()
+            return JSONResponse({"success": True, "message": "All cooldowns and disables cleared"})
+
+        if action == "disable_provider":
+            provider = body.get("provider", "")
+            if provider:
+                _disabled_providers.add(provider)
+                return JSONResponse({"success": True, "message": f"{provider} disabled"})
+
+        if action == "enable_provider":
+            provider = body.get("provider", "")
+            _disabled_providers.discard(provider)
+            _rate_cooldowns.pop(provider, None)
+            _cooldown_hits.pop(provider, None)
+            return JSONResponse({"success": True, "message": f"{provider} enabled"})
+
+        return JSONResponse({"error": f"Unknown action: {action}"}, status_code=400)
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
@@ -698,8 +791,12 @@ def create_proxy_app(data_dir: str = "") -> object:
             elapsed_ms = int((time.monotonic() - start) * 1000)
 
             if resp.status_code == 429:
-                _rate_cooldowns[pname] = time.monotonic() + _COOLDOWN_SECONDS
-                log.warning("Tool passthrough: %s rate limited (429), cooling down for %ds", pname, _COOLDOWN_SECONDS)
+                hits = _cooldown_hits.get(pname, 0) + 1
+                _cooldown_hits[pname] = hits
+                # Escalate: 60s, 120s, 240s, 480s, 960s, max 3600s
+                cooldown = min(_COOLDOWN_SECONDS * (2 ** (hits - 1)), _MAX_COOLDOWN_SECONDS)
+                _rate_cooldowns[pname] = time.monotonic() + cooldown
+                log.warning("Tool passthrough: %s rate limited (429 #%d), cooling down for %ds", pname, hits, cooldown)
                 continue
             if resp.status_code == 402:
                 _disabled_providers.add(pname)
@@ -712,8 +809,8 @@ def create_proxy_app(data_dir: str = "") -> object:
                 )
                 continue
 
-            # Success — record usage and return the response as-is, with
-            # our timing metadata injected.
+            # Success — record usage, reset cooldown counter, return response.
+            _cooldown_hits.pop(pname, None)  # reset escalation on success
             data = resp.json()
             usage = data.get("usage", {})
 
