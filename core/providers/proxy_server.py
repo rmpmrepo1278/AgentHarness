@@ -832,7 +832,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         _est_tokens = _est_chars // 4
         # Providers and their approximate free-tier TPM limits
         _PROVIDER_TPM_LIMITS = {
-            "groq": 50000,       # Groq free tier handles larger contexts
+            "groq": 1000000,    # Let Groq try — handle 429 via cascade
             "cerebras": 50000,
             "sambanova": 50000,
             "openrouter": 50000,
