@@ -16,12 +16,13 @@ class GoogleProvider(LLMProvider):
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "gemini-2.5-flash-lite",
+        model: str = "gemini-2.5-flash",
         daily_limit: int = 1500,
         timeout: float = 30.0,
         **kwargs: Any,
     ) -> None:
-        super().__init__(name="google", tier=2, model=model, **kwargs)
+        provider_name = kwargs.pop("name", "google-primary")
+        super().__init__(name=provider_name, tier=2, model=model, **kwargs)
         self.api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
         self.daily_limit = daily_limit
         self.timeout = timeout

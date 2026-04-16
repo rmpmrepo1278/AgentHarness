@@ -247,6 +247,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.sambanova import SambaNovaProvider
         from core.providers.openrouter import OpenRouterProvider
         from core.providers.ollama_cloud import OllamaCloudProvider
+        from core.providers.openai_compat import OpenAICompatProvider
 
         bt = BudgetTracker(data_dir=data_dir)
         providers = []
@@ -261,6 +262,15 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Cloud providers (only if API key is set)
         if os.environ.get("GROQ_API_KEY"):
             providers.append(GroqProvider())
+        # Google free tier (separate account, Gemini 2.0 Flash, 1500 req/day)
+        if os.environ.get("GOOGLE_FREE_API_KEY"):
+            providers.append(GoogleProvider(
+                api_key=os.environ["GOOGLE_FREE_API_KEY"],
+                model="gemini-2.0-flash",
+                daily_limit=1500,
+                name="google-alt",
+            ))
+        # Google paid tier (Gemini 2.5 Flash, last resort)
         if os.environ.get("GOOGLE_API_KEY"):
             providers.append(GoogleProvider())
         if os.environ.get("CEREBRAS_API_KEY"):
@@ -272,6 +282,26 @@ def create_proxy_app(data_dir: str = "") -> object:
         if os.environ.get("OLLAMA_API_KEY"):
             providers.append(OllamaCloudProvider())
 
+        # Together AI — free tier: 1M tokens/month
+        if os.environ.get("TOGETHER_API_KEY"):
+            providers.append(OpenAICompatProvider(
+                name="together",
+                endpoint="https://api.together.xyz/v1/chat/completions",
+                api_key=os.environ["TOGETHER_API_KEY"],
+                model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                daily_limit=500,
+            ))
+
+        # Fireworks AI — free tier: 1M tokens/month
+        if os.environ.get("FIREWORKS_API_KEY"):
+            providers.append(OpenAICompatProvider(
+                name="fireworks",
+                endpoint="https://api.fireworks.ai/inference/v1/chat/completions",
+                api_key=os.environ["FIREWORKS_API_KEY"],
+                model="accounts/fireworks/models/llama-v3p3-70b-instruct",
+                daily_limit=500,
+            ))
+
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
@@ -280,9 +310,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             budget=bt,
             routing={
                 "low": ["local"],
-                "medium": ["local", "groq", "cerebras", "sambanova", "openrouter", "google"],
-                "high": ["groq", "cerebras", "sambanova", "openrouter", "google", "ollama_cloud"],
-                "critical": ["groq", "google", "cerebras", "sambanova", "ollama_cloud", "openrouter"],
+                "medium": ["local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt", "google-primary"],
+                "high": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
+                "critical": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
             },
         )
         _router_cache["router"] = router
@@ -456,7 +486,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Routing order
         routing_order = {
-            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google"],
+            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google-alt", "google-primary"],
             "tool_calling": [p[0] for p in _TOOL_PROVIDERS],
         }
 
@@ -696,11 +726,17 @@ def create_proxy_app(data_dir: str = "") -> object:
     # This avoids hardcoding models that change with free-tier rotations.
     _TOOL_PROVIDER_DEFAULTS = {
         "groq": "llama-3.3-70b-versatile",
-        "google": "gemini-2.5-flash-lite",
+        "google-primary": "gemini-2.5-flash",
         "cerebras": "qwen-3-235b-a22b-instruct-2507",
         "sambanova": "Meta-Llama-3.3-70B-Instruct",
         "openrouter": "meta-llama/llama-3.3-70b-instruct",
+        "fireworks": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+        "google-alt": "gemini-2.0-flash",
     }
+    # Routing order: groq first (fast+free, decent tool-calling), google second
+    # (reliable tool-calling via Gemini), then free-tier fallbacks.
+    # cerebras/sambanova Llama models often return text-only instead of tool calls,
+    # so they are last-resort for tool-calling.
     _TOOL_PROVIDERS = [
         ("groq", "https://api.groq.com/openai/v1/chat/completions",
          "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
@@ -708,10 +744,14 @@ def create_proxy_app(data_dir: str = "") -> object:
          "CEREBRAS_API_KEY", os.environ.get("CEREBRAS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["cerebras"])),
         ("sambanova", "https://api.sambanova.ai/v1/chat/completions",
          "SAMBANOVA_API_KEY", os.environ.get("SAMBANOVA_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["sambanova"])),
+        ("fireworks", "https://api.fireworks.ai/inference/v1/chat/completions",
+         "FIREWORKS_API_KEY", os.environ.get("FIREWORKS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["fireworks"])),
         ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
-        ("google", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-         "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google"])),
+        ("google-alt", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+         "GOOGLE_FREE_API_KEY", os.environ.get("GOOGLE_FREE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-alt"])),
+        ("google-primary", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+         "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-primary"])),
     ]
 
     # Max tools to forward — free-tier Llama models degrade with too many
@@ -784,9 +824,31 @@ def create_proxy_app(data_dir: str = "") -> object:
         if not max_tokens:
             max_tokens = 4096
 
+        # Estimate request size (chars / 4 ≈ tokens) to skip providers
+        # with low TPM limits.  Groq free-tier caps at 12k TPM; Hermes
+        # sessions routinely exceed that with 32 tools + system prompt.
+        _est_chars = sum(len(str(m.get("content", ""))) for m in patched_messages)
+        _est_chars += len(json.dumps(capped_tools)) if capped_tools else 0
+        _est_tokens = _est_chars // 4
+        # Providers and their approximate free-tier TPM limits
+        _PROVIDER_TPM_LIMITS = {
+            "groq": 10000,       # 12k actual, 10k with safety margin
+            "cerebras": 50000,
+            "sambanova": 50000,
+            "openrouter": 50000,
+            "google-primary": 1000000,
+        }
+
         for pname, url, env_key, default_model in _TOOL_PROVIDERS:
             api_key = os.environ.get(env_key, "")
             if not api_key:
+                continue
+
+            # Skip providers whose TPM limit is too small for this request
+            _tpm_limit = _PROVIDER_TPM_LIMITS.get(pname, 1000000)
+            if _est_tokens > _tpm_limit:
+                log.info("Tool passthrough: skipping %s (est %d tokens > %d TPM limit)",
+                         pname, _est_tokens, _tpm_limit)
                 continue
 
             # Skip permanently disabled providers (e.g. 402 no credits)

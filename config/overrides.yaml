@@ -27,11 +27,9 @@ providers:
     enabled: false
 
 routing:
-  low: [gemini-2.0-flash-lite, llamacpp_small, groq, sambanova, cerebras]
-  medium: [gemini-2.0-flash-lite, llamacpp_small, llamacpp_large, groq, sambanova, cerebras]
-  high: [gemini-2.0-flash-lite, llamacpp_large, llamacpp_small, groq, sambanova, cerebras]
-  critical: [gemini-2.0-flash-lite, llamacpp_large, llamacpp_small, groq, sambanova, cerebras]
+  low: [llamacpp_small, llamacpp_large, groq, cerebras, sambanova]
+  medium: [groq, cerebras, sambanova, llamacpp_large, google]
+  high: [groq, cerebras, sambanova, llamacpp_large, google]
+  critical: [groq, cerebras, sambanova, llamacpp_large, google]
 
-policies:
-  - match: ".*"
-    force: gemini-2.0-flash-lite
+policies: []
