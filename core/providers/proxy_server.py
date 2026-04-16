@@ -914,8 +914,13 @@ def create_proxy_app(data_dir: str = "") -> object:
                 log.warning("Tool passthrough: %s rate limited (429 #%d), cooling down for %ds", pname, hits, cooldown)
                 continue
             if resp.status_code == 402:
-                _disabled_providers.add(pname)
-                log.warning("Tool passthrough: %s returned 402 (no credits), permanently disabled for this session", pname)
+                # Use timed cooldown instead of permanent disable — free-tier
+                # providers (OpenRouter) return 402 transiently under congestion.
+                hits = _cooldown_hits.get(pname, 0) + 1
+                _cooldown_hits[pname] = hits
+                cooldown = min(300 * (2 ** (hits - 1)), _MAX_COOLDOWN_SECONDS)  # 5min, 10min, 20min...
+                _rate_cooldowns[pname] = time.monotonic() + cooldown
+                log.warning("Tool passthrough: %s returned 402, cooldown %ds (hit #%d)", pname, cooldown, hits)
                 continue
             if resp.status_code not in (200, 201):
                 log.warning(
