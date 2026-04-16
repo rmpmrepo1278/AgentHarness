@@ -929,6 +929,21 @@ def create_proxy_app(data_dir: str = "") -> object:
             data = resp.json()
             usage = data.get("usage", {})
 
+            # Check for empty response — some providers (SambaNova, Cerebras)
+            # return HTTP 200 but empty content after tool calls. Cascade to
+            # next provider instead of returning empty to the caller.
+            choices = data.get("choices", [])
+            if choices:
+                msg = choices[0].get("message", {})
+                msg_content = (msg.get("content") or "").strip()
+                msg_tool_calls = msg.get("tool_calls") or []
+                if not msg_content and not msg_tool_calls:
+                    log.warning("Tool passthrough: %s returned empty content (no text, no tool_calls) — trying next provider", pname)
+                    if budget is not None:
+                        budget.record_usage(pname, tokens_in=usage.get("prompt_tokens", 0),
+                                            tokens_out=0, success=False)
+                    continue
+
             if budget is not None:
                 budget.record_usage(
                     pname,
