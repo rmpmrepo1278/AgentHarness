@@ -256,9 +256,9 @@ def openai_response_to_anthropic(data: dict, model: str = "agentharness-proxy") 
                 "input": args,
             })
 
-    # If no content at all, add empty text block
+    # If no content at all, return None to signal the caller should error
     if not content_blocks:
-        content_blocks.append({"type": "text", "text": ""})
+        return None
 
     # Map finish reason
     if tool_calls:
@@ -536,17 +536,43 @@ def register_anthropic_routes(app: Any, chat_completions_handler: Any) -> None:
 
         # Log token usage including any implicit cache savings
         usage = openai_data.get("usage", {})
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
         log.info(
             "Gemini response: in=%d out=%d total=%d (implicit caching active if total < in+out)",
-            usage.get("prompt_tokens", 0),
-            usage.get("completion_tokens", 0),
+            prompt_tokens,
+            completion_tokens,
             usage.get("total_tokens", 0),
         )
+
+        # Detect empty/degenerate responses from Gemini (often caused by
+        # context overflow or thinking-token exhaustion) and return an
+        # Anthropic "overloaded" error so Claude Code retries or compacts.
+        anthropic_data = openai_response_to_anthropic(openai_data, _gemini_model)
+        if anthropic_data is None:
+            log.warning(
+                "Gemini returned empty content (in=%d out=%d) — returning overloaded error",
+                prompt_tokens, completion_tokens,
+            )
+            return JSONResponse(
+                {
+                    "type": "error",
+                    "error": {
+                        "type": "overloaded",
+                        "message": "Model returned empty response — context may be too large. "
+                                   f"Prompt tokens: {prompt_tokens}.",
+                    },
+                },
+                status_code=529,
+            )
+
+        # Guard: if prompt tokens exceed 900K, warn that context is near limit
+        if prompt_tokens > 900_000:
+            log.warning("Context nearing Gemini limit: %d prompt tokens", prompt_tokens)
 
         if stream_requested:
             return openai_response_to_anthropic_sse(openai_data, _gemini_model)
         else:
-            anthropic_data = openai_response_to_anthropic(openai_data, _gemini_model)
             return JSONResponse(anthropic_data)
 
     # Also add a model listing in Anthropic format
