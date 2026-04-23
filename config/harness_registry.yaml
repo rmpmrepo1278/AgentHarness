@@ -250,6 +250,16 @@ harnesses:
   #   description: "Check Immich face recognition job status"
 
 
+
+  # --- Self-Evolution Pipeline ---
+  evolution_loop:
+    enabled: true
+    script: "evolution_loop.sh"
+    window: any
+    frequency: daily
+    description: "Self-evolution feedback cycle: metrics, patterns, briefing, inbox"
+
+
 # --- Custom scripts directory ---
 # Drop scripts in the custom/ directory and reference them above.
 # They'll have access to all discovered paths and configs via:

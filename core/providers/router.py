@@ -17,12 +17,12 @@ from core.providers.budget import BudgetTracker
 logger = logging.getLogger(__name__)
 
 # Default routing order: complexity -> list of provider names in priority order.
-_DEFAULT_ROUTING: Dict[str, List[str]] = {
-    Complexity.LOW.value: ["local_small"],
-    Complexity.MEDIUM.value: ["google", "groq"],
-    Complexity.HIGH.value: ["google", "groq", "openrouter"],
-    Complexity.CRITICAL.value: ["google", "groq", "openrouter", "anthropic"],
-}
+_DEFAULT_ROUTING = {                                                                                                                           
+    Complexity.LOW.value: ["local", "google-alt", "groq", "cerebras", "sambanova", "together", "fireworks"],
+    Complexity.MEDIUM.value: ["google-alt", "groq", "cerebras", "sambanova", "together", "fireworks", "local", "google"],                                         
+    Complexity.HIGH.value: ["google-alt", "groq", "cerebras", "openrouter", "sambanova", "together", "fireworks", "local", "google"],
+    Complexity.CRITICAL.value: ["google-alt", "groq", "openrouter", "cerebras", "local", "google", "anthropic"],
+} 
 
 
 class Router:

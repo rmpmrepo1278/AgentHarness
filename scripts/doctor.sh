@@ -248,7 +248,7 @@ check_searxng() {
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q searxng; then
         diagnose "SearXNG container" "ok" "running"
 
-        if curl -sf --max-time 5 "http://localhost:8888/search?q=test&format=json" &>/dev/null; then
+        if curl -sf --max-time 5 "http://localhost:8118/search?q=test&format=json" &>/dev/null; then
             diagnose "SearXNG search" "ok" "returning results"
         else
             diagnose "SearXNG search" "warn" "container running but search failing" \
@@ -265,33 +265,33 @@ check_searxng() {
 }
 
 # =============================================================================
-# Phase 4: OpenClaw / Chaguli
-# =============================================================================
-check_openclaw() {
-    section "OpenClaw / Chaguli"
+# Phase 4: Hermes Agent
+check_hermes() {
+    section "Hermes Agent"
 
-    if [ -f "${AH_DATA_DIR}/openclaw_paths.env" ]; then
-        source "${AH_DATA_DIR}/openclaw_paths.env"
-        diagnose "OpenClaw discovery" "ok" "paths discovered"
-
-        [ -n "${OPENCLAW_BIN:-}" ] && diagnose "Binary" "ok" "${OPENCLAW_BIN}" || \
-            diagnose "Binary" "warn" "not found in PATH" ""
-
-        [ -d "${OPENCLAW_WORKSPACE:-}" ] && diagnose "Workspace" "ok" "${OPENCLAW_WORKSPACE}" || \
-            diagnose "Workspace" "warn" "not found" ""
-
-        [ -d "${OPENCLAW_SKILLS_DIR:-}" ] && diagnose "Skills dir" "ok" "${OPENCLAW_SKILLS_DIR}" || \
-            diagnose "Skills dir" "warn" "not found" ""
-
-        [ -f "${OPENCLAW_AGENTS_MD:-}" ] && diagnose "AGENTS.md" "ok" "${OPENCLAW_AGENTS_MD}" || \
-            diagnose "AGENTS.md" "warn" "not found" ""
-
-        [ "${OPENCLAW_GATEWAY_RUNNING:-false}" = "true" ] && \
-            diagnose "Gateway" "ok" "running" || \
-            diagnose "Gateway" "warn" "not detected as running" ""
+    # Check hermes-gateway systemd service
+    if systemctl --user is-active hermes-gateway &>/dev/null; then
+        diagnose "hermes-gateway" "ok" "running"
     else
-        diagnose "OpenClaw discovery" "fail" "not yet run" \
-            "bash ${SCRIPT_DIR}/discover_automations.sh"
+        diagnose "hermes-gateway" "fail" "not running" \
+            "systemctl --user restart hermes-gateway"
+    fi
+
+    # Check Hermes agent directory
+    local hermes_dir="$HOME/.hermes/hermes-agent"
+    if [ -d "${hermes_dir}" ]; then
+        diagnose "Hermes install" "ok" "${hermes_dir}"
+    else
+        diagnose "Hermes install" "fail" "directory not found"
+    fi
+
+    # Check Hermes cron jobs
+    local hermes_crons
+    hermes_crons=$(crontab -l 2>/dev/null | grep -c hermes || echo 0)
+    if [ "${hermes_crons}" -gt 0 ]; then
+        diagnose "Hermes cron jobs" "ok" "${hermes_crons} entries"
+    else
+        diagnose "Hermes cron jobs" "warn" "no hermes cron entries found"
     fi
 }
 
@@ -304,12 +304,12 @@ check_agentharness() {
     for f in \
         "${AH_DATA_DIR}/.env|Environment config" \
         "${AH_DATA_DIR}/hw_profile.env|Hardware profile" \
-        "${AH_DATA_DIR}/openclaw_paths.env|OpenClaw paths" \
+        "${AH_DATA_DIR}/hermes_paths.env|Hermes paths" \
         "${AH_DATA_DIR}/automation_catalog.json|Automation catalog" \
         "${AH_DATA_DIR}/service_registry.json|Service registry" \
         "${AH_DATA_DIR}/model_catalog.json|Model catalog" \
         "${AH_DATA_DIR}/benchmark_results.json|Benchmark results" \
-        "${AH_DATA_DIR}/chaguli_memory.json|Chaguli memory"; do
+        "${AH_DATA_DIR}/hermes_state.json|Hermes state"; do
 
         local path desc
         IFS='|' read -r path desc <<< "${f}"
@@ -470,7 +470,7 @@ main() {
             1|infer*)     check_inference ;;
             2|model*)     check_models ;;
             3|searx*)     check_searxng ;;
-            4|openclaw*)  check_openclaw ;;
+            4|hermes*)  check_hermes ;;
             5|state*)     check_agentharness ;;
             6|storage*)   check_storage ;;
             7|network*)   check_network ;;
@@ -482,7 +482,7 @@ main() {
         check_inference
         check_models
         check_searxng
-        check_openclaw
+        check_hermes
         check_agentharness
         check_storage
         check_network

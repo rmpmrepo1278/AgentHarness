@@ -107,7 +107,7 @@ main() {
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q searxng; then
         # Try an actual search
         local search_ok
-        search_ok=$(curl -sf "http://localhost:8888/search?q=test&format=json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('results',[])))" 2>/dev/null || echo "0")
+        search_ok=$(curl -sf "http://localhost:8118/search?q=test&format=json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('results',[])))" 2>/dev/null || echo "0")
         if [ "${search_ok}" -gt 0 ]; then
             check "SearXNG" "ok" "running, ${search_ok} results for test query"
         else

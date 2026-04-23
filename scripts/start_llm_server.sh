@@ -33,7 +33,8 @@ fi
 
 # 2. Start LLM proxy
 log "Starting LLM proxy on port 8080..."
-cd /home/rohit/agentharness && source data/.env
+cd /home/rohit/agentharness && set -a && source data/.env && set +a
+export PYTHONUNBUFFERED=1
 nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server     --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data     > /home/rohit/agentharness/logs/proxy.log 2>&1 &
 
 sleep 5

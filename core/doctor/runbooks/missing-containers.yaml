@@ -1,0 +1,70 @@
+name: missing-containers
+version: 1
+trigger: "health_check_fail:docker_missing"
+priority: high
+notify: critical
+description: >
+  Detect compose services that should exist but don't (e.g., removed during
+  an upgrade or lost after reboot). Runs docker compose up -d for each
+  project to recreate missing containers. Escalates if recreation fails.
+
+steps:
+  - name: check-immich-server
+    check: "docker ps -q --filter name=immich_server"
+    expect_not_empty: true
+    on_fail:
+      - name: recreate-immich
+        fix: "docker compose -f /var/lib/docker/volumes/portainer_data/_data/compose/3/docker-compose.yml --project-name immich --env-file /var/lib/docker/volumes/portainer_data/_data/compose/3/stack.env up -d 2>&1"
+        wait: 30
+      - name: verify-immich
+        check: "docker ps -q --filter name=immich_server"
+        expect_not_empty: true
+        on_fail:
+          - escalate: "Immich server failed to start after compose up."
+
+  - name: check-openclaw-compose
+    check: "docker ps --format '{{.Names}}' | grep -cE '^(nginx-proxy-manager|nextcloud|paperless|gitea|n8n|searxng|network-watchdog)$'"
+    expect_min: 7
+    on_fail:
+      - name: recreate-openclaw-stack
+        fix: "cd /home/rohit/openclaw/docker/compose && HOME_DIR=/home/rohit docker compose -f searxng.yml -f npm.yml -f paperless.yml -f nextcloud.yml -f gitea.yml -f network-watchdog.yml -f n8n.yml --project-name compose up -d 2>&1"
+        wait: 30
+      - name: verify-openclaw
+        check: "docker ps --format '{{.Names}}' | grep -cE '^(nginx-proxy-manager|nextcloud|paperless|gitea|n8n|searxng|network-watchdog)$'"
+        expect_min: 7
+        on_fail:
+          - escalate: "Some openclaw compose services failed to start."
+
+  - name: check-agentharness-mcp
+    check: "docker ps --format '{{.Names}}' | grep -cE '^(mcp-gateway|docker-mcp|file-mcp|doctor-mcp)$'"
+    expect_min: 4
+    on_fail:
+      - name: recreate-agentharness
+        fix: "docker compose -f /home/rohit/agentharness/docker-compose.mcp.yml --project-name agentharness up -d 2>&1"
+        wait: 15
+      - name: verify-agentharness
+        check: "docker ps --format '{{.Names}}' | grep -cE '^(mcp-gateway|docker-mcp|file-mcp|doctor-mcp)$'"
+        expect_min: 4
+        on_fail:
+          - escalate: "AgentHarness MCP services failed to start."
+
+  - name: check-pihole
+    check: "docker ps -q --filter name=pihole"
+    expect_not_empty: true
+    on_fail:
+      - name: recreate-pihole
+        fix: "docker compose -f /var/lib/docker/volumes/portainer_data/_data/compose/1/docker-compose.yml --project-name pihole up -d 2>&1"
+        wait: 10
+      - name: verify-pihole
+        check: "docker ps -q --filter name=pihole"
+        expect_not_empty: true
+        on_fail:
+          - escalate: "Pi-hole failed to start."
+
+  - name: check-uptime-kuma
+    check: "docker ps -q --filter name=uptime-kuma"
+    expect_not_empty: true
+    on_fail:
+      - name: recreate-uptime-kuma
+        fix: "docker compose -f /var/lib/docker/volumes/portainer_data/_data/stacks/uptime-kuma/docker-compose.yml --project-name uptime-kuma up -d 2>&1"
+        wait: 10

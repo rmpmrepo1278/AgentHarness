@@ -25,6 +25,14 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Metrics pipeline — feeds the self-evolution loop
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from core.observe.metrics_emitter import emit_check, emit_harness
+    _HAS_METRICS = True
+except ImportError:
+    _HAS_METRICS = False
+
 _AH_DATA_DIR = os.environ.get("AH_DATA_DIR", "/opt/agentharness")
 _AH_CONFIG_DIR = os.environ.get("AH_CONFIG_DIR", os.path.join(_AH_DATA_DIR, "config"))
 _AH_SCRIPTS_DIR = os.environ.get("AH_SCRIPTS_DIR", os.path.join(_AH_DATA_DIR, "scripts"))
@@ -331,6 +339,17 @@ def run_checks(window="any"):
         print(f"[{severity}] {message}")
 
     save_state(state)
+
+    # Emit all check results to metrics.jsonl for the self-evolution pipeline
+    if _HAS_METRICS:
+        for check_name, severity, message in alerts:
+            emit_check(_AH_DATA_DIR, check_name, status="fail", severity=severity, message=message)
+        # Also emit passing checks (checks that didn't generate alerts)
+        alerted_names = {a[0] for a in alerts}
+        for name in checks:
+            if name not in alerted_names and checks[name].get("enabled", True):
+                emit_check(_AH_DATA_DIR, name, status="ok")
+
     print(f"Ran {len(checks)} checks, {sent} alert(s) sent, {suppressed} suppressed, {runbook_fixed} auto-fixed")
     return alerts
 
@@ -383,6 +402,10 @@ def run_harnesses(window="any"):
         else:
             print(f"  FAILED: {name} (exit {code})")
             ran.append((name, False))
+
+        # Emit to metrics.jsonl
+        if _HAS_METRICS:
+            emit_harness(_AH_DATA_DIR, name, success=(code == 0), exit_code=code)
 
         # Handle trigger cleanup
         trigger = config.get("trigger", "")

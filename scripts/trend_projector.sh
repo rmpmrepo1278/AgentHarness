@@ -51,6 +51,7 @@ project_trends() {
 
     python3 << 'PYEOF'
 import csv
+import os
 import json
 from datetime import datetime, timedelta
 
@@ -160,7 +161,7 @@ send_projection_alerts() {
     fi
 
     python3 -c "
-import json, subprocess
+import json, os, subprocess
 
 trends = json.load(open(os.environ.get('AH_DATA_DIR', '/opt/agentharness') + '/latest_trends.json'))
 for projection in trends.get('projections', []):

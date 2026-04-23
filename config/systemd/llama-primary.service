@@ -1,19 +1,11 @@
 [Unit]
-Description=ik_llama.cpp Server - Primary Model (Gemma 4 26B-A4B)
+Description=llama.cpp Server - Primary Model
 After=network.target
-Documentation=https://github.com/ikawrakow/ik_llama.cpp
 
 [Service]
 Type=simple
 User=rohit
-ExecStart=/usr/local/bin/ik-llama-server \
-  --model /home/rohit/models/gemma-4-26B-A4B-it-Q4_K_M.gguf \
-  --threads 8 \
-  --ctx-size 4096 \
-  --jinja \
-  --host 0.0.0.0 \
-  --port 8081 \
-  --metrics
+ExecStart=/usr/local/bin/ik-llama-server   --model __MODEL_PATH__   --threads __THREADS__   --ctx-size 4096   --jinja   --host 0.0.0.0   --port 8081   --metrics
 Restart=always
 RestartSec=10
 LimitMEMLOCK=infinity

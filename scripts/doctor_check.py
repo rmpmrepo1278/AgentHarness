@@ -35,10 +35,10 @@ COOLDOWN_FILE = DATA_DIR / "doctor_cooldowns.json"
 SERVICES = [
     ("LLM Proxy", "127.0.0.1", 8080, "/health"),
     ("Local LLM", "127.0.0.1", 8081, "/health"),
-    ("MCP Gateway", "127.0.0.1", 8096, "/health"),
+    ("MCP Gateway", "127.0.0.1", 8090, "/health"),
 ]
 
-CHAGULI_CONTAINER = "chaguli"
+# Chaguli retired 2026-04-15 — Hermes is the sole agent now
 
 
 # ---------------------------------------------------------------------------
@@ -82,10 +82,10 @@ def check_services() -> list[dict]:
             "name": f"{label} ({port})",
             "ok": ok,
         })
-    # Chaguli container
-    ok = _docker_running(CHAGULI_CONTAINER)
+    # Hermes gateway (systemd user service)
+    ok = subprocess.run(["systemctl", "--user", "is-active", "hermes-gateway"], capture_output=True, timeout=5).returncode == 0
     results.append({
-        "name": f"{CHAGULI_CONTAINER} (container)",
+        "name": "hermes-gateway (systemd)",
         "ok": ok,
     })
     return results

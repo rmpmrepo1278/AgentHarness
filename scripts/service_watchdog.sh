@@ -2,7 +2,7 @@
 # =============================================================================
 # service_watchdog.sh — Extended watchdog for ALL critical homelab services
 #
-# Checks: hermes-gateway, chaguli, mcp-gateway, LLM proxy, scheduler
+# Checks: hermes-gateway, mcp-gateway, LLM proxy, local LLM, shared memory DB
 # Restarts anything that's down. Runs via cron every 5 minutes.
 #
 # Cron: */5 * * * * /home/rohit/agentharness/scripts/service_watchdog.sh >> /home/rohit/agentharness/data/logs/watchdog.log 2>&1
@@ -29,12 +29,13 @@ restarts=0
 # --- Check hermes-gateway (user systemd service) ---
 if ! systemctl --user is-active hermes-gateway &>/dev/null; then
     log "hermes-gateway is DOWN — restarting..."
+    systemctl --user reset-failed hermes-gateway 2>/dev/null
     systemctl --user restart hermes-gateway 2>/dev/null && log "hermes-gateway restarted" || log "hermes-gateway restart FAILED"
     ((restarts++)) || true
 fi
 
 # --- Check Docker containers ---
-critical_containers="chaguli mcp-gateway"
+critical_containers="mcp-gateway"
 for container in ${critical_containers}; do
     status=$(docker inspect "${container}" --format '{{.State.Status}}' 2>/dev/null || echo "missing")
     if [ "${status}" != "running" ]; then

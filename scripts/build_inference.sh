@@ -134,11 +134,13 @@ build_llama_variant() {
         return 1
     fi
 
-    # Record build info
+    # Record build info — replace hyphens with underscores for valid shell variable names
+    local var_prefix="${bin_prefix^^}"
+    var_prefix="${var_prefix//-/_}"
     cat >> "${AH_DATA_DIR}/hw_profile.env" << EOF
-${bin_prefix^^}_GIT_HASH="${git_hash}"
-${bin_prefix^^}_GIT_DATE="${git_date}"
-${bin_prefix^^}_BUILD_DATE="$(date -Iseconds)"
+${var_prefix}_GIT_HASH="${git_hash}"
+${var_prefix}_GIT_DATE="${git_date}"
+${var_prefix}_BUILD_DATE="$(date -Iseconds)"
 EOF
 }
 

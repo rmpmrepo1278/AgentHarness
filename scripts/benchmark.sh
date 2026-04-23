@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/common.sh"
 
 BENCHMARK_RESULTS="${AH_DATA_DIR}/benchmark_results.json"
 BEST_CONFIG="${AH_DATA_DIR}/best_config.env"
-BENCH_TEST_PORT=8090
+BENCH_TEST_PORT=18090
 _BENCH_SERVER_PIDS=()
 
 # Kill any orphaned benchmark servers from previous interrupted runs
@@ -20,14 +20,22 @@ cleanup_bench_servers() {
         kill "$pid" 2>/dev/null || true
     done
     # Also kill anything left on the benchmark port
-    fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+    if command -v fuser &>/dev/null; then
+        fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+    else
+        local trap_pids
+        trap_pids=$(ss -tlnp src :"${BENCH_TEST_PORT}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u || true)
+        for trap_pid in ${trap_pids}; do
+            kill "${trap_pid}" 2>/dev/null || true
+        done
+    fi
 }
 trap cleanup_bench_servers EXIT INT TERM
 
 # Test prompts for different capabilities
-TOOL_CALL_PROMPT='You have access to a function called check_container(name: str) -> str. The user asks: "Is jellyfin running?" Call the appropriate function.'
-REASONING_PROMPT='A Docker container is restarting every 30 seconds. The logs show "Error: ENOSPC". What is the most likely cause and how do you fix it? Be concise.'
-JSON_PROMPT='Output a JSON object with keys: "service", "status", "action" for restarting the pihole container. Output only valid JSON, no explanation.'
+TOOL_CALL_PROMPT='You have access to a function called check_container(name: str) -> str. The user asks: Is jellyfin running? Call the appropriate function.'
+REASONING_PROMPT='A Docker container is restarting every 30 seconds. The logs show Error: ENOSPC. What is the most likely cause and how do you fix it? Be concise.'
+JSON_PROMPT='Output a JSON object with keys: service, status, action for restarting the pihole container. Output only valid JSON, no explanation.'
 
 # -----------------------------------------------------------------------------
 # Detect existing benchmarking tools
@@ -304,8 +312,16 @@ start_temp_server() {
     local model_path="$2"
     local port="${3:-8090}"
 
-    # Kill any existing temp server on this port
-    fuser -k "${port}/tcp" 2>/dev/null || true
+    # Kill any existing process on this port (fuser may not be installed)
+    if command -v fuser &>/dev/null; then
+        fuser -k "${port}/tcp" 2>/dev/null || true
+    else
+        local port_pids
+        port_pids=$(ss -tlnp src :"${port}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u || true)
+        for p in ${port_pids}; do
+            kill "${p}" 2>/dev/null || true
+        done
+    fi
     sleep 1
 
     # Build server args — only add flags the hardware actually supports
@@ -337,7 +353,8 @@ start_temp_server() {
 
     # Log server stderr so failures are visible
     local server_log="${AH_DATA_DIR}/bench_server.log"
-    "${engine_bin}" "${server_args[@]}" >"${server_log}" 2>&1 &
+    echo "--- $(date -Iseconds) Starting ${engine_bin} with model $(basename \"${model_path}\") ---" >> "${server_log}"
+    "${engine_bin}" "${server_args[@]}" >>"${server_log}" 2>&1 &
 
     local server_pid=$!
     _BENCH_SERVER_PIDS+=("${server_pid}")
@@ -360,6 +377,11 @@ start_temp_server() {
             return 1
         fi
     done
+    # Verify our server (not something else) is actually on this port
+    if ! kill -0 "${server_pid}" 2>/dev/null; then
+        log_error "Server PID ${server_pid} died but port ${port} responds -- another service owns this port" >&2
+        return 1
+    fi
     log_ok "Server ready on port ${port} (PID ${server_pid})" >&2
 }
 
@@ -375,7 +397,15 @@ run_all_benchmarks() {
     sleep 3
 
     # Kill any orphaned servers from previous interrupted benchmark runs
-    fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+    if command -v fuser &>/dev/null; then
+        fuser -k "${BENCH_TEST_PORT}/tcp" 2>/dev/null || true
+    else
+        local orphan_pids
+        orphan_pids=$(ss -tlnp src :"${BENCH_TEST_PORT}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u || true)
+        for pid in ${orphan_pids}; do
+            kill "${pid}" 2>/dev/null || true
+        done
+    fi
     sleep 1
 
     # Load hardware profile
@@ -406,11 +436,31 @@ run_all_benchmarks() {
     log_info "Found $(echo "$models" | wc -l) model(s) in ${model_dir}"
 
     local engines=()
-    if command -v ik-llama-bench &>/dev/null; then
-        engines+=("ik-llama|ik-llama-bench|ik-llama-server")
+    local engines_conf="${AH_DATA_DIR}/engines.conf"
+
+    # Read engines from engines.conf (has absolute paths, works in cron)
+    if [ -f "${engines_conf}" ]; then
+        while IFS= read -r line; do
+            [[ "${line}" =~ ^#.*$ || -z "${line}" ]] && continue
+            local eng_name eng_bench eng_server
+            IFS="|" read -r eng_name eng_bench eng_server <<< "${line}"
+            if [ -x "${eng_bench}" ]; then
+                engines+=("${line}")
+                log_ok "Found engine: ${eng_name} (${eng_bench})"
+            else
+                log_warn "Engine ${eng_name}: bench binary not found at ${eng_bench}"
+            fi
+        done < "${engines_conf}"
     fi
-    if command -v llama-bench &>/dev/null; then
-        engines+=("stock|llama-bench|llama-server")
+
+    # Fallback: detect via PATH if engines.conf missing or empty
+    if [ ${#engines[@]} -eq 0 ]; then
+        if command -v ik-llama-bench &>/dev/null; then
+            engines+=("ik-llama|$(command -v ik-llama-bench)|$(command -v ik-llama-server)")
+        fi
+        if command -v llama-bench &>/dev/null; then
+            engines+=("stock|$(command -v llama-bench)|$(command -v llama-server)")
+        fi
     fi
 
     if [ ${#engines[@]} -eq 0 ]; then
