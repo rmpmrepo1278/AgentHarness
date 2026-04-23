@@ -16,9 +16,109 @@ import re
 import subprocess
 import time
 from pathlib import Path
+import hashlib
+from collections import OrderedDict
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Response cache — avoids redundant LLM calls for identical requests.
+# Keyed on hash(model + system_prompt + last_user_message + tools).
+# Short TTL (120s) since LLM responses are contextual.  Primarily helps
+# with Hermes monitoring queries that repeat every 15 min with the same
+# system prompt.
+# ---------------------------------------------------------------------------
+class _ResponseCache:
+    """Thread-safe LRU response cache with TTL."""
+
+    def __init__(self, maxsize: int = 128, ttl: float = 120.0):
+        self._cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
+        self._maxsize = maxsize
+        self._ttl = ttl
+        self.hits = 0
+        self.misses = 0
+
+    def _make_key(self, body: dict) -> str:
+        """Hash the stable parts of a request for cache lookup."""
+        # Extract stable parts: system prompt, tools, and last user message
+        parts = []
+
+        # System prompt (from messages or top-level system field)
+        messages = body.get("messages", [])
+        system = body.get("system", "")
+        if system:
+            parts.append(f"sys:{system[:500]}")
+        for m in messages:
+            if m.get("role") == "system":
+                parts.append(f"sys:{str(m.get('content', ''))[:500]}")
+                break
+
+        # Last user message
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                content = m.get("content", "")
+                if isinstance(content, list):
+                    # Anthropic format: extract text blocks
+                    text_parts = []
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            text_parts.append(block.get("text", ""))
+                        elif isinstance(block, str):
+                            text_parts.append(block)
+                    content = " ".join(text_parts)
+                parts.append(f"user:{str(content)[:500]}")
+                break
+
+        # Tool names (not full definitions — too verbose)
+        tools = body.get("tools", [])
+        if tools:
+            tool_names = sorted(t.get("name", t.get("function", {}).get("name", "")) for t in tools)
+            parts.append(f"tools:{','.join(tool_names)}")
+
+        # Model
+        parts.append(f"model:{body.get('model', '')}")
+
+        # Message count (to differentiate conversation turns)
+        parts.append(f"n:{len(messages)}")
+
+        key_str = "|".join(parts)
+        return hashlib.sha256(key_str.encode()).hexdigest()[:16]
+
+    def get(self, body: dict) -> dict | None:
+        key = self._make_key(body)
+        if key in self._cache:
+            ts, data = self._cache[key]
+            if time.monotonic() - ts < self._ttl:
+                self._cache.move_to_end(key)
+                self.hits += 1
+                return data
+            else:
+                del self._cache[key]
+        self.misses += 1
+        return None
+
+    def put(self, body: dict, response: dict) -> None:
+        key = self._make_key(body)
+        self._cache[key] = (time.monotonic(), response)
+        self._cache.move_to_end(key)
+        while len(self._cache) > self._maxsize:
+            self._cache.popitem(last=False)
+
+    def stats(self) -> dict:
+        total = self.hits + self.misses
+        return {
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": f"{self.hits / total * 100:.1f}%" if total > 0 else "0%",
+            "entries": len(self._cache),
+            "maxsize": self._maxsize,
+            "ttl_seconds": self._ttl,
+        }
+
+
+_response_cache = _ResponseCache(maxsize=256, ttl=120.0)
 
 try:
     from fastapi import FastAPI, Request
@@ -309,7 +409,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers=providers,
             budget=bt,
             routing={
-                "low": ["local"],
+                "low": ["local", "groq", "google-alt", "cerebras", "sambanova"],
                 "medium": ["local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt", "google-primary"],
                 "high": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
                 "critical": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
@@ -597,6 +697,17 @@ def create_proxy_app(data_dir: str = "") -> object:
         tool_choice = body.get("tool_choice")
         stream_requested = body.get("stream", False)
 
+        # --- Response cache check ---
+        # Skip cache for streaming requests (can't cache SSE generators)
+        if not stream_requested and temperature <= 0.3:
+            cached = _response_cache.get(body)
+            if cached is not None:
+                log.info("Response cache HIT (hits=%d, rate=%s)",
+                         _response_cache.hits, _response_cache.stats()["hit_rate"])
+                if stream_requested:
+                    return _json_to_sse(cached)
+                return JSONResponse(cached)
+
         # If tools are present, use passthrough mode — forward the full
         # OpenAI-compatible request directly to cloud providers that support
         # tool calling.  The local LLM does not support tools, so it is
@@ -713,6 +824,11 @@ def create_proxy_app(data_dir: str = "") -> object:
             },
         }
         result = _append_model_footer(result, response.provider)
+
+        # Cache plain-chat responses (low temperature only)
+        if not stream_requested and body.get("temperature", 0.7) <= 0.3:
+            _response_cache.put(body, result)
+
         if stream_requested:
             return _json_to_sse(result)
         return JSONResponse(result)
@@ -733,13 +849,15 @@ def create_proxy_app(data_dir: str = "") -> object:
         "fireworks": "accounts/fireworks/models/llama-v3p3-70b-instruct",
         "google-alt": "gemini-2.0-flash",
     }
-    # Routing order: groq first (fast+free, decent tool-calling), google second
-    # (reliable tool-calling via Gemini), then free-tier fallbacks.
-    # cerebras/sambanova Llama models often return text-only instead of tool calls,
-    # so they are last-resort for tool-calling.
+    # Routing order: groq first (fast+free), google-alt second (free Gemini,
+    # reliable tool-calling), then free-tier Llama fallbacks.
+    # cerebras/sambanova Llama models often return empty after tool calls,
+    # so they come after Google.
     _TOOL_PROVIDERS = [
         ("groq", "https://api.groq.com/openai/v1/chat/completions",
          "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
+        ("google-alt", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+         "GOOGLE_FREE_API_KEY", os.environ.get("GOOGLE_FREE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-alt"])),
         ("cerebras", "https://api.cerebras.ai/v1/chat/completions",
          "CEREBRAS_API_KEY", os.environ.get("CEREBRAS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["cerebras"])),
         ("sambanova", "https://api.sambanova.ai/v1/chat/completions",
@@ -748,8 +866,6 @@ def create_proxy_app(data_dir: str = "") -> object:
          "FIREWORKS_API_KEY", os.environ.get("FIREWORKS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["fireworks"])),
         ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
-        ("google-alt", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-         "GOOGLE_FREE_API_KEY", os.environ.get("GOOGLE_FREE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-alt"])),
         ("google-primary", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
          "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-primary"])),
     ]
@@ -760,6 +876,28 @@ def create_proxy_app(data_dir: str = "") -> object:
     # calling tools for simple chat messages.
     _MAX_TOOLS_PASSTHROUGH = 6
 
+    def _is_valid_response(data: dict, had_tools: bool) -> bool:
+        """Check if response is usable or needs escalation to a better model."""
+        if not data or not data.get("choices"):
+            return False
+        msg = data["choices"][0].get("message", {})
+        content = (msg.get("content") or "").strip()
+        tool_calls = msg.get("tool_calls") or []
+
+        # Empty response
+        if not content and not tool_calls:
+            return False
+
+        # Tools were in the request but model rendered them as markdown
+        # instead of proper function calls
+        if had_tools and not tool_calls:
+            if "```bash" in content or "```python" in content:
+                return False
+            if "terminal --tool_code" in content or "claudemem_" in content:
+                return False
+
+        return True
+
     async def _tool_call_passthrough(
         body: dict,
         messages: list,
@@ -768,7 +906,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         tools: list,
         tool_choice: Any | None,
     ) -> JSONResponse:
-        """Forward tool-calling requests to cloud providers, with local LLM fallback.
+        """Forward tool-calling requests, trying local LLM first for simple calls.
 
         Cloud providers are tried first (faster, higher quality).  If all
         cloud providers fail, the local Gemma 4 26B-A4B is used as a
@@ -836,9 +974,66 @@ def create_proxy_app(data_dir: str = "") -> object:
             "cerebras": 50000,
             "sambanova": 50000,
             "openrouter": 50000,
+            "google-alt": 1000000,
             "google-primary": 1000000,
         }
 
+        # --- Local-first for simple tool calls ---
+        # Small requests (few tools, short context) can be handled by the
+        # local qwen2.5-7b-tool-planning model, avoiding cloud API usage.
+        _LOCAL_FIRST_MAX_TOKENS = 500
+        _LOCAL_FIRST_MAX_TOOLS = 3
+        _LOCAL_FIRST_TIMEOUT = 30.0  # bail fast if local is slow
+
+        if _est_tokens < _LOCAL_FIRST_MAX_TOKENS and len(capped_tools) <= _LOCAL_FIRST_MAX_TOOLS:
+            local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
+            local_ok = await _check_local_health(local_url)
+            if local_ok:
+                local_tools = _sanitize_tools_for_local(capped_tools) if capped_tools else []
+                local_payload = {
+                    "model": "local",
+                    "messages": patched_messages if local_tools else list(messages),
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                if local_tools:
+                    local_payload["tools"] = local_tools
+                if tool_choice is not None and local_tools:
+                    local_payload["tool_choice"] = tool_choice
+
+                start = time.monotonic()
+                try:
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(
+                            f"{local_url}/v1/chat/completions",
+                            json=local_payload,
+                            headers={"Content-Type": "application/json"},
+                            timeout=_LOCAL_FIRST_TIMEOUT,
+                        )
+                    if resp.status_code in (200, 201):
+                        data = resp.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            msg = choices[0].get("message", {})
+                            msg_content = (msg.get("content") or "").strip()
+                            msg_tool_calls = msg.get("tool_calls") or []
+                            if msg_content or msg_tool_calls:
+                                elapsed_ms = int((time.monotonic() - start) * 1000)
+                                data["timings"] = {"provider": "local", "latency_ms": elapsed_ms}
+                                data = _append_model_footer(data, "local", "local")
+                                log.info("Tool passthrough: local-first succeeded (%dms, ~%d tokens)", elapsed_ms, _est_tokens)
+                                return JSONResponse(data)
+                        log.info("Tool passthrough: local-first returned empty, falling through to cloud")
+                    else:
+                        log.info("Tool passthrough: local-first returned %d, falling through to cloud", resp.status_code)
+                except httpx.TimeoutException:
+                    log.info("Tool passthrough: local-first timed out (%.0fs), falling through to cloud", _LOCAL_FIRST_TIMEOUT)
+                except Exception as exc:
+                    log.info("Tool passthrough: local-first error: %r, falling through to cloud", exc)
+            else:
+                log.info("Tool passthrough: local LLM unhealthy, skipping local-first")
+
+        # --- Cloud provider cascade ---
         for pname, url, env_key, default_model in _TOOL_PROVIDERS:
             api_key = os.environ.get(env_key, "")
             if not api_key:
@@ -876,7 +1071,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             # Always use the provider's default model — the client sends
             # "agentharness-proxy" which upstream providers don't recognise.
             req_model = body.get("model", "")
-            use_model = default_model if req_model in ("", "agentharness-proxy") else req_model
+            use_model = default_model if req_model in ("", "agentharness-proxy") or req_model.startswith("claude-") else req_model
             payload = {
                 "model": use_model,
                 "messages": patched_messages,
@@ -932,6 +1127,12 @@ def create_proxy_app(data_dir: str = "") -> object:
             # Success — record usage, reset cooldown counter, return response.
             _cooldown_hits.pop(pname, None)  # reset escalation on success
             data = resp.json()
+
+            if not _is_valid_response(data, bool(capped_tools)):
+                log.warning("Provider %s returned invalid tool response, escalating to next", pname)
+                continue
+
+            usage = data.get("usage", {})
             usage = data.get("usage", {})
 
             # Check for empty response — some providers (SambaNova, Cerebras)
@@ -960,6 +1161,13 @@ def create_proxy_app(data_dir: str = "") -> object:
             # Inject provider info so the caller knows who handled it
             data["timings"] = {"provider": pname, "latency_ms": elapsed_ms}
             data = _append_model_footer(data, pname, use_model)
+
+            # Store in response cache (only non-tool-use responses —
+            # tool-use responses are action-oriented and shouldn't be cached)
+            msg = (data.get("choices", [{}])[0].get("message") or {})
+            if not msg.get("tool_calls") and body.get("temperature", 0.7) <= 0.3:
+                _response_cache.put(body, data)
+
             return JSONResponse(data)
 
         # All cloud providers failed — try local LLM as last resort.
@@ -1023,6 +1231,24 @@ def create_proxy_app(data_dir: str = "") -> object:
             {"error": {"message": "No provider available for tool calling (cloud + local exhausted)"}},
             status_code=503,
         )
+
+    # -- Anthropic API compatibility layer ----------------------------------
+    @app.get("/v1/cache")
+    async def cache_stats():
+        """Response cache statistics."""
+        return JSONResponse(_response_cache.stats())
+
+    @app.delete("/v1/cache")
+    async def cache_clear():
+        """Clear the response cache."""
+        _response_cache._cache.clear()
+        _response_cache.hits = 0
+        _response_cache.misses = 0
+        return JSONResponse({"status": "cleared"})
+
+    # Allows Claude Code to use the proxy via /v1/messages (Anthropic format).
+    from core.providers.anthropic_compat import register_anthropic_routes
+    register_anthropic_routes(app, chat_completions)
 
     return app
 
