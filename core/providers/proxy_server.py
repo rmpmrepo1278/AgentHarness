@@ -586,7 +586,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Routing order
         routing_order = {
-            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google-alt", "google-primary"],
+            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google-alt", "qwen-coder", "google-primary"],
             "tool_calling": [p[0] for p in _TOOL_PROVIDERS],
         }
 
@@ -882,6 +882,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         "cerebras": "qwen-3-235b-a22b-instruct-2507",
         "sambanova": "Meta-Llama-3.3-70B-Instruct",
         "openrouter": "meta-llama/llama-3.3-70b-instruct",
+        "qwen-coder": "qwen/qwen3-coder-next",
         "fireworks": "accounts/fireworks/models/llama-v3p3-70b-instruct",
         "google-alt": "gemini-2.0-flash",
     }
@@ -902,6 +903,8 @@ def create_proxy_app(data_dir: str = "") -> object:
          "FIREWORKS_API_KEY", os.environ.get("FIREWORKS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["fireworks"])),
         ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
+        ("qwen-coder", "https://openrouter.ai/api/v1/chat/completions",
+         "OPENROUTER_API_KEY", os.environ.get("HAQUI_MODEL", _TOOL_PROVIDER_DEFAULTS["qwen-coder"])),
         ("google-primary", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
          "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-primary"])),
     ]
@@ -1018,11 +1021,11 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Reorder providers based on cognitive tier hint
         providers_to_try = list(_TOOL_PROVIDERS)
         if cognitive_tier == "REASON" or cognitive_tier == "PLAN_NEEDED":
-            # Move google-primary to front for reasoning tasks
+            # Move openrouter to front for reasoning tasks (Qwen3.6 Plus)
             providers_to_try.sort(
-                key=lambda p: 0 if "google-primary" in p[0] else 1
+                key=lambda p: 0 if p[0] == "openrouter" else 1
             )
-            log.info("Tier %s: google-primary prioritized", cognitive_tier)
+            log.info("Tier %s: openrouter (Qwen3.6 Plus) prioritized", cognitive_tier)
         elif cognitive_tier == "CHAT":
             # Chat shouldn't have tools, but if it does, use cheapest
             providers_to_try.sort(
@@ -1288,19 +1291,19 @@ def create_proxy_app(data_dir: str = "") -> object:
     # -- Orchestrator Workflow (Reasoning -> Execution) ----------------------
     async def _orchestrator_workflow(body: dict) -> JSONResponse:
         """Two-agent workflow for complex tasks.
-        1. Reasoning Agent (Gemini 2.5 Pro) creates a plan.
+        1. Reasoning Agent (Qwen3.6 Plus via OpenRouter) creates a plan.
         2. Execution Agent (tiered routing) executes each step.
         """
         import httpx
 
         # --- Step 1: Reasoning Agent (generate plan) ---
-        reasoning_model = "gemini-2.5-pro"
-        reasoning_provider = "google-primary"
-        reasoning_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-        google_api_key = os.environ.get("GOOGLE_API_KEY", "")
+        reasoning_model = "qwen/qwen3.6-plus"
+        reasoning_provider = "openrouter"
+        reasoning_url = "https://openrouter.ai/api/v1/chat/completions"
+        openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
 
-        if not google_api_key:
-            return JSONResponse({"error": {"message": "GOOGLE_API_KEY not set for orchestrator"}}, status_code=503)
+        if not openrouter_api_key:
+            return JSONResponse({"error": {"message": "OPENROUTER_API_KEY not set for orchestrator"}}, status_code=503)
 
         user_prompt = ""
         messages = body.get("messages", [])
@@ -1331,7 +1334,7 @@ Generate the JSON plan.
                 resp = await client.post(
                     reasoning_url,
                     json=reasoning_payload,
-                    headers={"Authorization": f"Bearer {google_api_key}", "Content-Type": "application/json"},
+                    headers={"Authorization": f"Bearer {openrouter_api_key}", "Content-Type": "application/json"},
                     timeout=60.0,
                 )
             if resp.status_code != 200:
