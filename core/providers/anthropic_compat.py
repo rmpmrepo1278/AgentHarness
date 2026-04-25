@@ -467,6 +467,7 @@ def register_anthropic_routes(app: Any, chat_completions_handler: Any) -> None:
             len(body.get("messages", [])),
             len(body.get("tools", [])),
         )
+        log.debug("Anthropic request body: %s", json.dumps(body, indent=2))
 
         # Translate Anthropic -> OpenAI
         try:
@@ -477,6 +478,7 @@ def register_anthropic_routes(app: Any, chat_completions_handler: Any) -> None:
                 _anthropic_error(f"Request translation error: {exc}"),
                 status_code=400,
             )
+        log.debug("Translated OpenAI request body: %s", json.dumps(openai_body, indent=2))
 
         # Force model to Gemini 2.5 Pro, disable streaming (we handle SSE ourselves)
         _gemini_model = os.environ.get("GEMINI_CLAUDE_CODE_MODEL", "gemini-2.5-pro")

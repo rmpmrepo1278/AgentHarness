@@ -690,7 +690,28 @@ def create_proxy_app(data_dir: str = "") -> object:
         except Exception:
             return JSONResponse({"error": {"message": "Invalid JSON"}}, status_code=400)
 
+        # --- Orchestrator Workflow ---
+        # Check if this is a task-oriented prompt that should use the new
+        # two-agent reasoning/execution workflow.
+        last_user_message = ""
         messages = body.get("messages", [])
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                last_user_message = m.get("content", "")
+                break
+
+        _TASK_KEYWORDS = {"fix", "debug", "investigate", "resolve", "troubleshoot"}
+        if any(w in last_user_message.lower() for w in _TASK_KEYWORDS):
+            log.info("Task-oriented prompt detected, starting orchestrator workflow")
+            try:
+                result = await _orchestrator_workflow(body)
+                # The orchestrator handles its own formatting and response
+                return result
+            except Exception as e:
+                log.error(f"Orchestrator workflow failed: {e}")
+                # Fallback to standard routing if orchestrator fails
+                pass
+
         max_tokens = body.get("max_tokens", 1024)
         temperature = body.get("temperature", 0.7)
         tools = body.get("tools")
@@ -1232,6 +1253,100 @@ def create_proxy_app(data_dir: str = "") -> object:
             status_code=503,
         )
 
+    # -- Orchestrator Workflow (Reasoning -> Execution) ----------------------
+    async def _orchestrator_workflow(body: dict) -> JSONResponse:
+        """Two-agent workflow for complex tasks.
+        1. Reasoning Agent (Gemini 2.5 Pro) creates a plan.
+        2. Execution Agent (tiered routing) executes each step.
+        """
+        import httpx
+
+        # --- Step 1: Reasoning Agent (generate plan) ---
+        reasoning_model = "gemini-2.5-pro"
+        reasoning_provider = "google-primary"
+        reasoning_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+        google_api_key = os.environ.get("GOOGLE_API_KEY", "")
+
+        if not google_api_key:
+            return JSONResponse({"error": {"message": "GOOGLE_API_KEY not set for orchestrator"}}, status_code=503)
+
+        user_prompt = ""
+        messages = body.get("messages", [])
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                user_prompt = m.get("content", "")
+                break
+
+        reasoning_prompt = f"""
+You are a DevOps expert. Your task is to create a step-by-step plan to resolve the user's request.
+The plan should be a JSON array of objects, where each object has a "step" number and a "command" to execute.
+The commands should be single-line shell commands or brief instructions for an LLM.
+
+User request: "{user_prompt}"
+
+Generate the JSON plan.
+"""
+        reasoning_payload = {
+            "model": reasoning_model,
+            "messages": [{"role": "user", "content": reasoning_prompt}],
+            "max_tokens": 1024,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    reasoning_url,
+                    json=reasoning_payload,
+                    headers={"Authorization": f"Bearer {google_api_key}", "Content-Type": "application/json"},
+                    timeout=60.0,
+                )
+            if resp.status_code != 200:
+                return JSONResponse({"error": {"message": f"Reasoning agent failed: {resp.text}"}}, status_code=502)
+
+            plan_text = resp.json()["choices"][0]["message"]["content"]
+            plan = json.loads(plan_text).get("plan", [])
+        except Exception as e:
+            return JSONResponse({"error": {"message": f"Failed to generate or parse plan: {e}"}}, status_code=500)
+
+        # --- Step 2: Execution Agent (execute plan) ---
+        execution_results = []
+        router = _get_router()
+        from core.providers.base import LLMRequest, Complexity
+
+        for task in plan:
+            step = task.get("step")
+            command = task.get("command")
+            log.info(f"Orchestrator: Executing step {step}: {command}")
+
+            # Here we could add more sophisticated routing based on the command content.
+            # For now, we use the standard tiered routing.
+            llm_request = LLMRequest(
+                prompt=command,
+                complexity=Complexity.MEDIUM, # Assume all steps are medium complexity for now
+            )
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, router.route, llm_request)
+
+            if response.success:
+                execution_results.append(f"Step {step}: {command}\nOutput: {response.text}")
+            else:
+                execution_results.append(f"Step {step}: {command}\nError: {response.error}")
+
+        # --- Step 3: Final Response ---
+        # Combine the results into a single response.
+        final_response_text = "Orchestrator workflow complete:\n\n" + "\n\n".join(execution_results)
+
+        return JSONResponse({
+            "id": f"chatcmpl-orch-{int(time.time())}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": f"agentharness-orchestrator",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": final_response_text}, "finish_reason": "stop"}],
+        })
+
+
     # -- Anthropic API compatibility layer ----------------------------------
     @app.get("/v1/cache")
     async def cache_stats():
@@ -1264,11 +1379,11 @@ def main():
     parser.add_argument("--data-dir", default=os.environ.get("AH_DATA_DIR", ""))
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     os.environ.setdefault("AH_DATA_DIR", args.data_dir)
     app = create_proxy_app(data_dir=args.data_dir)
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="debug")
 
 
 if __name__ == "__main__":
