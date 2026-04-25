@@ -690,6 +690,12 @@ def create_proxy_app(data_dir: str = "") -> object:
         except Exception:
             return JSONResponse({"error": {"message": "Invalid JSON"}}, status_code=400)
 
+        # Cognitive tier hint from Hermes orchestrator
+        cognitive_tier = body.pop("cognitive_tier", None)  # pop so upstream providers don't see it
+        if cognitive_tier:
+            log.info("Cognitive tier hint: %s", cognitive_tier)
+
+
         # --- Orchestrator Workflow ---
         # Check if this is a task-oriented prompt that should use the new
         # two-agent reasoning/execution workflow.
@@ -766,6 +772,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         if tools:
             resp = await _tool_call_passthrough(
                 body, messages, max_tokens, temperature, tools, tool_choice,
+                cognitive_tier=cognitive_tier,  # ADD THIS PARAMETER
             )
             if stream_requested and isinstance(resp, JSONResponse):
                 return _json_to_sse(json.loads(resp.body.decode()))
@@ -795,13 +802,21 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Determine complexity from prompt length and context
         from core.providers.base import Complexity, LLMRequest
-        token_estimate = len(prompt.split())
-        if token_estimate < 5:
-            complexity = Complexity.LOW
-        elif token_estimate < 100:
-            complexity = Complexity.MEDIUM
+
+        # Tier override from cognitive classifier
+        if cognitive_tier == "REASON" or cognitive_tier == "PLAN_NEEDED":
+            complexity = Complexity.HIGH  # forces routing to stronger model
+        elif cognitive_tier == "CHAT":
+            complexity = Complexity.LOW   # forces routing to local/free
         else:
-            complexity = Complexity.HIGH
+            # Original complexity logic (EXECUTE or no tier hint)
+            token_estimate = len(prompt.split())
+            if token_estimate < 5:
+                complexity = Complexity.LOW
+            elif token_estimate < 100:
+                complexity = Complexity.MEDIUM
+            else:
+                complexity = Complexity.HIGH
 
         router = _get_router()
         llm_request = LLMRequest(
@@ -926,6 +941,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         temperature: float,
         tools: list,
         tool_choice: Any | None,
+        cognitive_tier: str | None = None,
     ) -> JSONResponse:
         """Forward tool-calling requests, trying local LLM first for simple calls.
 
@@ -999,6 +1015,22 @@ def create_proxy_app(data_dir: str = "") -> object:
             "google-primary": 1000000,
         }
 
+        # Reorder providers based on cognitive tier hint
+        providers_to_try = list(_TOOL_PROVIDERS)
+        if cognitive_tier == "REASON" or cognitive_tier == "PLAN_NEEDED":
+            # Move google-primary to front for reasoning tasks
+            providers_to_try.sort(
+                key=lambda p: 0 if "google-primary" in p[0] else 1
+            )
+            log.info("Tier %s: google-primary prioritized", cognitive_tier)
+        elif cognitive_tier == "CHAT":
+            # Chat shouldn't have tools, but if it does, use cheapest
+            providers_to_try.sort(
+                key=lambda p: 0 if p[0] in ("groq", "cerebras") else 1
+            )
+            log.info("Tier CHAT: cheapest providers prioritized")
+        # EXECUTE uses default order (already optimized for cost)
+
         # --- Local-first for simple tool calls ---
         # Small requests (few tools, short context) can be handled by the
         # local qwen2.5-7b-tool-planning model, avoiding cloud API usage.
@@ -1055,7 +1087,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 log.info("Tool passthrough: local LLM unhealthy, skipping local-first")
 
         # --- Cloud provider cascade ---
-        for pname, url, env_key, default_model in _TOOL_PROVIDERS:
+        for pname, url, env_key, default_model in providers_to_try:
             api_key = os.environ.get(env_key, "")
             if not api_key:
                 continue
