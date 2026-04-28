@@ -50,8 +50,15 @@ class InboxWatcher:
         for alert in alerts:
             if alert.get("delivered"):
                 continue
-            severity = alert.get("severity", "info").upper()
+            
             message = alert.get("message", "")
+            # Silence transient LLM errors/fallbacks
+            if any(kw in message.lower() for kw in ["429", "rate limit", "switching to fallback", "quota exceeded"]):
+                alert["delivered"] = True
+                sent += 1
+                continue
+
+            severity = alert.get("severity", "info").upper()
             source = alert.get("source", "")
             text = f"[{severity}] {message}"
             if source:
@@ -86,6 +93,7 @@ class InboxWatcher:
                 continue
         return sent
 
+
     def check_proposals(self) -> int:
         """Check for new pending proposals, notify via Telegram."""
         proposals_dir = self.inbox_dir / "proposals"
@@ -113,6 +121,7 @@ class InboxWatcher:
             except (json.JSONDecodeError, OSError):
                 continue
         return sent
+
 
     def tick(self) -> dict:
         """Run one check cycle."""

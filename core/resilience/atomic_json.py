@@ -82,13 +82,16 @@ def atomic_write_json(path: Path | str, data: Any) -> None:
 
 
 def atomic_append_json(path: Path | str, item: Any) -> None:
-    """Atomically append *item* to a JSON list at *path*.
+    """Atomically append *item* to a JSONL file at *path*.
 
-    If the file doesn't exist or is empty, a new list is created.
+    If the file doesn't exist, it is created.
     """
     path = Path(path)
-    existing = safe_read_json(path, default=[])
-    if not isinstance(existing, list):
-        existing = []
-    existing.append(item)
-    atomic_write_json(path, existing)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    json_string = json.dumps(item, ensure_ascii=False)
+
+    # Use a lock to prevent race conditions from multiple processes
+    with open(path, "a", encoding="utf-8") as f:
+        _acquire_lock(f.fileno(), _LOCK_TIMEOUT_S)
+        f.write(json_string + "\n")
+        f.flush()

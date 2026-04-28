@@ -33,6 +33,9 @@ class Alert:
     source: str = ""     # Which script/module generated this
     timestamp: str = ""
     delivered: bool = False
+    requires_approval: bool = False
+    approval_id: Optional[str] = None
+    actions: Optional[list[dict]] = None
 
     def __post_init__(self):
         if not self.timestamp:
@@ -50,14 +53,26 @@ class AlertSender:
         self.alerts_file = self.data_dir / "alerts_inbox.jsonl"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def send(self, severity: str, message: str, source: str = "") -> None:
+    def send(self, severity: str, message: str, source: str = "", requires_approval: bool = False, approval_id: Optional[str] = None, actions: Optional[list[dict]] = None) -> None:
         """Queue an alert for the agent to deliver."""
+        print(f"sender.py send() called with:")
+        print(f"  severity: {severity}")
+        print(f"  message: {message}")
+        print(f"  source: {source}")
+        print(f"  requires_approval: {requires_approval}")
+        print(f"  approval_id: {approval_id}")
+        print(f"  actions: {actions}")
         alert = Alert(
             severity=severity,
             message=message,
             source=source,
+            requires_approval=requires_approval,
+            approval_id=approval_id,
+            actions=actions,
         )
+        print(f"Created Alert object: {alert}")
         atomic_append_json(self.alerts_file, asdict(alert))
+        print(f"Appended alert to {self.alerts_file}")
         log.info(f"Alert [{severity}] from {source}: {message[:100]}")
 
     def info(self, message: str, source: str = "") -> None:

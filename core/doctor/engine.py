@@ -227,10 +227,12 @@ class RunbookExecutor:
 
         if escalated:
             result = "escalated"
+            self._trigger_n8n_remediation(runbook_name, result, step_results)
         elif failed == 0:
             result = "pass"
         else:
             result = "fail"
+            self._trigger_n8n_remediation(runbook_name, result, step_results)
 
         duration = time.monotonic() - start
 
@@ -264,6 +266,32 @@ class RunbookExecutor:
         self._record_cooldown_attempt(runbook_name)
 
         return rb_result
+
+    def _trigger_n8n_remediation(self, runbook_name: str, result_state: str, step_results: list[StepResult]) -> None:
+        """Trigger n8n webhook for automated remediation when a runbook fails or escalates."""
+        import httpx
+        n8n_webhook_url = os.environ.get("N8N_REMEDIATION_WEBHOOK")
+        if not n8n_webhook_url:
+            log.info("N8N_REMEDIATION_WEBHOOK not set; skipping n8n auto-remediation.")
+            return
+
+        payload = {
+            "runbook": runbook_name,
+            "status": result_state,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "failures": [
+                {"step": sr.name, "error": sr.error, "output": sr.output}
+                for sr in step_results if not sr.success and not sr.skipped
+            ]
+        }
+
+        try:
+            # We fire and forget with a short timeout to not block the doctor
+            with httpx.Client(timeout=3.0) as client:
+                client.post(n8n_webhook_url, json=payload)
+            log.info(f"Triggered n8n remediation workflow for {runbook_name}")
+        except Exception as e:
+            log.warning(f"Failed to trigger n8n remediation: {e}")
 
     def execute_step(
         self,

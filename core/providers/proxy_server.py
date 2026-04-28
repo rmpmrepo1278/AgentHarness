@@ -370,15 +370,15 @@ def create_proxy_app(data_dir: str = "") -> object:
                 daily_limit=1500,
                 name="google-alt",
             ))
-        # Google paid tier (Gemini 2.5 Flash, last resort)
-        if os.environ.get("GOOGLE_API_KEY"):
-            providers.append(GoogleProvider())
         if os.environ.get("CEREBRAS_API_KEY"):
             providers.append(CerebrasProvider())
         if os.environ.get("SAMBANOVA_API_KEY"):
             providers.append(SambaNovaProvider())
         if os.environ.get("OPENROUTER_API_KEY"):
-            providers.append(OpenRouterProvider())
+            providers.append(OpenRouterProvider(
+                model=os.environ.get("REASON_MODEL", "deepseek/deepseek-chat"),
+                daily_limit=50000,
+            ))
         if os.environ.get("OLLAMA_API_KEY"):
             providers.append(OllamaCloudProvider())
 
@@ -410,9 +410,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             budget=bt,
             routing={
                 "low": ["local", "groq", "google-alt", "cerebras", "sambanova"],
-                "medium": ["local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt", "google-primary"],
-                "high": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
-                "critical": ["groq", "cerebras", "sambanova", "fireworks", "openrouter", "ollama_cloud", "google-alt", "google-primary"],
+                "medium": ["local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt"],
+                "high": ["groq", "openrouter", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
+                "critical": ["openrouter", "groq", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
             },
         )
         _router_cache["router"] = router
@@ -541,11 +541,27 @@ def create_proxy_app(data_dir: str = "") -> object:
     @app.get("/v1/cost")
     async def cost_summary():
         """Cost summary for Telegram /cost command."""
+        import httpx
         router = _get_router()
         budget = _router_cache.get("budget")
         local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
         local_ok = await _check_local_health(local_url)
         now = time.monotonic()
+
+        openrouter_credit = None
+        or_key = os.environ.get("OPENROUTER_API_KEY")
+        if or_key:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        "https://openrouter.ai/api/v1/auth/key",
+                        headers={"Authorization": f"Bearer {or_key}"},
+                        timeout=5.0
+                    )
+                    if resp.status_code == 200:
+                        openrouter_credit = resp.json().get("data", {})
+            except Exception as e:
+                log.error("Failed to fetch OpenRouter credit: %s", e)
 
         # Provider status
         providers = {}
@@ -586,7 +602,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Routing order
         routing_order = {
-            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google-alt", "qwen-coder", "google-primary"],
+            "plain_chat": ["local", "groq", "cerebras", "sambanova", "openrouter", "google-alt", "qwen-coder"],
             "tool_calling": [p[0] for p in _TOOL_PROVIDERS],
         }
 
@@ -596,6 +612,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             "usage_today": usage,
             "routing_order": routing_order,
             "disabled": list(_disabled_providers),
+            "openrouter_credit": openrouter_credit,
         })
 
     @app.post("/v1/routing")
@@ -697,26 +714,28 @@ def create_proxy_app(data_dir: str = "") -> object:
 
 
         # --- Orchestrator Workflow ---
-        # Check if this is a task-oriented prompt that should use the new
-        # two-agent reasoning/execution workflow.
-        last_user_message = ""
+        # DISABLED: Hermes now has its own orchestrator implementation
+        # This proxy-only orchestrator conflicts with the Hermes orchestrator
+        # and causes expensive API calls to OpenRouter.
+        #
+        # last_user_message = ""
         messages = body.get("messages", [])
-        for m in reversed(messages):
-            if m.get("role") == "user":
-                last_user_message = m.get("content", "")
-                break
-
-        _TASK_KEYWORDS = {"fix", "debug", "investigate", "resolve", "troubleshoot"}
-        if any(w in last_user_message.lower() for w in _TASK_KEYWORDS):
-            log.info("Task-oriented prompt detected, starting orchestrator workflow")
-            try:
-                result = await _orchestrator_workflow(body)
-                # The orchestrator handles its own formatting and response
-                return result
-            except Exception as e:
-                log.error(f"Orchestrator workflow failed: {e}")
-                # Fallback to standard routing if orchestrator fails
-                pass
+        # for m in reversed(messages):
+        #     if m.get("role") == "user":
+        #         last_user_message = m.get("content", "")
+        #         break
+        #
+        # _TASK_KEYWORDS = {"fix", "debug", "investigate", "resolve", "troubleshoot"}
+        # if any(w in last_user_message.lower() for w in _TASK_KEYWORDS):
+        #     log.info("Task-oriented prompt detected, starting orchestrator workflow")
+        #     try:
+        #         result = await _orchestrator_workflow(body)
+        #         # The orchestrator handles its own formatting and response
+        #         return result
+        #     except Exception as e:
+        #         log.error(f"Orchestrator workflow failed: {e}")
+        #         # Fallback to standard routing if orchestrator fails
+        #         pass
 
         max_tokens = body.get("max_tokens", 1024)
         temperature = body.get("temperature", 0.7)
@@ -878,10 +897,9 @@ def create_proxy_app(data_dir: str = "") -> object:
     # This avoids hardcoding models that change with free-tier rotations.
     _TOOL_PROVIDER_DEFAULTS = {
         "groq": "llama-3.3-70b-versatile",
-        "google-primary": "gemini-2.5-flash",
         "cerebras": "qwen-3-235b-a22b-instruct-2507",
         "sambanova": "Meta-Llama-3.3-70B-Instruct",
-        "openrouter": "meta-llama/llama-3.3-70b-instruct",
+        "openrouter": "qwen/qwen3.6-plus",
         "qwen-coder": "qwen/qwen3-coder-next",
         "fireworks": "accounts/fireworks/models/llama-v3p3-70b-instruct",
         "google-alt": "gemini-2.0-flash",
@@ -905,8 +923,6 @@ def create_proxy_app(data_dir: str = "") -> object:
          "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
         ("qwen-coder", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("HAQUI_MODEL", _TOOL_PROVIDER_DEFAULTS["qwen-coder"])),
-        ("google-primary", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-         "GOOGLE_API_KEY", os.environ.get("GOOGLE_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["google-primary"])),
     ]
 
     # Max tools to forward — free-tier Llama models degrade with too many
@@ -1297,7 +1313,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         import httpx
 
         # --- Step 1: Reasoning Agent (generate plan) ---
-        reasoning_model = "qwen/qwen3.6-plus"
+        reasoning_model = os.environ.get("REASON_MODEL", "deepseek/deepseek-chat")
         reasoning_provider = "openrouter"
         reasoning_url = "https://openrouter.ai/api/v1/chat/completions"
         openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")

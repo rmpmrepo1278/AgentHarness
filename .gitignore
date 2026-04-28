@@ -22,3 +22,6 @@ reports/
 # OS
 .DS_Store
 Thumbs.db
+start_proxy.sh
+litellm_config.yaml
+*.bak

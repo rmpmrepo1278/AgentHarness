@@ -4,44 +4,37 @@ trigger: "health_check_fail:chaguli_container"
 priority: critical
 notify: critical
 description: >
-  Recover the Chaguli agent Docker container. Since Chaguli IS the notification
-  system, this runbook sends alerts directly via Telegram API on failure.
+  Recover the Chaguli agent (now running as a host service).
+  Since Chaguli IS the notification system, this runbook sends 
+  alerts directly via Telegram API on failure.
 
 steps:
   - name: check-chaguli-state
-    check: "docker inspect -f '{{.State.Status}}' chaguli 2>/dev/null || echo 'not_found'"
-    expect_contains: "running"
+    check: "systemctl --user is-active chaguli"
+    expect_contains: "active"
     on_fail:
       - name: restart-chaguli
-        fix: "docker restart chaguli 2>/dev/null || docker start chaguli 2>/dev/null"
+        fix: "systemctl --user restart chaguli"
         wait: 10
       - name: verify-chaguli-running
-        check: "docker inspect -f '{{.State.Status}}' chaguli 2>/dev/null || echo 'not_found'"
-        expect_contains: "running"
+        check: "systemctl --user is-active chaguli"
+        expect_contains: "active"
         on_fail:
           - name: read-chaguli-logs
-            check: "docker logs --tail 50 chaguli 2>/dev/null || echo 'no container logs available'"
+            check: "journalctl --user -u chaguli --no-pager -n 50"
             interpret: llm
-            on_known:
-              "OOMKilled": "escalate:Chaguli OOM-killed. Increase container memory limit or reduce load."
-              "port is already allocated": "escalate:Chaguli port conflict. Check MCP gateway (8096) and other containers."
-              "network chaguli-net": "escalate:Docker network chaguli-net missing. Run: docker network create chaguli-net"
-              "not found": "escalate:Chaguli container does not exist. Redeploy with docker-compose."
             on_unknown:
               escalate: true
 
   - name: notify-telegram-direct
-    # Bypass Chaguli for notifications since Chaguli itself is down.
-    # Uses the Telegram Bot API directly. TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
-    # must be set in the doctor engine's environment.
-    check: "docker inspect -f '{{.State.Status}}' chaguli 2>/dev/null"
-    expect_contains: "running"
+    check: "systemctl --user is-active chaguli"
+    expect_contains: "active"
     on_fail:
       - fix: >
           curl -sf -X POST
           "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
           -d chat_id="${TELEGRAM_CHAT_ID}"
           -d parse_mode=Markdown
-          -d text="*AgentHarness Doctor*: Chaguli container is DOWN and could not be auto-recovered. Manual intervention required."
+          -d text="*AgentHarness Doctor*: Chaguli service is DOWN and could not be auto-recovered. Manual intervention required."
         wait: 2
       - escalate: "Chaguli is down and could not be restarted. Direct Telegram alert sent."
