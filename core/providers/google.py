@@ -18,7 +18,7 @@ class GoogleProvider(LLMProvider):
         api_key: str | None = None,
         model: str = "gemini-2.5-flash",
         daily_limit: int = 1500,
-        timeout: float = 30.0,
+        timeout: float = 600.0,
         **kwargs: Any,
     ) -> None:
         provider_name = kwargs.pop("name", "google-primary")

@@ -18,7 +18,7 @@ class AnthropicProvider(LLMProvider):
         api_key: str | None = None,
         model: str = "claude-sonnet-4-6",
         daily_limit: int = 100,
-        timeout: float = 60.0,
+        timeout: float = 600.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(name="anthropic", tier=3, model=model, **kwargs)

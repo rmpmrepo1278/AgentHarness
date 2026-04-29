@@ -110,7 +110,7 @@ python3 cli.py integrity        # Verify file integrity (SHA-256)
 
 ## Hardware
 
-**Current:** HP Laptop — Ryzen 4700U, 4+32GB DDR4, 256GB SSD, Debian + Docker
+**Current:** HP Laptop — Ryzen 4700U, 4+32GB DDR4, 256GB SSD, Debian + Docker + Laguna M.1 Reasoning
 
 **Planned:** Mini PC — Ryzen 8745HS, 16GB DDR5, 780M iGPU. Two-machine distributed inference via exo. Run `scripts/setup_minipc.sh` when it arrives.
 

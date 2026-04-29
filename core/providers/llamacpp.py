@@ -74,7 +74,7 @@ class LlamaCppProvider(LLMProvider):
         """Check if the llama.cpp server is reachable."""
         try:
             resp = httpx.get(
-                f"{self.endpoint}/health",
+                f"{self.endpoint}/",
                 timeout=5,
             )
             if resp.status_code == 200:

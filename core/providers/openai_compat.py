@@ -27,7 +27,7 @@ class OpenAICompatProvider(LLMProvider):
         env_key: str = "OPENAI_API_KEY",
         model: str = "gpt-4o-mini",
         daily_limit: int = 500,
-        timeout: float = 30.0,
+        timeout: float = 600.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(name=name, tier=tier, model=model, **kwargs)

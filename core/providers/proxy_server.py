@@ -265,7 +265,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         import httpx
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{local_url}/health", timeout=5.0)
+                resp = await client.get(f"{local_url}/", timeout=5.0)
                 healthy = resp.status_code == 200
                 _local_health["healthy"] = healthy
                 _local_health["last_check"] = time.monotonic()
@@ -351,10 +351,19 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         bt = BudgetTracker(data_dir=data_dir)
         providers = []
+        if os.environ.get("OPENROUTER_API_KEY"):
+            from core.providers.openrouter import OpenRouterProvider
+            providers.append(OpenRouterProvider(
+                model="poolside/laguna-m.1:free",
+                name="laguna-m1",
+                daily_limit=1000
+            ))
 
         # Local Gemma 4 on port 8081
         local = LlamaCppProvider(
             name="local",
+            model="qwen2.5:14b",
+            timeout=300,
             endpoint=os.environ.get("LOCAL_LLM_URL", "http://localhost:8081"),
         )
         providers.append(local)
@@ -409,10 +418,10 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers=providers,
             budget=bt,
             routing={
-                "low": ["local", "groq", "google-alt", "cerebras", "sambanova"],
-                "medium": ["local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt"],
-                "high": ["groq", "openrouter", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
-                "critical": ["openrouter", "groq", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
+                "low": ["laguna-m1", "local", "groq", "google-alt", "cerebras", "sambanova"],
+                "medium": ["laguna-m1", "local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt"],
+                "high": ["laguna-m1", "groq", "openrouter", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
+                "critical": ["laguna-m1", "openrouter", "groq", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
             },
         )
         _router_cache["router"] = router
@@ -1281,7 +1290,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                     f"{local_url}/v1/chat/completions",
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=30.0,  # local Qwen 9B
+                    timeout=600.0,
                 )
             if resp.status_code in (200, 201):
                 elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -1293,7 +1302,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             log.warning("Tool passthrough: local returned %d: %s",
                        resp.status_code, resp.text[:200])
         except httpx.TimeoutException:
-            log.warning("Tool passthrough: local LLM timed out (120s) — may be hung")
+            log.warning("Tool passthrough: local LLM timed out (600s) — may be hung")
             # Mark unhealthy so next request triggers restart
             _local_health["healthy"] = False
         except Exception as exc:
@@ -1351,7 +1360,7 @@ Generate the JSON plan.
                     reasoning_url,
                     json=reasoning_payload,
                     headers={"Authorization": f"Bearer {openrouter_api_key}", "Content-Type": "application/json"},
-                    timeout=60.0,
+                    timeout=300.0,
                 )
             if resp.status_code != 200:
                 return JSONResponse({"error": {"message": f"Reasoning agent failed: {resp.text}"}}, status_code=502)

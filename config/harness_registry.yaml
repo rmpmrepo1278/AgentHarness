@@ -86,12 +86,12 @@ checks:
 
   chaguli_container:
     enabled: true
-    command: "systemctl --user is-active chaguli"
+    command: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active chaguli"
     type: command_exit
     message: "Chaguli agent container is not running"
     priority: 4
     runbook: chaguli-down
-    restart_cmd: "systemctl --user restart chaguli"
+    restart_cmd: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart chaguli"
 
   backup_freshness:
     enabled: true
@@ -130,12 +130,12 @@ checks:
 
   hermes_gateway:
     enabled: true
-    command: "systemctl --user is-active hermes-gateway"
+    command: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active hermes-gateway"
     type: command_exit
     message: "Hermes gateway (Telegram) is not running"
     priority: 3
     runbook: hermes-gateway-down
-    restart_cmd: "systemctl --user restart hermes-gateway"
+    restart_cmd: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart hermes-gateway"
 
   mcp_gateway_health:
     enabled: true

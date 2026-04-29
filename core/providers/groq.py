@@ -18,7 +18,7 @@ class GroqProvider(LLMProvider):
         api_key: str | None = None,
         model: str = "llama-3.3-70b-versatile",
         daily_limit: int = 200,
-        timeout: float = 30.0,
+        timeout: float = 600.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(name="groq", tier=2, model=model, **kwargs)
