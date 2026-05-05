@@ -153,7 +153,11 @@ services:
     container_name: mnemo-server
     depends_on:
     - mnemo-postgres
-    deploy: *id001
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
     environment:
     - MNEMO_DATABASE_URL=postgresql://postgres:hermes_memory_secret@127.0.0.1:5432/mnemo
     - PORT=8001
