@@ -15,7 +15,7 @@ services:
     - MCP_PORT=8102
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    - DOCKER_HOST=tcp://192.168.29.10:2375
+    - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -31,7 +31,7 @@ services:
     - MCP_PORT=8095
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    - DOCKER_HOST=tcp://192.168.29.10:2375
+    - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -111,7 +111,7 @@ services:
     - CHAGULI_ALERTS_DIR=/data/alerts
     - GATEWAY_STATE_FILE=/data/gateway_state.json
     - GATEWAY_LOG_FILE=/data/gateway.log
-    - DOCKER_HOST=tcp://192.168.29.10:2375
+    - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -143,7 +143,8 @@ services:
     - POSTGRES_DB=mnemo
     - POSTGRES_PASSWORD=hermes_memory_secret
     image: pgvector/pgvector:pg16
-    network_mode: host
+    ports:
+      - 127.0.0.1:5432:5432
     restart: unless-stopped
     volumes:
     - /home/rohit/.hermes/data/pg_data:/var/lib/postgresql/data
