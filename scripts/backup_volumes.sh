@@ -18,43 +18,7 @@ fi
 # homarr
 if [ -d "/var/lib/docker/volumes/homarr_homarr-config/_data" ]; then
     echo "Backing up homarr: /var/lib/docker/volumes/homarr_homarr-config/_data"
-    tar czf "$BACKUP_DIR/homarr__data.tar.gz" -C "/var/lib/docker/volumes/homarr_homarr-config/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# homarr
-if [ -d "/var/lib/docker/volumes/b4d7af62b7ba31c898ceaab8ac5df0820f86138022b81995dae7b3171a326cec/_data" ]; then
-    echo "Backing up homarr: /var/lib/docker/volumes/b4d7af62b7ba31c898ceaab8ac5df0820f86138022b81995dae7b3171a326cec/_data"
-    tar czf "$BACKUP_DIR/homarr__data.tar.gz" -C "/var/lib/docker/volumes/b4d7af62b7ba31c898ceaab8ac5df0820f86138022b81995dae7b3171a326cec/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# jellyfin
-if [ -d "/mnt/usb/tv" ]; then
-    echo "Backing up jellyfin: /mnt/usb/tv"
-    tar czf "$BACKUP_DIR/jellyfin_tv.tar.gz" -C "/mnt/usb/tv" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# jellyfin
-if [ -d "/home/rohit/openclaw/data/jellyfin" ]; then
-    echo "Backing up jellyfin: /home/rohit/openclaw/data/jellyfin"
-    tar czf "$BACKUP_DIR/jellyfin_jellyfin.tar.gz" -C "/home/rohit/openclaw/data/jellyfin" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# jellyfin
-if [ -d "/mnt/usb/movies" ]; then
-    echo "Backing up jellyfin: /mnt/usb/movies"
-    tar czf "$BACKUP_DIR/jellyfin_movies.tar.gz" -C "/mnt/usb/movies" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# jellyfin
-if [ -d "/mnt/usb/music" ]; then
-    echo "Backing up jellyfin: /mnt/usb/music"
-    tar czf "$BACKUP_DIR/jellyfin_music.tar.gz" -C "/mnt/usb/music" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# lidarr
-if [ -d "/home/rohit/openclaw/data/lidarr" ]; then
-    echo "Backing up lidarr: /home/rohit/openclaw/data/lidarr"
-    tar czf "$BACKUP_DIR/lidarr_lidarr.tar.gz" -C "/home/rohit/openclaw/data/lidarr" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
+    tar czf "$BACKUP_DIR/homarr_data.tar.gz" -C "/var/lib/docker/volumes/homarr_homarr-config/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
 fi
 
 # litellm
@@ -66,7 +30,7 @@ fi
 # nginx-proxy-manager
 if [ -d "/var/lib/docker/volumes/npm_npm-data/_data" ]; then
     echo "Backing up nginx-proxy-manager: /var/lib/docker/volumes/npm_npm-data/_data"
-    tar czf "$BACKUP_DIR/nginx-proxy-manager__data.tar.gz" -C "/var/lib/docker/volumes/npm_npm-data/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
+    tar czf "$BACKUP_DIR/nginx-proxy-manager_data.tar.gz" -C "/var/lib/docker/volumes/npm_npm-data/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
 fi
 
 # paperless
@@ -75,52 +39,16 @@ if [ -d "/home/rohit/openclaw/data/paperless/data" ]; then
     tar czf "$BACKUP_DIR/paperless_data.tar.gz" -C "/home/rohit/openclaw/data/paperless/data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
 fi
 
-# paperless
-if [ -d "/home/rohit/openclaw/data/paperless/media" ]; then
-    echo "Backing up paperless: /home/rohit/openclaw/data/paperless/media"
-    tar czf "$BACKUP_DIR/paperless_media.tar.gz" -C "/home/rohit/openclaw/data/paperless/media" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
 # portainer
 if [ -d "/var/lib/docker/volumes/portainer_data/_data" ]; then
     echo "Backing up portainer: /var/lib/docker/volumes/portainer_data/_data"
-    tar czf "$BACKUP_DIR/portainer__data.tar.gz" -C "/var/lib/docker/volumes/portainer_data/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# prowlarr
-if [ -d "/var/lib/docker/volumes/arr_prowlarr-config/_data" ]; then
-    echo "Backing up prowlarr: /var/lib/docker/volumes/arr_prowlarr-config/_data"
-    tar czf "$BACKUP_DIR/prowlarr__data.tar.gz" -C "/var/lib/docker/volumes/arr_prowlarr-config/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# qbittorrent
-if [ -d "/home/rohit/openclaw/data/qbittorrent" ]; then
-    echo "Backing up qbittorrent: /home/rohit/openclaw/data/qbittorrent"
-    tar czf "$BACKUP_DIR/qbittorrent_qbittorrent.tar.gz" -C "/home/rohit/openclaw/data/qbittorrent" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# radarr
-if [ -d "/home/rohit/openclaw/data/radarr" ]; then
-    echo "Backing up radarr: /home/rohit/openclaw/data/radarr"
-    tar czf "$BACKUP_DIR/radarr_radarr.tar.gz" -C "/home/rohit/openclaw/data/radarr" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# sonarr
-if [ -d "/home/rohit/openclaw/data/sonarr" ]; then
-    echo "Backing up sonarr: /home/rohit/openclaw/data/sonarr"
-    tar czf "$BACKUP_DIR/sonarr_sonarr.tar.gz" -C "/home/rohit/openclaw/data/sonarr" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
+    tar czf "$BACKUP_DIR/portainer_data.tar.gz" -C "/var/lib/docker/volumes/portainer_data/_data" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
 fi
 
 # stump
 if [ -d "/home/rohit/.stump" ]; then
     echo "Backing up stump: /home/rohit/.stump"
-    tar czf "$BACKUP_DIR/stump_.stump.tar.gz" -C "/home/rohit/.stump" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
-fi
-
-# stump
-if [ -d "/mnt/usb/ebooks" ]; then
-    echo "Backing up stump: /mnt/usb/ebooks"
-    tar czf "$BACKUP_DIR/stump_ebooks.tar.gz" -C "/mnt/usb/ebooks" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
+    tar czf "$BACKUP_DIR/stump_stump.tar.gz" -C "/home/rohit/.stump" . 2>/dev/null && BACKED_UP=$((BACKED_UP+1)) || FAILED=$((FAILED+1))
 fi
 
 # uptime-kuma

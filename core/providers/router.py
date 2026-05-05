@@ -17,12 +17,13 @@ from core.providers.budget import BudgetTracker
 logger = logging.getLogger(__name__)
 
 # Default routing order: complexity -> list of provider names in priority order.
-_DEFAULT_ROUTING = {                                                                                                                           
-    Complexity.LOW.value: ["local", "google-alt", "groq", "cerebras", "sambanova", "together", "fireworks"],
-    Complexity.MEDIUM.value: ["google-alt", "groq", "cerebras", "sambanova", "together", "fireworks", "local", "openrouter"],
-    Complexity.HIGH.value: ["google-alt", "groq", "cerebras", "sambanova", "together", "fireworks", "local", "openrouter"],
-    Complexity.CRITICAL.value: ["google-alt", "groq", "cerebras", "local", "anthropic", "openrouter"],
-} 
+# We prioritize 'local' and 'google-alt' (Gemini Flash) for maximum reliability.
+_DEFAULT_ROUTING = {
+    Complexity.LOW.value: ["local", "google-alt", "laguna", "groq", "cerebras", "fireworks"],
+    Complexity.MEDIUM.value: ["local", "google-alt", "laguna", "groq", "cerebras", "anthropic"],
+    Complexity.HIGH.value: ["local", "google-alt", "laguna", "groq", "cerebras", "anthropic"],
+    Complexity.CRITICAL.value: ["local", "google-alt", "laguna", "anthropic", "openrouter"],
+}
 
 
 class Router:

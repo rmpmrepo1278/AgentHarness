@@ -202,29 +202,34 @@ def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
         choices = data.get("choices", [])
         if not choices:
             return data
+        
         msg = choices[0].get("message", {})
-        text = msg.get("content") or ""
+        text = (msg.get("content") or "").strip()
+        
+        # Skip footer for JSON responses (internal agent communication like JSON plans)
+        if text.startswith("{") and text.endswith("}"):
+            return data
+            
         # Skip if the message is a tool call with no text content
         if not text and msg.get("tool_calls"):
             return data
+            
         if not text:
             return data
-        # Skip if footer already present (prevents double-footer on multi-turn)
-        if '— via ' in text:
-            return data
-        display_model = model or data.get("model", provider)
-        if "/" in display_model:
-            display_model = display_model.split("/")[-1]
-        if len(display_model) > 40:
-            display_model = display_model[:37] + "..."
-        footer = f"\n\n— via {provider} · {display_model}"
-        msg["content"] = text + footer
-        choices[0]["message"] = msg
-        data["choices"] = choices
-    except Exception:
-        pass  # Never crash on footer injection
-    return data
 
+        # Format footer
+        use_model = model or "model"
+        footer = f"\n\n— via {provider} · {use_model}"
+        
+        # Avoid duplicate footers
+        if footer in text:
+            return data
+            
+        msg["content"] = text + footer
+        return data
+    except Exception as e:
+        log.error("Error appending footer: %r", e)
+        return data
 
 def create_proxy_app(data_dir: str = "") -> object:
     """Create the LLM proxy FastAPI app."""
@@ -351,15 +356,42 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         bt = BudgetTracker(data_dir=data_dir)
         providers = []
+        
+        # OpenRouter Models (Prioritized as requested)
         if os.environ.get("OPENROUTER_API_KEY"):
-            from core.providers.openrouter import OpenRouterProvider
+            # 1. Owl-Alpha (Hermes 3 405B) - Paid tier
             providers.append(OpenRouterProvider(
-                model="poolside/laguna-m.1:free",
-                name="laguna-m1",
-                daily_limit=1000
+                model=os.environ.get("OWL_MODEL", "nousresearch/hermes-3-llama-3.1-405b"),
+                name="owl",
+                daily_limit=50000
+            ))
+            # 2. Laguna-M.1 - Free tier/preferred
+            providers.append(OpenRouterProvider(
+                model=os.environ.get("LAGUNA_MODEL", "poolside/laguna-m.1:free"),
+                name="laguna",
+                daily_limit=5000
+            ))
+            # 3. Generic OpenRouter (will use default or free models)
+            providers.append(OpenRouterProvider(
+                name="openrouter",
+                daily_limit=10000
             ))
 
-        # Local Gemma 4 on port 8081
+        # Cloud free tiers / high performance
+        if os.environ.get("GOOGLE_API_KEY"):
+            providers.append(GoogleProvider(
+                model="gemini-2.0-flash",
+                name="google-alt",
+                daily_limit=1500
+            ))
+        if os.environ.get("GROQ_API_KEY"):
+            providers.append(GroqProvider())
+        if os.environ.get("CEREBRAS_API_KEY"):
+            providers.append(CerebrasProvider())
+        if os.environ.get("SAMBANOVA_API_KEY"):
+            providers.append(SambaNovaProvider())
+
+        # Local LLM (Disaster recovery only — too slow for main loop)
         local = LlamaCppProvider(
             name="local",
             model="qwen2.5:14b",
@@ -368,66 +400,25 @@ def create_proxy_app(data_dir: str = "") -> object:
         )
         providers.append(local)
 
-        # Cloud providers (only if API key is set)
-        if os.environ.get("GROQ_API_KEY"):
-            providers.append(GroqProvider())
-        # Google free tier (separate account, Gemini 2.0 Flash, 1500 req/day)
-        if os.environ.get("GOOGLE_FREE_API_KEY"):
-            providers.append(GoogleProvider(
-                api_key=os.environ["GOOGLE_FREE_API_KEY"],
-                model="gemini-2.0-flash",
-                daily_limit=1500,
-                name="google-alt",
-            ))
-        if os.environ.get("CEREBRAS_API_KEY"):
-            providers.append(CerebrasProvider())
-        if os.environ.get("SAMBANOVA_API_KEY"):
-            providers.append(SambaNovaProvider())
-        if os.environ.get("OPENROUTER_API_KEY"):
-            providers.append(OpenRouterProvider(
-                model=os.environ.get("REASON_MODEL", "deepseek/deepseek-chat"),
-                daily_limit=50000,
-            ))
-        if os.environ.get("OLLAMA_API_KEY"):
-            providers.append(OllamaCloudProvider())
-
-        # Together AI — free tier: 1M tokens/month
-        if os.environ.get("TOGETHER_API_KEY"):
-            providers.append(OpenAICompatProvider(
-                name="together",
-                endpoint="https://api.together.xyz/v1/chat/completions",
-                api_key=os.environ["TOGETHER_API_KEY"],
-                model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                daily_limit=500,
-            ))
-
-        # Fireworks AI — free tier: 1M tokens/month
-        if os.environ.get("FIREWORKS_API_KEY"):
-            providers.append(OpenAICompatProvider(
-                name="fireworks",
-                endpoint="https://api.fireworks.ai/inference/v1/chat/completions",
-                api_key=os.environ["FIREWORKS_API_KEY"],
-                model="accounts/fireworks/models/llama-v3p3-70b-instruct",
-                daily_limit=500,
-            ))
-
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
+        # Routing Table (Prioritizing Paid/Credit models first)
+        tier_order = ["owl", "laguna", "google-alt", "groq", "cerebras", "sambanova", "local"]
+        
         router = Router(
             providers=providers,
             budget=bt,
             routing={
-                "low": ["laguna-m1", "local", "groq", "google-alt", "cerebras", "sambanova"],
-                "medium": ["laguna-m1", "local", "groq", "cerebras", "sambanova", "fireworks", "openrouter", "google-alt"],
-                "high": ["laguna-m1", "groq", "openrouter", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
-                "critical": ["laguna-m1", "openrouter", "groq", "cerebras", "sambanova", "fireworks", "ollama_cloud", "google-alt"],
+                "low": tier_order,
+                "medium": tier_order,
+                "high": tier_order,
+                "critical": tier_order,
             },
         )
         _router_cache["router"] = router
         _router_cache["budget"] = bt
         return router
-
     @app.get("/health")
     async def health():
         local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
@@ -783,6 +774,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "read", "write", "create", "delete", "run", "execute",
                 "find", "look up", "fetch", "download", "install",
                 "save", "remember", "memorize", "skill",
+                "check", "monitor", "log", "mission", "incident", "evaluate", "eval", "scan",
             }
             is_chat = (
                 len(last_user.split()) < 30
@@ -832,7 +824,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.base import Complexity, LLMRequest
 
         # Tier override from cognitive classifier
-        if cognitive_tier == "REASON" or cognitive_tier == "PLAN_NEEDED":
+        if str(cognitive_tier).upper().strip() in ["REASON", "PLAN_NEEDED"]: 
             complexity = Complexity.HIGH  # forces routing to stronger model
         elif cognitive_tier == "CHAT":
             complexity = Complexity.LOW   # forces routing to local/free
@@ -887,7 +879,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "latency_ms": elapsed_ms,
             },
         }
-        result = _append_model_footer(result, response.provider)
+        result = _append_model_footer(result, response.provider, response.model)
 
         # Cache plain-chat responses (low temperature only)
         if not stream_requested and body.get("temperature", 0.7) <= 0.3:
@@ -905,11 +897,12 @@ def create_proxy_app(data_dir: str = "") -> object:
     # default.  e.g. GOOGLE_TOOL_MODEL=gemini-2.5-pro to use a different model.
     # This avoids hardcoding models that change with free-tier rotations.
     _TOOL_PROVIDER_DEFAULTS = {
-        "groq": "llama-3.3-70b-versatile",
+        "groq": "qwen/qwen3-coder:free",
         "cerebras": "qwen-3-235b-a22b-instruct-2507",
-        "sambanova": "Meta-Llama-3.3-70B-Instruct",
-        "openrouter": "qwen/qwen3.6-plus",
-        "qwen-coder": "qwen/qwen3-coder-next",
+        "sambanova": "qwen/qwen3-coder:free",
+        "laguna": "qwen/qwen3-coder:free",
+        "openrouter": "qwen/qwen3-coder:free",
+        "qwen-coder": "qwen/qwen3-coder:free",
         "fireworks": "accounts/fireworks/models/llama-v3p3-70b-instruct",
         "google-alt": "gemini-2.0-flash",
     }
@@ -918,6 +911,8 @@ def create_proxy_app(data_dir: str = "") -> object:
     # cerebras/sambanova Llama models often return empty after tool calls,
     # so they come after Google.
     _TOOL_PROVIDERS = [
+        ("laguna", "https://openrouter.ai/api/v1/chat/completions",
+         "OPENROUTER_API_KEY", os.environ.get("LAGUNA_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["laguna"])),
         ("groq", "https://api.groq.com/openai/v1/chat/completions",
          "GROQ_API_KEY", os.environ.get("GROQ_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["groq"])),
         ("google-alt", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -928,17 +923,17 @@ def create_proxy_app(data_dir: str = "") -> object:
          "SAMBANOVA_API_KEY", os.environ.get("SAMBANOVA_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["sambanova"])),
         ("fireworks", "https://api.fireworks.ai/inference/v1/chat/completions",
          "FIREWORKS_API_KEY", os.environ.get("FIREWORKS_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["fireworks"])),
-        ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
-         "OPENROUTER_API_KEY", os.environ.get("OPENROUTER_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
         ("qwen-coder", "https://openrouter.ai/api/v1/chat/completions",
-         "OPENROUTER_API_KEY", os.environ.get("HAQUI_MODEL", _TOOL_PROVIDER_DEFAULTS["qwen-coder"])),
+         "OPENROUTER_API_KEY", os.environ.get("HAQUI_MODEL", "qwen/qwen3-coder:free")),
+        ("openrouter", "https://openrouter.ai/api/v1/chat/completions",
+         "OPENROUTER_API_KEY", os.environ.get("REASON_MODEL", _TOOL_PROVIDER_DEFAULTS["openrouter"])),
     ]
 
     # Max tools to forward — free-tier Llama models degrade with too many
     # tool definitions and start calling tools randomly instead of chatting.
     # Llama 3.3 70B works reliably with ~6 tools; above that it starts
     # calling tools for simple chat messages.
-    _MAX_TOOLS_PASSTHROUGH = 6
+    _MAX_TOOLS_PASSTHROUGH = 15
 
     def _is_valid_response(data: dict, had_tools: bool) -> bool:
         """Check if response is usable or needs escalation to a better model."""
@@ -984,13 +979,14 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Cap tools to avoid overwhelming free-tier models.  Prioritise
         # core tools over browser tools (which Llama can't use well anyway).
-        _PRIORITY_PREFIXES = ("terminal", "file", "web_search", "memory", "skill", "session")
+        _PRIORITY_PREFIXES = ("mission", "get_recent_incidents", "terminal", "file", "web_search", "memory", "skill", "session")
         if len(tools) > _MAX_TOOLS_PASSTHROUGH:
             priority = [t for t in tools if any(
                 t.get("function", {}).get("name", "").startswith(p) for p in _PRIORITY_PREFIXES
             )]
             rest = [t for t in tools if t not in priority]
             capped_tools = (priority + rest)[:_MAX_TOOLS_PASSTHROUGH]
+            log.info("Tool passthrough: ALL TOOLS: %s", [t.get("function", {}).get("name") for t in tools])
             log.info("Tool passthrough: capped tools from %d to %d (%s)",
                      len(tools), len(capped_tools),
                      [t["function"]["name"] for t in capped_tools])
@@ -1045,12 +1041,13 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Reorder providers based on cognitive tier hint
         providers_to_try = list(_TOOL_PROVIDERS)
-        if cognitive_tier == "REASON" or cognitive_tier == "PLAN_NEEDED":
-            # Move openrouter to front for reasoning tasks (Qwen3.6 Plus)
+        if str(cognitive_tier).upper().strip() in ["REASON", "PLAN_NEEDED"]: 
+            # Move laguna to front for reasoning tasks
             providers_to_try.sort(
-                key=lambda p: 0 if p[0] == "openrouter" else 1
+                key=lambda p: 0 if p[0] == "laguna" else 1
             )
-            log.info("Tier %s: openrouter (Qwen3.6 Plus) prioritized", cognitive_tier)
+            log.info("Tier %s: laguna (poolside) prioritized", cognitive_tier)
+            log.info("Providers order: %s", [p[0] for p in providers_to_try])
         elif cognitive_tier == "CHAT":
             # Chat shouldn't have tools, but if it does, use cheapest
             providers_to_try.sort(
@@ -1062,7 +1059,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # --- Local-first for simple tool calls ---
         # Small requests (few tools, short context) can be handled by the
         # local qwen2.5-7b-tool-planning model, avoiding cloud API usage.
-        _LOCAL_FIRST_MAX_TOKENS = 500
+        _LOCAL_FIRST_MAX_TOKENS = 0
         _LOCAL_FIRST_MAX_TOOLS = 3
         _LOCAL_FIRST_TIMEOUT = 30.0  # bail fast if local is slow
 

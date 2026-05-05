@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 import time
 import logging
+import asyncio
 from core.providers.openai_compat import OpenAICompatProvider
 from core.providers.base import LLMRequest, LLMResponse
 
@@ -19,10 +20,44 @@ class OpenRouterProvider(OpenAICompatProvider):
         }
         defaults.update(kwargs)
         super().__init__(**defaults)
+        self._free_models = []
+        self._last_refresh = 0
         logger.info(f"OpenRouterProvider initialized with model {self.model}")
 
-    def complete(self, request: LLMRequest) -> LLMResponse:
-        logger.info(f"OpenRouterProvider.complete called for model {self.model}")
+    async def _refresh_free_models(self):
+        """Fetch free models from OpenRouter API."""
+        if time.time() - self._last_refresh < 3600:
+            return
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get("https://openrouter.ai/api/v1/models")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    self._free_models = [
+                        m["id"] for m in data.get("data", [])
+                        if m.get("pricing", {}).get("prompt") == "0" 
+                        and m.get("pricing", {}).get("completion") == "0"
+                    ]
+                    # Also include anything that has :free in the ID as a safety measure
+                    for m in data.get("data", []):
+                        if ":free" in m["id"] and m["id"] not in self._free_models:
+                            self._free_models.append(m["id"])
+
+                    self._last_refresh = time.time()
+                    logger.info(f"Refreshed free models: {len(self._free_models)} found")
+        except Exception as e:
+            logger.error(f"Failed to refresh free models: {e}")
+
+    async def complete_async(self, request: LLMRequest) -> LLMResponse:
+        await self._refresh_free_models()
+        
+        # SAFETY NET: Force free models only.
+        # If the requested model is NOT in the free list, switch to the first available free model.
+        if self._free_models and self.model not in self._free_models:
+            logger.warning(f"COST PROTECTION: Requested model {self.model} is not free! Switching to {self._free_models[0]}")
+            self.model = self._free_models[0]
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -39,30 +74,36 @@ class OpenRouterProvider(OpenAICompatProvider):
             "messages": messages,
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
-            # Force poolside provider
-            "providers": None
         }
-        
-        # If model is NOT poolside, remove provider restriction
-        if False:
-            payload.pop("providers")
 
         t0 = time.monotonic()
         try:
-            logger.info(f"Sending request to OpenRouter: {self.model}")
-            resp = httpx.post(self.endpoint, json=payload, headers=headers, timeout=self.timeout)
-            latency = (time.monotonic() - t0) * 1000
-            
-            if resp.status_code != 200:
-                logger.warning(f"OpenRouter returned {resp.status_code}: {resp.text}")
-                return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=f"HTTP {resp.status_code}: {resp.text}")
-            
-            data = resp.json()
-            choice = data["choices"][0]["message"]["content"]
-            usage = data.get("usage", {})
-            self._usage_today += 1
-            logger.info(f"OpenRouter success: {len(choice)} chars")
-            return LLMResponse(text=choice, provider=self.name, model=self.model, tokens_in=usage.get("prompt_tokens", 0), tokens_out=usage.get("completion_tokens", 0), latency_ms=latency)
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(self.endpoint, json=payload, headers=headers, timeout=self.timeout)
+                latency = (time.monotonic() - t0) * 1000
+                
+                if resp.status_code != 200:
+                    logger.warning(f"OpenRouter returned {resp.status_code}: {resp.text}")
+                    if resp.status_code == 402: # Payment Required
+                         logger.error(f"Cost Alert! Model {self.model} attempted to charge. Switching to free list immediately.")
+                         if self._free_models:
+                             self.model = self._free_models[0]
+                    
+                    return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=f"HTTP {resp.status_code}: {resp.text}")
+                
+                data = resp.json()
+                choice = data["choices"][0]["message"]["content"]
+                usage = data.get("usage", {})
+                self._usage_today += 1
+                
+                return LLMResponse(text=choice, provider=self.name, model=self.model, tokens_in=usage.get("prompt_tokens", 0), tokens_out=usage.get("completion_tokens", 0), latency_ms=latency)
         except Exception as e:
             logger.error(f"OpenRouter exception: {str(e)}")
+            return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=str(e))
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        try:
+            return asyncio.run(self.complete_async(request))
+        except Exception as e:
+            logger.error(f"Async run error: {e}")
             return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=str(e))

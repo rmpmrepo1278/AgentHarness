@@ -1,71 +1,40 @@
 services:
-  autoheal:
-    container_name: autoheal
-    environment:
-    - AUTOHEAL_CONTAINER_LABEL=all
-    - AUTOHEAL_INTERVAL=30
-    - AUTOHEAL_START_PERIOD=60
-    - AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
-    image: willfarrell/autoheal:latest
-    network_mode: host
-    restart: always
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
   backup-mcp:
     build: ./backup-mcp
     container_name: backup-mcp
     depends_on:
     - mcp-gateway
+    deploy: &id001
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
     - MCP_PORT=8102
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    - USB_MOUNT=/mnt/usb
-    - BACKUP_SCRIPT=/scripts/backup_volumes.sh
-    - REPORTS_DIR=/data/reports
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8102/health')
-      timeout: 10s
+    - DOCKER_HOST=tcp://192.168.29.10:2375
     network_mode: host
     restart: unless-stopped
     volumes:
-    - /mnt/usb:/mnt/usb:rw
-    - /home/rohit/agentharness/scripts:/scripts:ro
-    - /home/rohit/agentharness/data:/data:rw
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /mnt/usb/backups:/backups
   docker-mcp:
     build: ./docker-mcp
     container_name: docker-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8095
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    - TEMPLATES_REPO_DIR=/templates/repo
-    - TEMPLATES_LOCAL_DIR=/templates/local
-    - SECRETS_DIR=/secrets
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8095/health')
-      timeout: 10s
+    - DOCKER_HOST=tcp://192.168.29.10:2375
     network_mode: host
     restart: unless-stopped
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
     - ~/mcp-gateway/secrets:/secrets
@@ -76,21 +45,12 @@ services:
     container_name: doctor-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8105
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - DOCTOR_BASE_URL=http://127.0.0.1:8080/doctor
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8105/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -100,20 +60,11 @@ services:
     container_name: file-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8097
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8097/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -126,21 +77,12 @@ services:
     container_name: git-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8100
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - GITEA_URL=http://127.0.0.1:3001
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -150,6 +92,7 @@ services:
     container_name: global-chat-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8106
     - GATEWAY_URL=http://127.0.0.1:8090
@@ -161,26 +104,17 @@ services:
   mcp-gateway:
     build: ./mcp-gateway
     container_name: mcp-gateway
+    deploy: *id001
     environment:
     - GATEWAY_PORT=8090
     - HEALTH_CHECK_INTERVAL=60
     - CHAGULI_ALERTS_DIR=/data/alerts
     - GATEWAY_STATE_FILE=/data/gateway_state.json
     - GATEWAY_LOG_FILE=/data/gateway.log
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')
-      timeout: 10s
+    - DOCKER_HOST=tcp://192.168.29.10:2375
     network_mode: host
     restart: unless-stopped
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
     - ./mcp-gateway/data:/data
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
@@ -190,17 +124,13 @@ services:
     container_name: mnemo-mcp
     depends_on:
     - mnemo-server
+    deploy: *id001
     environment:
     - PUBLIC_URL=http://0.0.0.0:8096
     - MCP_PORT=8096
     - MNEMO_SERVER_URL=http://127.0.0.1:8001
     - MCP_DCR_SERVER_SECRET=test-secret
     - GATEWAY_URL=http://127.0.0.1:8090
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 60s
-      test: ["CMD-SHELL", "python3 -c 'import urllib.request,sys;r=urllib.request.urlopen(\"http://127.0.0.1:8096/\",timeout=3);sys.exit(0 if r.status in(200,302)else 1)'"]
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -208,6 +138,7 @@ services:
     - ./hf_cache:/app/hf_cache
   mnemo-postgres:
     container_name: mnemo-postgres
+    deploy: *id001
     environment:
     - POSTGRES_DB=mnemo
     - POSTGRES_PASSWORD=hermes_memory_secret
@@ -217,9 +148,11 @@ services:
     volumes:
     - /home/rohit/.hermes/data/pg_data:/var/lib/postgresql/data
   mnemo-server:
+    command: uv run uvicorn mnemo.server.main:app --host 0.0.0.0 --port 8001
     container_name: mnemo-server
     depends_on:
     - mnemo-postgres
+    deploy: *id001
     environment:
     - MNEMO_DATABASE_URL=postgresql://postgres:hermes_memory_secret@127.0.0.1:5432/mnemo
     - PORT=8001
@@ -237,21 +170,12 @@ services:
     container_name: n8n-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8098
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - N8N_URL=http://127.0.0.1:5678
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -262,21 +186,12 @@ services:
     container_name: network-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8103
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - HOST_IP=192.168.29.10
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8103/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -286,22 +201,13 @@ services:
     container_name: paperless-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8099
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - PAPERLESS_URL=http://127.0.0.1:8000
     - CONSUME_DIR=/consume
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -314,20 +220,11 @@ services:
     container_name: rss-mcp
     depends_on:
     - mcp-gateway
+    deploy: *id001
     environment:
     - MCP_PORT=8104
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 15s
-      test:
-      - CMD
-      - python3
-      - -c
-      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8104/health')
-      timeout: 10s
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -335,6 +232,6 @@ services:
     - rss-data:/data
 version: '3.8'
 volumes:
-  mcp-stacks: 
-  mnemo-data: 
-  rss-data: 
+  mcp-stacks: {}
+  mnemo-data: {}
+  rss-data: {}

@@ -34,7 +34,12 @@ def _get_docker():
 def _check_one(name: str, mcp: dict) -> bool:
     try:
         resp = requests.get(f"{mcp['address']}/health", timeout=5)
-        return resp.status_code == 200
+        if resp.status_code == 200:
+            return True
+        # For mcp servers that use OAuth, 401/404 means the server is running but auth/need config
+        if resp.status_code in (401, 404):
+            return True
+        return False
     except requests.RequestException:
         return False
 

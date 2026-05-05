@@ -1,41 +1,35 @@
 name: hermes-gateway-down
-version: 1
+version: 2
 trigger: "health_check_fail:hermes_gateway"
 priority: critical
 notify: critical
 description: >
-  Diagnose and recover the Hermes webhook gateway (port 8093).
-  Hermes runs inside a tmux session called "runall". Restarts via tmux
-  send-keys if the health check fails, then verifies port 8093 responds.
+  Diagnose and recover the Hermes AI Agent Gateway.
+  Hermes runs as a systemd service (hermes-gateway) using long polling for Telegram.
+  Health is verified via the systemd service status and Telegram connectivity.
 
 steps:
-  - name: check-hermes-health
-    check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8093/health"
-    expect_contains: "200"
+  - name: check-hermes-service
+    check: "systemctl is-active hermes-gateway"
+    expect_contains: "active"
     on_fail:
-      - name: check-hermes-process
-        check: "pgrep -f 'hermes gateway' || echo 'not_running'"
-        expect_regex: "^[0-9]+"
+      - name: restart-hermes-gateway
+        fix: "sudo systemctl restart hermes-gateway"
+        wait: 5
+      - name: verify-hermes-after-restart
+        check: "systemctl is-active hermes-gateway"
+        expect_contains: "active"
         on_fail:
-          - name: restart-hermes-in-tmux
-            fix: "tmux send-keys -t runall '/home/rohit/.local/bin/hermes gateway run' Enter"
-            wait: 8
-          - name: verify-hermes-after-restart
-            check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8093/health"
-            expect_contains: "200"
-            on_fail:
-              - name: read-hermes-logs
-                check: "PATH=/home/rohit/.local/bin:$PATH hermes gateway status 2>&1 || echo 'hermes status unavailable'"
-                interpret: llm
-                on_known:
-                  "address already in use": "escalate:Hermes port 8093 conflict. Kill the process holding the port and retry."
-                  "not found": "escalate:Hermes binary missing at /home/rohit/.local/bin/hermes. Reinstall."
-                  "permission denied": "escalate:Hermes permission error. Check file permissions on the binary."
-                on_unknown:
-                  escalate: true
+          - escalate: "Hermes gateway service failed to restart. Check systemd logs."
 
-  - name: end-to-end-hermes-test
-    check: "curl -sf -o /dev/null -w '%{http_code}' http://127.0.0.1:8093/health --max-time 10"
-    expect_contains: "200"
+  - name: check-telegram-connectivity
+    check: "curl -sf http://localhost:8080/health"
+    expect_contains: "ok"
     on_fail:
-      - escalate: "Hermes gateway is not responding on port 8093 after recovery attempt. Manual intervention needed."
+      - escalate: "LLM proxy not responding. Gateway cannot function."
+
+  - name: verify-hermes-process
+    check: "pgrep -f 'hermes_cli.main gateway run'"
+    expect_regex: "^[0-9]+"
+    on_fail:
+      - escalate: "Hermes gateway process not found despite service being active."

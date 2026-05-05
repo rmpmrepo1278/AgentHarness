@@ -1,0 +1,35 @@
+def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
+    """Append a small footer identifying the LLM model/provider to the
+    assistant message content. Skips tool_calls-only messages."""
+    try:
+        choices = data.get("choices", [])
+        if not choices:
+            return data
+        
+        msg = choices[0].get("message", {})
+        text = (msg.get("content") or "").strip()
+        
+        # Skip footer for JSON responses (internal agent communication like JSON plans)
+        if text.startswith("{") and text.endswith("}"):
+            return data
+            
+        # Skip if the message is a tool call with no text content
+        if not text and msg.get("tool_calls"):
+            return data
+            
+        if not text:
+            return data
+
+        # Format footer
+        use_model = model or "model"
+        footer = f"\n\n— via {provider} · {use_model}"
+        
+        # Avoid duplicate footers
+        if footer in text:
+            return data
+            
+        msg["content"] = text + footer
+        return data
+    except Exception as e:
+        log.error("Error appending footer: %r", e)
+        return data

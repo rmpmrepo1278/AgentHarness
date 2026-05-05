@@ -14,7 +14,7 @@ class SambaNovaProvider(OpenAICompatProvider):
             "name": "sambanova",
             "endpoint": "https://api.sambanova.ai/v1/chat/completions",
             "env_key": "SAMBANOVA_API_KEY",
-            "model": "Meta-Llama-3.3-70B-Instruct",
+            "model": "laguna-m.1:free",
             "daily_limit": 500,
         }
         defaults.update(kwargs)
