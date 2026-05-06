@@ -911,6 +911,8 @@ def create_proxy_app(data_dir: str = "") -> object:
     # cerebras/sambanova Llama models often return empty after tool calls,
     # so they come after Google.
     _TOOL_PROVIDERS = [
+        ("owl", "https://openrouter.ai/api/v1/chat/completions",
+         "OPENROUTER_API_KEY", os.environ.get("OWL_TOOL_MODEL", "openrouter/owl-alpha")),
         ("laguna", "https://openrouter.ai/api/v1/chat/completions",
          "OPENROUTER_API_KEY", os.environ.get("LAGUNA_TOOL_MODEL", _TOOL_PROVIDER_DEFAULTS["laguna"])),
         ("groq", "https://api.groq.com/openai/v1/chat/completions",
@@ -1041,12 +1043,12 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Reorder providers based on cognitive tier hint
         providers_to_try = list(_TOOL_PROVIDERS)
-        if str(cognitive_tier).upper().strip() in ["REASON", "PLAN_NEEDED"]: 
-            # Move laguna to front for reasoning tasks
+        if str(cognitive_tier).upper().strip() in ["REASON", "PLAN_NEEDED"]:
+            # Move owl to front for reasoning tasks (strongest model)
             providers_to_try.sort(
-                key=lambda p: 0 if p[0] == "laguna" else 1
+                key=lambda p: 0 if p[0] == "owl" else (1 if p[0] == "laguna" else 2)
             )
-            log.info("Tier %s: laguna (poolside) prioritized", cognitive_tier)
+            log.info("Tier %s: owl prioritized", cognitive_tier)
             log.info("Providers order: %s", [p[0] for p in providers_to_try])
         elif cognitive_tier == "CHAT":
             # Chat shouldn't have tools, but if it does, use cheapest
