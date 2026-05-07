@@ -1273,6 +1273,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 log.info("Tool passthrough: local LLM unhealthy, skipping local-first")
 
         # --- Cloud provider cascade ---
+        cascade_start = time.monotonic()
         for pname, url, env_key, default_model in providers_to_try:
             api_key = os.environ.get(env_key, "")
             if not api_key:
