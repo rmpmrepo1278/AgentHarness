@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ROUTING = {
     Complexity.LOW.value: ["local", "google-alt", "laguna", "groq", "cerebras", "fireworks"],
     Complexity.MEDIUM.value: ["local", "google-alt", "laguna", "groq", "cerebras", "anthropic"],
-    Complexity.HIGH.value: ["local", "google-alt", "laguna", "groq", "cerebras", "anthropic"],
-    Complexity.CRITICAL.value: ["local", "google-alt", "laguna", "anthropic", "openrouter"],
+    # HIGH: includes owl (OpenRouter) for PLAN_NEEDED / REASON tier — strongest reasoning
+    Complexity.HIGH.value: ["owl", "local", "google-alt", "laguna", "groq", "cerebras", "anthropic"],
+    Complexity.CRITICAL.value: ["owl", "local", "google-alt", "laguna", "anthropic", "openrouter"],
 }
 
 

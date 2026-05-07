@@ -22,6 +22,27 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# File logging — ensure proxy logs survive process restarts
+# ---------------------------------------------------------------------------
+def _setup_file_logging():
+    """Add a file handler so proxy logs are persisted to disk."""
+    _log_dir = Path(os.environ.get("AH_DATA_DIR", "/home/rohit/agentharness/data")) / "logs"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _log_file = _log_dir / "proxy.log"
+    # Rotate at 10MB, keep 3 backups
+    from logging.handlers import RotatingFileHandler
+    _fh = RotatingFileHandler(_log_file, maxBytes=10 * 1024 * 1024, backupCount=3)
+    _fh.setLevel(logging.INFO)
+    _fh.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    # Avoid double-handler on reload
+    if not any(isinstance(h, RotatingFileHandler) for h in log.handlers):
+        log.addHandler(_fh)
+        log.setLevel(logging.INFO)
+
 
 # ---------------------------------------------------------------------------
 # Response cache — avoids redundant LLM calls for identical requests.
@@ -237,6 +258,8 @@ def create_proxy_app(data_dir: str = "") -> object:
         raise ImportError("FastAPI not installed. Run: pip install fastapi uvicorn")
 
     data_dir = data_dir or os.environ.get("AH_DATA_DIR", ".")
+    os.environ.setdefault("AH_DATA_DIR", data_dir)
+    _setup_file_logging()
 
     app = FastAPI(title="AgentHarness LLM Proxy")
 
@@ -1441,6 +1464,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     os.environ.setdefault("AH_DATA_DIR", args.data_dir)
+    _setup_file_logging()
     app = create_proxy_app(data_dir=args.data_dir)
     uvicorn.run(app, host=args.host, port=args.port, log_level="debug")
 
