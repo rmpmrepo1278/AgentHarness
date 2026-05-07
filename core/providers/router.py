@@ -98,11 +98,22 @@ class Router:
         if not provider.is_available():
             return None
 
-        # 2. Skip if budget exhausted.
+        # 2. Skip if budget exhausted — check both in-memory counter AND
+        #    the persisted BudgetTracker so limits survive proxy restarts.
         status = provider.budget_status()
         if status.estimated_remaining is not None and status.estimated_remaining <= 0:
-            logger.info("Skipping %s: budget exhausted", provider.name)
+            logger.info("Skipping %s: budget exhausted (in-memory)", provider.name)
             return None
+        # Cross-check with persisted budget (survives restarts)
+        try:
+            persisted = self._budget.get_usage(provider.name)
+            daily_limit = getattr(provider, "daily_limit", None)
+            if daily_limit and persisted["requests"] >= daily_limit:
+                logger.info("Skipping %s: budget exhausted (persisted: %d/%d)",
+                            provider.name, persisted["requests"], daily_limit)
+                return None
+        except Exception:
+            pass  # If budget check fails, fall through to in-memory check only
 
         # 3. Call complete.
         response = provider.complete(request)
