@@ -101,8 +101,11 @@ class _ResponseCache:
         # Model
         parts.append(f"model:{body.get('model', '')}")
 
-        # Message count (to differentiate conversation turns)
-        parts.append(f"n:{len(messages)}")
+        # Temperature (different temps = different responses)
+        parts.append(f"temp:{body.get('temperature', 0.7)}")
+
+        # Max tokens (different limits = different responses)
+        parts.append(f"max_tok:{body.get('max_tokens', 0)}")
 
         key_str = "|".join(parts)
         return hashlib.sha256(key_str.encode()).hexdigest()[:16]
@@ -761,6 +764,9 @@ def create_proxy_app(data_dir: str = "") -> object:
         #         pass
 
         max_tokens = body.get("max_tokens", 1024)
+        # Cap max_tokens to prevent runaway generation (max 128K)
+        if max_tokens and max_tokens > 131072:
+            max_tokens = 131072
         temperature = body.get("temperature", 0.7)
         tools = body.get("tools")
         tool_choice = body.get("tool_choice")
@@ -1084,7 +1090,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # --- Local-first for simple tool calls ---
         # Small requests (few tools, short context) can be handled by the
         # local qwen2.5-7b-tool-planning model, avoiding cloud API usage.
-        _LOCAL_FIRST_MAX_TOKENS = 0
+        _LOCAL_FIRST_MAX_TOKENS = 4000
         _LOCAL_FIRST_MAX_TOOLS = 3
         _LOCAL_FIRST_TIMEOUT = 30.0  # bail fast if local is slow
 
@@ -1235,7 +1241,6 @@ def create_proxy_app(data_dir: str = "") -> object:
                 log.warning("Provider %s returned invalid tool response, escalating to next", pname)
                 continue
 
-            usage = data.get("usage", {})
             usage = data.get("usage", {})
 
             # Check for empty response — some providers (SambaNova, Cerebras)

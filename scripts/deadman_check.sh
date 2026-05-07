@@ -23,7 +23,9 @@ LOCKFILE="/tmp/deadman_restart_attempted.lock"
 
 STALE_THRESHOLD=1800   # 30 minutes — trigger restart
 ALERT_THRESHOLD=3600   # 60 minutes — escalate to alert
-SERVICE_NAME="agentharness-scheduler"
+# The scheduler is a Hermes cron job, not a systemd service.
+# We restart it by restarting hermes-gateway which manages cron dispatch.
+RESTART_CMD="systemctl --user restart hermes-gateway"
 
 # --- Functions ---
 
@@ -91,8 +93,8 @@ if [ "$AGE" -gt "$STALE_THRESHOLD" ] && [ "$AGE" -le "$ALERT_THRESHOLD" ]; then
         exit 0
     fi
 
-    log "Heartbeat stale (${AGE}s). Attempting systemctl restart $SERVICE_NAME..."
-    if sudo /usr/bin/systemctl restart "$SERVICE_NAME" 2>&1; then
+    log "Heartbeat stale (${AGE}s). Attempting restart via: $RESTART_CMD"
+    if eval "$RESTART_CMD" 2>&1; then
         log "Restart command succeeded. Will verify on next check."
     else
         log "Restart command failed."
