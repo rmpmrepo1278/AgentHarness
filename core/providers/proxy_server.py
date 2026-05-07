@@ -282,6 +282,34 @@ def create_proxy_app(data_dir: str = "") -> object:
     # Permanently disabled providers (e.g. 402 no credits).
     _disabled_providers: set[str] = set()
 
+    # ── Circuit breaker for cloud providers ──────────────────────────────
+    _circuit_breaker: dict[str, dict[str, Any]] = {}
+    _CB_THRESHOLD = 3
+    _CB_RESET_TIMEOUT = 120
+    _PROVIDER_GLOBAL_TIMEOUT = 60.0
+
+    def _cb_is_open(pname: str) -> bool:
+        cb = _circuit_breaker.get(pname)
+        if cb is None:
+            return False
+        if cb.get("failures", 0) >= _CB_THRESHOLD:
+            if time.monotonic() - cb.get("opened_at", 0) < _CB_RESET_TIMEOUT:
+                return True
+            cb["failures"] = _CB_THRESHOLD - 1
+            return False
+        return False
+
+    def _cb_record_success(pname: str) -> None:
+        if pname in _circuit_breaker:
+            del _circuit_breaker[pname]
+
+    def _cb_record_failure(pname: str) -> None:
+        cb = _circuit_breaker.setdefault(pname, {"failures": 0, "opened_at": 0.0})
+        cb["failures"] = cb.get("failures", 0) + 1
+        if cb["failures"] >= _CB_THRESHOLD:
+            cb["opened_at"] = time.monotonic()
+            log.warning("Circuit breaker OPEN for %s after %d consecutive failures", pname, cb["failures"])
+
     # Local LLM health tracking — use a mutable dict so nested functions
     # can update without nonlocal.
     _local_health: dict[str, Any] = {
@@ -447,6 +475,66 @@ def create_proxy_app(data_dir: str = "") -> object:
         _router_cache["router"] = router
         _router_cache["budget"] = bt
         return router
+    # ── Background provider health prober ----------------------------------
+    # Periodically pings each provider with a trivial request to detect
+    # failures before they impact user requests. Updates _cb_health_cache
+    # so the cascade can skip known-dead providers instantly.
+    _provider_health_cache: dict[str, dict[str, Any]] = {}
+    _HEALTH_PROBE_INTERVAL = 60  # seconds between probes
+
+    async def _probe_provider(pname: str, url: str, env_key: str, model: str) -> None:
+        """Send a trivial request to a provider and record the result."""
+        import httpx
+        api_key = os.environ.get(env_key, "")
+        if not api_key:
+            return
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    url,
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": "hi"}],
+                        "max_tokens": 5,
+                        "temperature": 0.1,
+                    },
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    timeout=10.0,
+                )
+            healthy = resp.status_code in (200, 201)
+            _provider_health_cache[pname] = {
+                "healthy": healthy,
+                "status_code": resp.status_code,
+                "last_probe": time.monotonic(),
+            }
+            if not healthy:
+                log.debug("Health probe: %s returned %d", pname, resp.status_code)
+        except Exception as exc:
+            _provider_health_cache[pname] = {
+                "healthy": False,
+                "status_code": None,
+                "last_probe": time.monotonic(),
+            }
+            log.debug("Health probe: %s error: %s", pname, exc)
+
+    async def _background_health_prober() -> None:
+        """Periodically probe all providers in the background."""
+        await asyncio.sleep(10)  # wait for app startup
+        while True:
+            tasks = []
+            for pname, url, env_key, default_model in _TOOL_PROVIDERS:
+                api_key = os.environ.get(env_key, "")
+                if api_key and pname not in _disabled_providers:
+                    tasks.append(_probe_provider(pname, url, env_key, default_model))
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.sleep(_HEALTH_PROBE_INTERVAL)
+
+    @app.on_event("startup")
+    async def _start_background_tasks() -> None:
+        """Start background tasks when the app starts."""
+        asyncio.create_task(_background_health_prober())
+
     @app.get("/health")
     async def health():
         local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:8081")
@@ -494,6 +582,8 @@ def create_proxy_app(data_dir: str = "") -> object:
             elif in_cooldown:
                 status = f"rate_limited ({cooldown_remaining}s)"
 
+            cb = _circuit_breaker.get(pname, {})
+            probe = _provider_health_cache.get(pname, {})
             providers_status[pname] = {
                 "type": "cloud",
                 "status": status,
@@ -502,6 +592,14 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "in_cooldown": in_cooldown,
                 "cooldown_seconds": cooldown_remaining,
                 "disabled": disabled,
+                "circuit_breaker": {
+                    "failures": cb.get("failures", 0),
+                    "open": _cb_is_open(pname),
+                },
+                "health_probe": {
+                    "healthy": probe.get("healthy", None),
+                    "last_probe_seconds_ago": int(time.monotonic() - probe.get("last_probe", 0)) if probe.get("last_probe") else None,
+                },
             }
 
         # Usage stats
@@ -515,6 +613,8 @@ def create_proxy_app(data_dir: str = "") -> object:
             "providers": providers_status,
             "usage_today": usage_data,
             "disabled": list(_disabled_providers),
+            "circuit_breakers": {p: {"failures": c["failures"], "open": _cb_is_open(p)}
+                                 for p, c in _circuit_breaker.items()},
         })
 
     @app.get("/v1/models")
@@ -884,9 +984,11 @@ def create_proxy_app(data_dir: str = "") -> object:
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         if not response.success:
-            return JSONResponse(
-                {"error": {"message": f"All providers failed: {response.error}"}},
-                status_code=503,
+            log.warning("Proxy: all providers failed (%s), returning graceful error", response.error)
+            return await _graceful_error_response(
+                "⚠️ All AI providers are currently unavailable (rate-limited or down). "
+                "Please try again in 1-2 minutes. "
+                f"Details: {response.error}"
             )
 
         # Format as OpenAI response
@@ -918,6 +1020,32 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         if stream_requested:
             return _json_to_sse(result)
+        return JSONResponse(result)
+
+    # -- Graceful degradation helper -------------------------------------------
+    async def _graceful_error_response(
+        user_message: str = "I'm temporarily unable to reach any AI provider. "
+                            "All cloud services appear to be rate-limited or down. "
+                            "Please try again in a moment."
+    ) -> JSONResponse:
+        """Return a valid OpenAI-format error response instead of a 503.
+
+        Returning 503 triggers Hermes's retry loop (3 retries × backoff = ~40s of
+        user-visible countdown spam).  Instead, return HTTP 200 with a friendly
+        assistant message so the gateway delivers it to Telegram immediately.
+        """
+        result = {
+            "id": f"chatcmpl-degraded-{int(time.time())}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": "agentharness-proxy (degraded)",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": user_message},
+                "finish_reason": "stop",
+            }],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        }
         return JSONResponse(result)
 
     # -- Tool calling passthrough ------------------------------------------------
@@ -1168,6 +1296,26 @@ def create_proxy_app(data_dir: str = "") -> object:
                 log.info("Tool passthrough: skipping %s (rate-limit cooldown, %ds left)", pname, remaining)
                 continue
 
+            # Skip providers with open circuit breaker
+            if _cb_is_open(pname):
+                log.info("Tool passthrough: skipping %s (circuit breaker open)", pname)
+                continue
+
+            # Skip providers recently probed as unhealthy
+            _probe = _provider_health_cache.get(pname, {})
+            if _probe and not _probe.get("healthy", True):
+                _probe_age = time.monotonic() - _probe.get("last_probe", 0)
+                if _probe_age < _HEALTH_PROBE_INTERVAL * 2:
+                    log.info("Tool passthrough: skipping %s (health probe failed %ds ago)",
+                             pname, int(_probe_age))
+                    continue
+
+            # Global timeout: bail out of the entire cascade if we've spent too long
+            if time.monotonic() - cascade_start > _PROVIDER_GLOBAL_TIMEOUT:
+                log.warning("Tool passthrough: global timeout (%.0fs) reached, skipping remaining providers",
+                            _PROVIDER_GLOBAL_TIMEOUT)
+                break
+
             # Respect budget if the provider is registered in the router
             provider_obj = router._providers_by_name.get(pname)
             if provider_obj is not None:
@@ -1255,6 +1403,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 msg_tool_calls = msg.get("tool_calls") or []
                 if not msg_content and not msg_tool_calls:
                     log.warning("Tool passthrough: %s returned empty content (no text, no tool_calls) — trying next provider", pname)
+                    _cb_record_failure(pname)
                     if budget is not None:
                         budget.record_usage(pname, tokens_in=usage.get("prompt_tokens", 0),
                                             tokens_out=0, success=False)
@@ -1271,6 +1420,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             # Inject provider info so the caller knows who handled it
             data["timings"] = {"provider": pname, "latency_ms": elapsed_ms}
             data = _append_model_footer(data, pname, use_model)
+
+            # Success — reset circuit breaker for this provider
+            _cb_record_success(pname)
 
             # Store in response cache (only non-tool-use responses —
             # tool-use responses are action-oriented and shouldn't be cached)
@@ -1292,9 +1444,10 @@ def create_proxy_app(data_dir: str = "") -> object:
             local_ok = await _restart_local_llm()
             if not local_ok:
                 log.error("Tool passthrough: local LLM restart failed, all providers exhausted")
-                return JSONResponse(
-                    {"error": {"message": "All providers exhausted. Local LLM unresponsive and restart failed."}},
-                    status_code=503,
+                return await _graceful_error_response(
+                    "⚠️ All AI providers are currently unavailable. "
+                    "Cloud services are rate-limited and local LLM is unresponsive. "
+                    "Please try again in a few minutes."
                 )
 
         # Sanitize tool descriptions — ik-llama-server's jinja template
@@ -1337,9 +1490,9 @@ def create_proxy_app(data_dir: str = "") -> object:
         except Exception as exc:
             log.warning("Tool passthrough: local LLM error: %r", exc)
 
-        return JSONResponse(
-            {"error": {"message": "No provider available for tool calling (cloud + local exhausted)"}},
-            status_code=503,
+        return await _graceful_error_response(
+            "⚠️ All AI providers are currently unavailable for this request. "
+            "Please try again in 1-2 minutes."
         )
 
     # -- Orchestrator Workflow (Reasoning -> Execution) ----------------------
