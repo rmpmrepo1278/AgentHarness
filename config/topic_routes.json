@@ -1,0 +1,47 @@
+{
+  "_comment": "Maps Telegram forum topic thread IDs to agent domains. Thread IDs are strings (Telegram API returns integers, stored as strings for JSON key safety).",
+  "topic_thread_ids": {
+    "1": "general",
+    "3": "infrastructure",
+    "5": "knowledge-base",
+    "7": "career-ops"
+  },
+  "_comment_skills": "Skills loaded per domain. 'inherit' means keep base SOUL.md behavior. Listed skills are ADDED emphasis/instructions for that domain.",
+  "skills_by_domain": {
+    "infrastructure": {
+      "focus": ["homelab-ops", "homelab-mgmt", "docker", "terminal", "monitoring", "maintenance", "security-ops", "self-heal"],
+      "ignore": ["career-ops", "gws-gmail", "gws-calendar", "job-search-check", "linkedin-browser", "research-desk", "search_documents"],
+      "model_tier": "HIGH",
+      "reasoning_effort": "high",
+      "personality_hint": "technical"
+    },
+    "knowledge-base": {
+      "focus": ["research-desk", "search_documents", "n8n-orchestrator", "paperless", "web-search", "note-taking"],
+      "ignore": ["homelab-ops", "homelab-mgmt", "career-ops", "gws-gmail", "gws-calendar", "job-search-check"],
+      "model_tier": "MEDIUM",
+      "reasoning_effort": "medium",
+      "personality_hint": "teacher"
+    },
+    "career-ops": {
+      "focus": ["career-ops", "gws-gmail", "gws-calendar", "job-search-check", "linkedin-browser", "email", "productivity"],
+      "ignore": ["homelab-ops", "homelab-mgmt", "docker", "terminal", "research-desk", "n8n-orchestrator"],
+      "model_tier": "MEDIUM",
+      "reasoning_effort": "medium",
+      "personality_hint": "concise"
+    },
+    "general": {
+      "focus": [],
+      "ignore": ["homelab-ops", "homelab-mgmt", "career-ops", "gws-gmail", "gws-calendar", "job-search-check", "research-desk", "n8n-orchestrator", "search_documents"],
+      "model_tier": "LOW",
+      "reasoning_effort": "low",
+      "personality_hint": "kawaii"
+    }
+  },
+  "_comment_channel_prompts": "These are injected as ephemeral system prompts via Hermes channel_prompts, keyed by thread ID.",
+  "channel_prompts_by_thread_id": {
+    "3": "## DOMAIN: INFRASTRUCTURE\nYou are operating in INFRASTRUCTURE mode. Focus on: Docker containers, services, systemd, networking, disk, memory, CPU, backups, nginx, reverse proxy, DNS, monitoring.\n- Be technical and precise. Use terminal commands.\n- Do NOT discuss career, job search, email, or research topics.\n- If the user asks about non-infra topics, briefly acknowledge and suggest switching to the appropriate topic.",
+    "5": "## DOMAIN: KNOWLEDGE-BASE\nYou are operating in KNOWLEDGE-BASE mode. Focus on: research, finding articles, paperless document management, web search, summarizing, learning.\n- Be thorough and cite sources.\n- Do NOT discuss infrastructure operations or career topics.\n- If the user asks about non-knowledge topics, briefly acknowledge and suggest switching to the appropriate topic.",
+    "7": "## DOMAIN: CAREER-OPS\nYou are operating in CAREER-OPS mode. Focus on: job search, resume/CV, interview prep, applications, hiring, recruiters, LinkedIn, email drafts, cover letters, calendar scheduling for interviews.\n- Be professional and communication-focused.\n- Do NOT discuss infrastructure operations or research topics.\n- If the user asks about non-career topics, briefly acknowledge and suggest switching to the appropriate topic.",
+    "1": "## DOMAIN: GENERAL\nYou are operating in GENERAL mode. This is for casual chat, questions, opinions, and non-domain-specific conversation.\n- Be friendly and conversational.\n- For technical infra questions, suggest the Infrastructure topic.\n- For research questions, suggest the Knowledge-Base topic.\n- For career questions, suggest the Career-Ops topic."
+  }
+}
