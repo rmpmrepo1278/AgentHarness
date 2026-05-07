@@ -233,9 +233,11 @@ def _append_model_footer(data: dict, provider: str, model: str = "") -> dict:
         # Skip footer for JSON responses (internal agent communication like JSON plans)
         if text.startswith("{") and text.endswith("}"):
             return data
-            
-        # Skip if the message is a tool call with no text content
-        if not text and msg.get("tool_calls"):
+
+        # Skip footer when tool_calls are present — this is an intermediate agent
+        # step, not a final user-facing response. The next turn's final response
+        # (without tool_calls) will get the footer.
+        if msg.get("tool_calls"):
             return data
             
         if not text:
