@@ -1,6 +1,9 @@
-# Homelab Architecture
+# Homelab Architecture (DEPRECATED)
+
+> **NOTE**: This document reflects an earlier architecture (pre-May 2026). For the current architecture including the hub-and-spoke agent model, see `HOMELAB_MAP.md` and `ORCHESTRATOR-HUB-DESIGN.md`.
 
 Generated: 2026-04-10
+**Updated**: 2026-05-07 — Marked deprecated; superseded by HOMELAB_MAP.md
 
 ## 1. System Topology — The Big Picture
 
