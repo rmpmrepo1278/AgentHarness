@@ -35,7 +35,7 @@ fi
 log "Starting LLM proxy on port 8080..."
 cd /home/rohit/agentharness && set -a && source data/.env && set +a
 export PYTHONUNBUFFERED=1
-nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server     --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data     > /home/rohit/agentharness/logs/proxy.log 2>&1 &
+nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server     --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data     > /home/rohit/agentharness/logs/proxy_stdout.log 2>&1 &
 
 sleep 5
 if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
