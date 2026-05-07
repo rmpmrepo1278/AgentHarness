@@ -12,25 +12,33 @@ class InboxWatcher:
 
     def inject_to_active_sessions(self, message):
         """Inject the alert into all active session files as a [SYSTEM:] message."""
-        if not self.session_dir.exists(): return
+        if not self.session_dir.exists():
+            return
         for session_file in self.session_dir.glob('session_*.json'):
             try:
                 # Check if file was modified in last 60 minutes
                 if time.time() - session_file.stat().st_mtime > 3600:
                     continue
-                    
+
                 with open(session_file, 'r') as f:
                     data = json.load(f)
-                
+
                 # Append the system alert
-                if 'messages' not in data: data['messages'] = []
+                if 'messages' not in data:
+                    data['messages'] = []
                 data['messages'].append({
-                    'role': 'user', 
-                    'content': f'⚕ [SYSTEM: CRITICAL ALERT: {message}. Please delegate this to General/Infra if out of scope and resume your current mission.]'
+                    'role': 'user',
+                    'content': f'⚕ [SYSTEM: CRITICAL ALERT: {message}. '
+                               f'Please delegate to General/Infra if out of scope '
+                               f'and resume your current mission.]'
                 })
-                
-                with open(session_file, 'w') as f:
+
+                # Atomic write to prevent corruption
+                import tempfile
+                tmp = session_file.with_suffix('.tmp')
+                with open(tmp, 'w') as f:
                     json.dump(data, f, indent=2)
+                tmp.replace(session_file)
                 print(f'Injected alert into {session_file.name}')
             except Exception as e:
                 print(f'Error injecting to {session_file.name}: {e}')
@@ -69,7 +77,11 @@ class InboxWatcher:
 
         if injected_count > 0:
             try:
-                self.inbox_path.write_text('\n'.join(new_lines) + '\n')
+                # Atomic write: write to temp file then rename
+                import tempfile
+                tmp = self.inbox_path.with_suffix('.tmp')
+                tmp.write_text('\n'.join(new_lines) + '\n')
+                tmp.replace(self.inbox_path)
             except Exception:
                 pass
 
