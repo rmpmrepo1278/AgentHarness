@@ -3,18 +3,20 @@ set -euo pipefail
 LOG_PREFIX="[$(date "+%Y-%m-%d %H:%M:%S")] watchdog"
 log() { echo "${LOG_PREFIX}: $*"; }
 restarts=0
-if ! systemctl is-active hermes-gateway &>/dev/null; then
+# hermes-gateway is a user-level systemd service — must use --user flag
+if ! systemctl --user is-active hermes-gateway &>/dev/null; then
     log "hermes-gateway is DOWN — restarting..."
-    sudo systemctl restart hermes-gateway 2>/dev/null && log "hermes-gateway restarted" || log "hermes-gateway restart FAILED"
+    systemctl --user restart hermes-gateway 2>/dev/null && log "hermes-gateway restarted" || log "hermes-gateway restart FAILED"
     restarts=$((restarts + 1))
 fi
-if ! systemctl is-active agentharness-llm-proxy &>/dev/null; then
-    log "agentharness-llm-proxy is DOWN — restarting..."
-    sudo systemctl restart agentharness-llm-proxy 2>/dev/null && log "agentharness-llm-proxy restarted" || log "agentharness-llm-proxy restart FAILED"
-    restarts=$((restarts + 1))
-elif ! curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
-    log "LLM proxy unresponsive on :8080 — restarting..."
-    sudo systemctl restart agentharness-llm-proxy 2>/dev/null && log "agentharness-llm-proxy restarted" || log "agentharness-llm-proxy restart FAILED"
+# proxy runs as a process, not a systemd service — check via HTTP health
+if ! curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
+    log "LLM proxy unresponsive on :8080 — killing and restarting..."
+    pkill -f "proxy_server" 2>/dev/null; sleep 2
+    nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server \
+        --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data \
+        >> /home/rohit/agentharness/data/logs/proxy.log 2>&1 &
+    log "proxy_server restarted (PID $!)"
     restarts=$((restarts + 1))
 fi
 if ! curl -sf --max-time 10 http://localhost:8081/health &>/dev/null; then

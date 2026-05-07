@@ -82,8 +82,8 @@ def check_services() -> list[dict]:
             "name": f"{label} ({port})",
             "ok": ok,
         })
-    # Hermes gateway (systemd user service)
-    ok = subprocess.run(["systemctl", "is-active", "hermes-gateway"], capture_output=True, timeout=5).returncode == 0
+    # Hermes gateway (systemd user service — must use --user flag)
+    ok = subprocess.run(["systemctl", "--user", "is-active", "hermes-gateway"], capture_output=True, timeout=5).returncode == 0
     results.append({
         "name": "hermes-gateway (systemd)",
         "ok": ok,
