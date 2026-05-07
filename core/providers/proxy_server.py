@@ -268,6 +268,33 @@ def create_proxy_app(data_dir: str = "") -> object:
 
     app = FastAPI(title="AgentHarness LLM Proxy")
 
+    # ── Global exception handler ──────────────────────────────────────────
+    # Catches ANY unhandled exception from any endpoint and returns a graceful
+    # OpenAI-format response instead of a raw 500. This prevents Hermes from
+    # entering its retry loop (which causes the Telegram retry spam).
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        log.error("Unhandled exception in %s %s: %r", request.method, request.url.path, exc, exc_info=True)
+        return JSONResponse(
+            {
+                "id": f"chatcmpl-error-{int(time.time())}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": "agentharness-proxy (error)",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "⚠️ An internal error occurred. Please try again in a moment."
+                    },
+                    "finish_reason": "stop",
+                }],
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            }
+        )
+
     # Lazy-init router on first request
     _router_cache = {}
 
@@ -980,7 +1007,13 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         start = time.monotonic()
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, router.route, llm_request)
+        try:
+            response = await loop.run_in_executor(None, router.route, llm_request)
+        except Exception as exc:
+            log.error("Router.route() raised an exception: %r", exc, exc_info=True)
+            return await _graceful_error_response(
+                "⚠️ Internal routing error. Please try again in a moment."
+            )
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         if not response.success:
