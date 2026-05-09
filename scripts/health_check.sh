@@ -39,8 +39,9 @@ except: pass
 fi
 
 _in_cooldown() {
-    local svc="$1" cd="${COOLDOWNS[$svc]:-0}"
-    [ "$cd" ] && [ "$((now - cd))" -lt 600 ] 2>/dev/null
+    local svc="$1"
+    local cd="${COOLDOWNS[$svc]+${COOLDOWNS[$svc]}}"
+    [ -n "$cd" ] && [ "$((now - cd))" -lt 600 ] 2>/dev/null
 }
 
 _set_cooldown() { COOLDOWNS["$1"]="$now"; }
@@ -71,7 +72,7 @@ if ! systemctl --user is-active hermes-gateway &>/dev/null; then
     fi
 else
     # Clear cooldown on healthy service
-    unset 'COOLDOWNS["hermes-gateway"]'
+    unset 'COOLDOWNS["hermes-gateway"]' 2>/dev/null || true
 fi
 
 # --- 2. HTTP health: LLM proxy ---
@@ -90,7 +91,7 @@ if ! curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
         restarts=$((restarts + 1))
     fi
 else
-    unset 'COOLDOWNS["llm-proxy"]'
+    unset 'COOLDOWNS["llm-proxy"]' 2>/dev/null || true
 fi
 
 # --- 3. HTTP health: Local LLM ---
@@ -108,7 +109,7 @@ if ! curl -sf --max-time 10 http://localhost:8081/health &>/dev/null; then
         restarts=$((restarts + 1))
     fi
 else
-    unset 'COOLDOWNS["local-llm"]'
+    unset 'COOLDOWNS["local-llm"]' 2>/dev/null || true
 fi
 
 # --- 4. Docker: check for exited/unhealthy containers ---
