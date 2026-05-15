@@ -1,7 +1,30 @@
 services:
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=120
+      - AUTOHEAL_START_PERIOD=60
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
+      - CURL_TIMEOUT=30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    network_mode: host
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          memory: 64M
+
   backup-mcp:
     build: ./backup-mcp
     container_name: backup-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: &id001
@@ -17,13 +40,21 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8102"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - /mnt/usb/backups:/backups
   docker-mcp:
     build: ./docker-mcp
     container_name: docker-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -33,7 +64,13 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8095"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
@@ -43,6 +80,8 @@ services:
   doctor-mcp:
     build: ./doctor-mcp
     container_name: doctor-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -52,12 +91,20 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - DOCTOR_BASE_URL=http://127.0.0.1:8080/doctor
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8105"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
   file-mcp:
     build: ./file-mcp
     container_name: file-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -66,7 +113,13 @@ services:
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8097"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - /mnt/usb:/mnt/usb:rw
     - /home/rohit/openclaw/data:/home/rohit/openclaw/data:rw
@@ -75,6 +128,8 @@ services:
   git-mcp:
     build: ./git-mcp
     container_name: git-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -84,12 +139,20 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - GITEA_URL=http://127.0.0.1:3001
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8100"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
   global-chat-mcp:
     build: ./global-chat-mcp
     container_name: global-chat-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -98,12 +161,20 @@ services:
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8106"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
   mcp-gateway:
     build: ./mcp-gateway
     container_name: mcp-gateway
+    labels:
+      - "autoheal=true"
     deploy: *id001
     environment:
     - GATEWAY_PORT=8090
@@ -113,7 +184,13 @@ services:
     - GATEWAY_LOG_FILE=/data/gateway.log
     - DOCKER_HOST=tcp://172.17.0.1:2375
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8090"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/data:/data
     - ./templates/docker:/templates/repo:ro
@@ -122,6 +199,8 @@ services:
   mnemo-mcp:
     build: ./mnemo-mcp
     container_name: mnemo-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mnemo-server
     deploy: *id001
@@ -132,12 +211,20 @@ services:
     - MCP_DCR_SERVER_SECRET=test-secret
     - GATEWAY_URL=http://127.0.0.1:8090
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8096"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - mnemo-data:/app/data
     - ./hf_cache:/app/hf_cache
   mnemo-postgres:
     container_name: mnemo-postgres
+    labels:
+      - "autoheal=true"
     deploy: *id001
     environment:
     - POSTGRES_DB=mnemo
@@ -145,12 +232,20 @@ services:
     image: pgvector/pgvector:pg16
     ports:
       - 127.0.0.1:5432:5432
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "mnemo"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - /home/rohit/.hermes/data/pg_data:/var/lib/postgresql/data
   mnemo-server:
     command: uv run uvicorn mnemo.server.main:app --host 0.0.0.0 --port 8001
     container_name: mnemo-server
+    labels:
+      - "autoheal=true"
     depends_on:
     - mnemo-postgres
     deploy:
@@ -166,13 +261,21 @@ services:
     - TRANSFORMERS_OFFLINE=1
     image: mnemo-server:latest
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8001"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./hf_cache:/app/hf_cache
     - mnemo-data:/app/data
   n8n-mcp:
     build: ./n8n-mcp
     container_name: n8n-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -182,13 +285,21 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - N8N_URL=http://127.0.0.1:5678
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8098"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - /home/rohit/openclaw/data/provider_keys.env:/data/.env:ro
   network-mcp:
     build: ./network-mcp
     container_name: network-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -198,12 +309,20 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - HOST_IP=192.168.29.10
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8103"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
   paperless-mcp:
     build: ./paperless-mcp
     container_name: paperless-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -212,9 +331,16 @@ services:
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     - PAPERLESS_URL=http://127.0.0.1:8000
+    - PAPERLESS_TOKEN=16cddccc7fd56a29927d4af19f7825ddfa62d507
     - CONSUME_DIR=/consume
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8099"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - /home/rohit/openclaw/data/paperless/consume:/consume:rw
     - /mnt/usb:/mnt/usb:ro
@@ -223,6 +349,8 @@ services:
   rss-mcp:
     build: ./rss-mcp
     container_name: rss-mcp
+    labels:
+      - "autoheal=true"
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -231,10 +359,42 @@ services:
     - GATEWAY_URL=http://127.0.0.1:8090
     - MCP_BASE_DIR=/mcp-base
     network_mode: host
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8104"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - rss-data:/data
+
+  browser-use-mcp:
+    build: ./browser-use-mcp
+    container_name: browser-use-mcp
+    labels:
+      - "autoheal=true"
+    depends_on:
+      - mcp-gateway
+    deploy: *id001
+    environment:
+      - MCP_PORT=8107
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - LLM_PROXY_URL=http://127.0.0.1:8080/v1
+      - LLM_PROXY_API_KEY=not-needed
+      - BROWSER_USE_MODEL=groq/llama-3.3-70b-versatile
+    network_mode: host
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8107"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
 version: '3.8'
 volumes:
   mcp-stacks: {}

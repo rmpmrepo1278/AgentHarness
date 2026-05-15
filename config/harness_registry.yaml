@@ -84,15 +84,6 @@ checks:
     runbook: llm-server-offline
     restart_cmd: "sudo systemctl restart llama-primary"
 
-  chaguli_container:
-    enabled: true
-    command: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active chaguli"
-    type: command_exit
-    message: "Chaguli agent container is not running"
-    priority: 4
-    runbook: chaguli-down
-    restart_cmd: "sudo -u rohit XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart chaguli"
-
   backup_freshness:
     enabled: true
     command: "find /mnt/usb -name '*.tar.gz' -o -name '*.sql' -mtime -2 2>/dev/null | head -1 | grep -q ."
@@ -258,6 +249,65 @@ harnesses:
     window: any
     frequency: daily
     description: "Self-evolution feedback cycle: metrics, patterns, briefing, inbox"
+
+  # --- Security & Dependency Monitoring ---
+  cve_scan:
+    enabled: true
+    script: "cve_monitor.sh"
+    window: offline
+    frequency: weekly
+    description: "Scan running Docker images for CVEs"
+
+  dependency_check:
+    enabled: true
+    script: "dependency_monitor.sh"
+    window: online
+    frequency: weekly
+    description: "Check for Docker image, git repo, and system updates"
+
+  tech_radar:
+    enabled: true
+    script: "tech_radar.sh"
+    window: online
+    frequency: weekly
+    description: "Weekly tech radar: GitHub trending, HN, new models, MCP servers"
+
+  cost_optimize:
+    enabled: true
+    script: "cost_optimizer.py report"
+    window: any
+    frequency: daily
+    description: "Daily LLM cost analysis and routing optimization"
+
+  # --- Personal Agent Proactive Tasks ---
+  wellness_checkin:
+    enabled: true
+    script: "personal_agent_cron.sh wellness-check"
+    window: online
+    frequency: daily
+    time_window: "20:00-21:00"
+    description: "Daily wellness check-in prompt via Telegram"
+
+  habit_review:
+    enabled: true
+    script: "personal_agent_cron.sh habit-review"
+    window: online
+    frequency: weekly
+    description: "Weekly habit and goal progress review"
+
+  subscription_audit:
+    enabled: true
+    script: "personal_agent_cron.sh subscription-audit"
+    window: online
+    frequency: weekly
+    description: "Weekly subscription audit — find unused services"
+
+  finance_report:
+    enabled: true
+    script: "personal_agent_cron.sh finance-report"
+    window: online
+    frequency: monthly
+    description: "Monthly finance report — subscriptions, bills, budget"
 
 
 # --- Custom scripts directory ---
