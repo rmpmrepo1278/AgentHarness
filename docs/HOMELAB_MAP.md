@@ -22,7 +22,7 @@ Storage: 256GB NVMe (Root), 5TB USB (External)
 ### Chaguli Agent (Chief of Staff)
 - **Gateway**: Hermes agent system, single Telegram bot entry point
 - **Interface**: Telegram supergroup with forum topics (infrastructure, knowledge-base, career-ops, general)
-- **Model**: Multi-provider LLM routing via AgentHarness proxy (free-first: Groq → Google-alt → Cerebras → SambaNova → OpenRouter → Google-primary)
+- **Model**: Multi-provider LLM routing via AgentHarness proxy (CostGuard dynamic order: tier + reliability; free-only)
 
 ### Hub-and-Spoke Domain Routing
 - **Single bot, domain-isolated contexts** — Messages route to domain-specific sub-agents based on Telegram topic or `/focus` override
@@ -52,15 +52,26 @@ Storage: 256GB NVMe (Root), 5TB USB (External)
 | `~/.hermes/scripts/set_focus.py` | Sets/clears per-session domain focus override |
 
 ### Supporting Infrastructure
-- **LLM Proxy** (AgentHarness, Port 8080): Multi-provider routing with tiered fallback
-- **Local LLM** (llama.cpp, Port 8081): Gemma 4 26B-A4B (4096 ctx, CPU-only)
-- **MCP Gateway** (Port 8090): Tool routing to 12 specialized MCP servers
+- **LLM Proxy** (AgentHarness, Port 8080): `agentharness-llm-proxy.service` — CostGuard dynamic routing, `/v1/reliability`
+- **Source of truth**: `~/.hermes/hermes-agent/proxy/core/providers/` (runtime symlinks from `~/agentharness/core/providers/`)
+- **Sync scripts**: `~/agentharness/scripts/sync-proxy-from-hermes.sh`, `verify-proxy-sync.sh`
+- **CostGuard**: `~/.hermes/hermes-agent/costguard/` (symlinked at `~/.hermes/lib/costguard`)
+- **Local LLM** (`llama-local.service`, Port **18090**): Llama-3.2-1B IQK (4096 ctx)
+- **MCP Gateway** (Port 8090): Tool routing to 14 specialized MCP servers
+- **Hermes Memory MCP** (Port 8091)
+- **Autoheal** (`willfarrell/autoheal`): Monitors labeled containers, restarts unhealthy every 120s
 - **claudemem.db**: Shared memory across all domain agents (observations, SOPs, session summaries)
 
-## Monitoring
+## Monitoring & Auto-Heal
 - **Uptime Kuma**: Service availability monitoring (Port 3002).
-- **Chaguli Health**: Integrated system health checks.
-- **Service Watchdog**: `service_watchdog.sh` (every 5 min), `doctor_check.py` (every 10 min).
+- **Netdata**: Host metrics (Port 19999).
+- **health_check.sh**: Cron every 5 min — hermes-gateway, LLM proxy (systemd), local LLM, Docker, memory MCP.
+- **deadman_check.sh**: Cron every 10 min — heartbeat / dead-man switch.
+- **doctor_check.py**: On-demand health + 9 runbooks (`/doctor` in Telegram).
+- **sentinel-agent**: User systemd — proactive incident detection and remediation.
+- **proactive-daemon**: User systemd — SOP and health monitoring.
+- **Autoheal** (Docker): Restarts unhealthy containers with `autoheal=true` label.
+- **service_watchdog.sh**: Deprecated wrapper → calls `health_check.sh`.
 
 ## Media Services
 - **Note**: Media stack (Sonarr, Radarr, Jellyfin, etc.) has been decommissioned.
@@ -68,7 +79,7 @@ Storage: 256GB NVMe (Root), 5TB USB (External)
 - **SearXNG**: Privacy-focused search engine (Port 8118).
 
 ## Git Repos (GitHub: rmpmrepo1278)
-- **AgentHarness**: `/home/rohit/agentharness/` — LLM proxy, MCP framework, orchestrator scripts
-- **AgentChaguli** (formerly AgentRocki): `/home/rohit/.hermes/hermes-agent/` — Hermes agent, gateway, skills
+- **AgentHarness**: `/home/rohit/agentharness/` — LLM proxy runtime, MCP framework, monitoring scripts
+- **AgentChaguli**: `/home/rohit/.hermes/hermes-agent/` — Hermes agent, gateway, CostGuard, proxy source
 - **Openclaw**: `/home/rohit/openclaw/` — Docker compose stack
 - **Career-ops**: `/home/rohit/projects/career-ops/`

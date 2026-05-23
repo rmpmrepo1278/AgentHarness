@@ -15,6 +15,11 @@ LOG_PREFIX="[$(date "+%Y-%m-%d %H:%M:%S")] health_check"
 log() { echo "${LOG_PREFIX}: $*"; }
 restarts=0
 
+# DBUS for systemctl --user from cron
+_UID=$(id -u)
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/${_UID}/bus}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_UID}}"
+
 # -- Concurrency guard: skip if previous run still active --
 exec 200>/tmp/health_check.lock
 if ! flock -n 200; then
@@ -25,91 +30,101 @@ fi
 # -- Restart cooldown: don't restart same service within 10 minutes --
 COOLDOWN_FILE="/tmp/health_check_cooldowns.json"
 now=$(date +%s)
-declare -A COOLDOWNS
-if [ -f "$COOLDOWN_FILE" ]; then
-    while IFS='=' read -r svc ts; do
-        COOLDOWNS["$svc"]="$ts"
-    done < <(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$COOLDOWN_FILE'))
-    for k,v in d.items(): print(f'{k}={v}')
-except: pass
-" 2>/dev/null)
-fi
 
 _in_cooldown() {
     local svc="$1"
-    local cd="${COOLDOWNS[$svc]+${COOLDOWNS[$svc]}}"
-    [ -n "$cd" ] && [ "$((now - cd))" -lt 600 ] 2>/dev/null
+    python3 - "$svc" "$COOLDOWN_FILE" "$now" <<'PY'
+import json, sys
+svc, path, now = sys.argv[1], sys.argv[2], int(sys.argv[3])
+try:
+    data = json.load(open(path))
+except Exception:
+    data = {}
+ts = data.get(svc, 0)
+print("yes" if ts and (now - int(ts)) < 600 else "no")
+PY
 }
 
-_set_cooldown() { COOLDOWNS["$1"]="$now"; }
+_set_cooldown() {
+    local svc="$1"
+    python3 - "$svc" "$COOLDOWN_FILE" "$now" <<'PY'
+import json, sys
+svc, path, now = sys.argv[1], sys.argv[2], int(sys.argv[3])
+try:
+    data = json.load(open(path))
+except Exception:
+    data = {}
+data[svc] = now
+json.dump(data, open(path, "w"))
+PY
+}
 
-# Persist cooldowns
-save_cooldowns() {
-    python3 -c "
-import json
-d = {}
-$(for k in "${!COOLDOWNS[@]}"; do echo "d['$k'] = ${COOLDOWNS[$k]};"; done)
-json.dump(d, open('$COOLDOWN_FILE', 'w'))
-" 2>/dev/null || true
+_clear_cooldown() {
+    local svc="$1"
+    python3 - "$svc" "$COOLDOWN_FILE" <<'PY'
+import json, sys
+svc, path = sys.argv[1], sys.argv[2]
+try:
+    data = json.load(open(path))
+except Exception:
+    data = {}
+data.pop(svc, None)
+json.dump(data, open(path, "w"))
+PY
 }
 
 # --- 1. systemd user services ---
 if ! systemctl --user is-active hermes-gateway &>/dev/null; then
-    if _in_cooldown "hermes-gateway"; then
+    if [ "$(_in_cooldown hermes-gateway)" = "yes" ]; then
         log "hermes-gateway DOWN but in cooldown — skipping restart"
     else
         log "hermes-gateway is DOWN — restarting..."
         if systemctl --user restart hermes-gateway 2>/dev/null; then
             log "hermes-gateway restarted"
-            _set_cooldown "hermes-gateway"
+            _set_cooldown hermes-gateway
         else
             log "hermes-gateway restart FAILED"
         fi
         restarts=$((restarts + 1))
     fi
 else
-    # Clear cooldown on healthy service
-    unset 'COOLDOWNS["hermes-gateway"]' 2>/dev/null || true
+    _clear_cooldown hermes-gateway
 fi
 
-# --- 2. HTTP health: LLM proxy ---
+# --- 2. HTTP health: LLM proxy (systemd unit) ---
 if ! curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
-    if _in_cooldown "llm-proxy"; then
+    if [ "$(_in_cooldown llm-proxy)" = "yes" ]; then
         log "LLM proxy DOWN but in cooldown — skipping restart"
     else
-        log "LLM proxy :8080 unresponsive — restarting..."
-        pkill -f "proxy_server" 2>/dev/null; sleep 2
-        mkdir -p /home/rohit/agentharness/logs
-        nohup /home/rohit/agentharness/venv/bin/python3 -m core.providers.proxy_server \
-            --host 0.0.0.0 --port 8080 --data-dir /home/rohit/agentharness/data \
-            >> /home/rohit/agentharness/logs/proxy_stdout.log 2>&1 &
-        log "proxy_server restarted (PID $!)"
-        _set_cooldown "llm-proxy"
+        log "LLM proxy :8080 unresponsive — restarting via systemd..."
+        if sudo systemctl restart agentharness-llm-proxy.service 2>/dev/null; then
+            log "agentharness-llm-proxy restarted"
+        else
+            log "agentharness-llm-proxy restart FAILED"
+        fi
+        _set_cooldown llm-proxy
         restarts=$((restarts + 1))
     fi
 else
-    unset 'COOLDOWNS["llm-proxy"]' 2>/dev/null || true
+    _clear_cooldown llm-proxy
 fi
 
 # --- 3. HTTP health: Local LLM ---
-if ! curl -sf --max-time 10 http://localhost:8081/health &>/dev/null; then
-    if _in_cooldown "local-llm"; then
+if ! curl -sf --max-time 10 http://localhost:18090/health &>/dev/null; then
+    if [ "$(_in_cooldown local-llm)" = "yes" ]; then
         log "Local LLM DOWN but in cooldown — skipping restart"
     else
-        log "Local LLM :8081 unresponsive — restarting..."
-        if sudo systemctl restart llama-primary 2>/dev/null; then
-            log "llama-primary restarted"
-            _set_cooldown "local-llm"
+        log "Local LLM :18090 unresponsive — restarting..."
+        if sudo systemctl restart llama-local 2>/dev/null; then
+            log "llama-local restarted"
+            _set_cooldown local-llm
         else
-            log "llama-primary restart FAILED"
+            log "llama-local restart FAILED"
         fi
         restarts=$((restarts + 1))
     fi
 else
-    unset 'COOLDOWNS["local-llm"]' 2>/dev/null || true
+    _clear_cooldown local-llm
 fi
 
 # --- 4. Docker: check for exited/unhealthy containers ---
@@ -132,8 +147,25 @@ if [ -n "$UNHEALTHY_CONTAINERS" ]; then
     done
 fi
 
-# --- 5. Summary ---
-save_cooldowns
+# --- 5. HTTP health: Hermes Memory MCP ---
+if ! curl -sf --max-time 5 http://localhost:8091/health &>/dev/null; then
+    if [ "$(_in_cooldown hermes-memory-mcp)" = "yes" ]; then
+        log "hermes-memory-mcp DOWN but in cooldown — skipping restart"
+    else
+        log "hermes-memory-mcp :8091 unresponsive — restarting container..."
+        if docker restart hermes-memory-mcp 2>/dev/null; then
+            log "hermes-memory-mcp restarted"
+            _set_cooldown hermes-memory-mcp
+        else
+            log "hermes-memory-mcp restart FAILED"
+        fi
+        restarts=$((restarts + 1))
+    fi
+else
+    _clear_cooldown hermes-memory-mcp
+fi
+
+# --- 6. Summary ---
 if [ "$restarts" -gt 0 ]; then
     log "Completed with ${restarts} restart(s)"
 else

@@ -34,7 +34,7 @@ COOLDOWN_FILE = DATA_DIR / "doctor_cooldowns.json"
 # Services to probe: (label, host, port, path)
 SERVICES = [
     ("LLM Proxy", "127.0.0.1", 8080, "/health"),
-    ("Local LLM", "127.0.0.1", 8081, "/health"),
+    ("Local LLM", "127.0.0.1", 18090, "/health"),
     ("MCP Gateway", "127.0.0.1", 8090, "/health"),
 ]
 
