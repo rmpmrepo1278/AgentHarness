@@ -88,15 +88,15 @@ main() {
     if curl -sf http://localhost:8080/health >/dev/null 2>&1; then
         local slots
         slots=$(curl -sf http://localhost:8080/slots 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'{len(d)} slot(s)')" 2>/dev/null || echo "running")
-        check "Primary server (port 8080)" "ok" "${slots}"
+        check "LLM Proxy (port 8080)" "ok" "${slots}"
     else
-        check "Primary server (port 8080)" "warn" "not running (start with: sudo systemctl start llama-primary)"
+        check "LLM Proxy (port 8080)" "warn" "not running (start with: sudo systemctl start llama-local)"
     fi
 
-    if curl -sf http://localhost:8081/health >/dev/null 2>&1; then
-        check "Fast server (port 8081)" "ok" "running"
+    if curl -sf http://localhost:18090/health >/dev/null 2>&1; then
+        check "Local LLM (port 18090)" "ok" "running"
     else
-        check "Fast server (port 8081)" "warn" "not running (optional)"
+        check "Local LLM (port 18090)" "warn" "not running (optional)"
     fi
 
     echo ""
@@ -152,7 +152,7 @@ main() {
     # --- Section 7: System Services ---
     echo "  [Systemd Services]"
 
-    for svc in llama-primary llama-fast agentharness-weekly; do
+    for svc in llama-local llama-fast agentharness-weekly; do
         if systemctl is-enabled "${svc}" &>/dev/null; then
             local status
             status=$(systemctl is-active "${svc}" 2>/dev/null || echo "inactive")

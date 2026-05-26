@@ -393,7 +393,7 @@ run_all_benchmarks() {
 
     # Stop the primary LLM to free memory for benchmark testing
     log_info "Stopping primary LLM service to free memory for benchmarks..."
-    sudo -n systemctl stop llama-primary 2>/dev/null || true
+    sudo -n systemctl stop llama-local 2>/dev/null || true
     sleep 3
 
     # Kill any orphaned servers from previous interrupted benchmark runs
@@ -576,8 +576,8 @@ ENTRY
 
     # Restart primary LLM service
     log_info "Restarting primary LLM service..."
-    sudo -n systemctl start llama-primary 2>/dev/null || {
-        log_warn "Could not restart primary LLM - run: sudo systemctl start llama-primary"
+    sudo -n systemctl start llama-local 2>/dev/null || {
+        log_warn "Could not restart primary LLM - run: sudo systemctl start llama-local"
     }
 }
 
@@ -707,8 +707,8 @@ auto_switch() {
     log_info "Model path: ${model_path}"
 
     # Update systemd service
-    local service_file="/etc/systemd/system/llama-primary.service"
-    local template="${SCRIPT_DIR}/../config/systemd/llama-primary.service"
+    local service_file="/etc/systemd/system/llama-local.service"
+    local template="${SCRIPT_DIR}/../config/systemd/llama-local.service"
 
     if [ -f "${template}" ]; then
         local threads="${CPU_CORES:-8}"
@@ -724,18 +724,18 @@ auto_switch() {
         sudo systemctl daemon-reload
 
         # Restart if currently running
-        if systemctl is-active llama-primary &>/dev/null; then
-            log_info "Restarting llama-primary with new configuration..."
-            sudo systemctl restart llama-primary
+        if systemctl is-active llama-local &>/dev/null; then
+            log_info "Restarting llama-local with new configuration..."
+            sudo systemctl restart llama-local
             sleep 10
 
             if curl -sf http://localhost:8080/health &>/dev/null; then
                 log_ok "Service restarted successfully with best config"
             else
-                log_error "Service failed to start with new config. Check: sudo journalctl -u llama-primary"
+                log_error "Service failed to start with new config. Check: sudo journalctl -u llama-local"
             fi
         else
-            log_info "Service not running. Start with: sudo systemctl start llama-primary"
+            log_info "Service not running. Start with: sudo systemctl start llama-local"
         fi
     else
         log_warn "Service template not found at ${template}. Manual update needed."

@@ -117,7 +117,10 @@ class NotificationRouter:
             "other": [],
         }
         for entry in entries:
-            body_lower = (entry.get("body", "") + " " + entry.get("title", "")).lower()
+            # Safely handle entries without title/body (e.g. raw telemetry)
+            title = entry.get("title", entry.get("runbook", "System Event"))
+            body = entry.get("body", entry.get("result", "Recorded"))
+            body_lower = (body + " " + title).lower()
             placed = False
             for key in ("fixed", "escalated", "failed", "cooldown"):
                 if key in body_lower:
@@ -129,12 +132,17 @@ class NotificationRouter:
 
         lines: list[str] = ["Homelab Doctor — Daily Digest", ""]
 
+        def fmt_entry(e):
+            t = e.get("title", e.get("runbook", "System Event"))
+            b = e.get("body", e.get("result", "Recorded"))
+            return f"- {t}: {b}"
+
         # Auto-healed
         healed = buckets["fixed"]
         if healed:
             lines.append(f"Auto-healed ({len(healed)}):")
             for e in healed:
-                lines.append(f"- {e['title']}: {e['body']}")
+                lines.append(fmt_entry(e))
             lines.append("")
 
         # Needs attention (escalated + failed)
@@ -142,7 +150,7 @@ class NotificationRouter:
         if attention:
             lines.append(f"Needs attention ({len(attention)}):")
             for e in attention:
-                lines.append(f"- {e['title']}: {e['body']}")
+                lines.append(fmt_entry(e))
             lines.append("")
 
         # Cooldown
@@ -150,7 +158,7 @@ class NotificationRouter:
         if cool:
             lines.append(f"In cooldown ({len(cool)}):")
             for e in cool:
-                lines.append(f"- {e['title']}: {e['body']}")
+                lines.append(fmt_entry(e))
             lines.append("")
 
         # Other
@@ -158,7 +166,7 @@ class NotificationRouter:
         if other:
             lines.append(f"Other ({len(other)}):")
             for e in other:
-                lines.append(f"- {e['title']}: {e['body']}")
+                lines.append(fmt_entry(e))
             lines.append("")
 
         failure_count = len(attention)

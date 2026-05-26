@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Export DBUS session bus so systemctl --user works from any context
+_UID=$(id -u)
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/${_UID}/bus}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${_UID}}"
+
 # =============================================================================
 # doctor.sh — Diagnose what's wrong and suggest fixes
 #
@@ -177,17 +182,17 @@ check_inference() {
     # Check if a server is actually running
     if curl -sf --max-time 3 http://localhost:8080/health &>/dev/null; then
         diagnose "LLM server :8080" "ok" "healthy"
-    elif curl -sf --max-time 3 http://localhost:8081/health &>/dev/null; then
-        diagnose "LLM server :8081" "ok" "healthy (fast model)"
+    elif curl -sf --max-time 3 http://localhost:18090/health &>/dev/null; then
+        diagnose "LLM server :18090" "ok" "healthy (fast model)"
     else
         # Check systemd
-        if systemctl is-active llama-primary &>/dev/null; then
+        if systemctl is-active llama-local &>/dev/null; then
             diagnose "LLM server" "warn" "systemd says active but not responding" \
-                "sudo journalctl -u llama-primary --no-pager -n 20"
-        elif systemctl is-enabled llama-primary &>/dev/null; then
+                "sudo journalctl -u llama-local --no-pager -n 20"
+        elif systemctl is-enabled llama-local &>/dev/null; then
             diagnose "LLM server" "fail" "enabled but not running" \
-                "sudo systemctl start llama-primary"
-            try_fix "Starting LLM server" "sudo systemctl start llama-primary"
+                "sudo systemctl start llama-local"
+            try_fix "Starting LLM server" "sudo systemctl start llama-local"
         else
             diagnose "LLM server" "warn" "not configured as systemd service" \
                 "Check: ls /etc/systemd/system/llama-*.service"
@@ -227,14 +232,14 @@ check_models() {
     fi
 
     # Check if systemd service points to a valid model
-    if [ -f /etc/systemd/system/llama-primary.service ]; then
+    if [ -f /etc/systemd/system/llama-local.service ]; then
         local model_path
-        model_path=$(grep -oP '(?<=--model )\S+' /etc/systemd/system/llama-primary.service 2>/dev/null || echo "")
+        model_path=$(grep -oP '(?<=--model )\S+' /etc/systemd/system/llama-local.service 2>/dev/null || echo "")
         if [ -n "${model_path}" ] && [ -f "${model_path}" ]; then
             diagnose "Service model path" "ok" "$(basename ${model_path})"
         elif [ -n "${model_path}" ]; then
             diagnose "Service model path" "fail" "${model_path} does not exist" \
-                "Update the model path in /etc/systemd/system/llama-primary.service and run: sudo systemctl daemon-reload"
+                "Update the model path in /etc/systemd/system/llama-local.service and run: sudo systemctl daemon-reload"
         fi
     fi
 }
@@ -407,7 +412,7 @@ check_logs() {
     fi
 
     # systemd journal for llama services
-    for svc in llama-primary llama-fast; do
+    for svc in llama-local llama-fast; do
         if systemctl is-enabled "${svc}" &>/dev/null; then
             local errors
             errors=$(journalctl -u "${svc}" --no-pager -n 10 --since "1 hour ago" 2>/dev/null | \

@@ -1,0 +1,421 @@
+
+=========================================
+  Weekly Optimization Pipeline
+=========================================
+
+[INFO] Searching for new LLM models...
+[INFO] Searching for inference engine updates...
+[INFO] Searching for new techniques and optimizations...
+[INFO] Checking for engine updates...
+scripts/weekly_optimize.sh: line 240: [: 0
+0: integer expression expected
+[INFO] Generating action items...
+
+=========================================
+  Phase 2: Discovering New Models (HuggingFace API)
+=========================================
+
+[INFO] Max model size: ~26GB (total=35GB, docker=5GB)
+[INFO] Querying HuggingFace API...
+[OK] Found 20 candidate models
+[INFO] Top candidates:
+  1. Maddio/Qwen2.5-7B-Instruct-Tool-Planning-v0.1-Q4_K_M-GGUF / qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf (4.36GB, score=80.0, downloads=46)
+  2. hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF / llama-3.2-1b-instruct-q4_k_m.gguf (0.75GB, score=80.0, downloads=39953)
+  3. MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB, score=70.1, downloads=74)
+  4. hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF / llama-3.2-3b-instruct-q4_k_m.gguf (1.88GB, score=65.0, downloads=25048)
+  5. jfer1015/Mistral-7B-Instruct-v0.3-Q4_K_M-GGUF / mistral-7b-instruct-v0.3-q4_k_m.gguf (4.07GB, score=52.7, downloads=2726)
+
+=========================================
+  Phase 3: Downloading New Models
+=========================================
+
+[INFO] Available disk space: ~4045GB
+/home/rohit/agentharness/venv/lib/python3.13/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+[INFO] qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf already exists. Skipping.
+[INFO] llama-3.2-1b-instruct-q4_k_m.gguf already exists. Skipping.
+[INFO] Downloading MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB)...
+[OK] Downloaded: deepseek-moe-16b-Q4_K_M.gguf (10.1GB)
+[INFO] Downloading hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF / llama-3.2-3b-instruct-q4_k_m.gguf (1.88GB)...
+[OK] Downloaded: llama-3.2-3b-instruct-q4_k_m.gguf (1.9GB)
+Downloads complete: 2 new, 0 failed
+[INFO] Rebuilding model catalog...
+Catalog updated: 4 models
+[OK] Downloads complete: 2 new, 0 failed
+
+=========================================
+  Phase 4: Checking Engine Updates
+=========================================
+
+[INFO] Checking ik_llama for updates (current: 9f7ba245)...
+[OK] ik_llama: already up to date (9f7ba245)
+[INFO] Checking llama.cpp for updates (current: 1c0f6db54)...
+[WARN] llama.cpp: git fetch failed (network issue?)
+[INFO] No engine updates needed
+
+=========================================
+  Phase 5: Benchmarking All Configurations
+=========================================
+
+[INFO] Running full benchmark suite...
+[INFO] Previous best: llama-3.2-1b-instruct-q4_k_m.gguf (score: 9.92)
+4     deepseek-moe-16b-Q4_K_M.gguf stock      7.2        4         /4 7.1        6.38      
+5     llama-3.2-3b-instruct-q4_k_m.gguf stock      5.9        4         /4 5.6        5.92      
+6     qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf stock      3.1        4         /4 2.8        4.99      
+7     qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf ik-llama   2.8        4         /4 2.8        4.93      
+8     deepseek-moe-16b-Q4_K_M.gguf ik-llama   0.0        0         /4 0.0        0.00      
+
+Tested: 2026-05-24 11:29
+Scoring: 40% speed + 40% quality + 20% interactive responsiveness
+
+Best config: llama-3.2-1b-instruct-q4_k_m.gguf on ik-llama (score: 9.66/10)
+Saved to /home/rohit/agentharness/data/best_config.env
+HTML report: /home/rohit/agentharness/data/reports/benchmark_20260524_1129.html
+
+=========================================
+  Auto-Switching to Best Configuration
+=========================================
+
+[INFO] Best combination: llama-3.2-1b-instruct-q4_k_m.gguf on ik-llama (score: 9.66/10)
+[INFO] Server binary: ik-llama-server
+[INFO] Model path: /home/rohit/agentharness/models/llama-3.2-1b-instruct-q4_k_m.gguf
+[WARN] Service template not found at /home/rohit/agentharness/scripts/../config/systemd/llama-local.service. Manual update needed.
+
+=========================================
+  Benchmark Complete
+=========================================
+
+[INFO] Results: /home/rohit/agentharness/data/benchmark_results.json
+[INFO] Best config: /home/rohit/agentharness/data/best_config.env
+[INFO] Reports: /home/rohit/agentharness/data/reports/
+ 1789366[INFO] No improvement found. Keeping: llama-3.2-1b-instruct-q4_k_m.gguf (9.66)
+[OK] Adding Sentinel weekly scorecard...
+[OK] Report saved to: /home/rohit/agentharness/data/reports/weekly_2026-05-24_11-00-01.md
+alert.sh received:
+  Severity: INFO
+  Message: Weekly optimization complete. Report: /home/rohit/agentharness/data/reports/weekly_2026-05-24_11-00-01.md
+  Source: weekly_optimize
+Python sender failed (sender.py send() called with:
+  severity: info
+  message: Weekly optimization complete. Report: /home/rohit/agentharness/data/reports/weekly_2026-05-24_11-00-01.md
+  source: weekly_optimize
+  requires_approval: False
+  approval_id: 
+  actions: []
+Created Alert object: Alert(severity='info', message='Weekly optimization complete. Report: /home/rohit/agentharness/data/reports/weekly_2026-05-24_11-00-01.md', source='weekly_optimize', timestamp='2026-05-24T18:29:08.815265+00:00', delivered=False, requires_approval=False, approval_id='', actions=[])
+ERROR:[Errno 13] Permission denied: '/home/rohit/agentharness/data/alerts_inbox.jsonl'), falling back to JSONL
+
+# AgentHarness Weekly Optimization Report
+**Date**: 2026-05-24 11:00
+**Current Setup**: llama-3.2-1b-instruct-q4_k_m.gguf on ik-llama (score: 9.92/10)
+**Hardware**: AMD Ryzen 7 4700U with Radeon Graphics, 35GB RAM
+**Mode**: Full Pipeline
+
+---
+
+## New Models
+
+- [Best LLM for Function Calling? : r/LocalLLaMA - Reddit](https://www.reddit.com/r/LocalLLaMA/comments/1dproby/best_llm_for_function_calling/)
+- [Best Local LLMs - Apr 2026 : r/LocalLLaMA - Reddit](https://www.reddit.com/r/LocalLLaMA/comments/1sknx6n/best_local_llms_apr_2026/)
+- [Best small LLM (≤4B) for function/tool calling with llama.cpp?](https://www.reddit.com/r/LocalLLM/comments/1kdva3y/best_small_llm_4b_for_functiontool_calling_with/)
+- [Consumer hardware landscape for local LLMs June 2025 : r/LocalLLaMA](https://www.reddit.com/r/LocalLLaMA/comments/1lmmh3l/consumer_hardware_landscape_for_local_llms_june/)
+- [Efficient CPU-GPU Collaborative Inference for MoE-based LLMs on ...](https://arxiv.org/html/2512.16473v1)
+- [Every time a new model comes out, the old one is obsolete of course](https://www.reddit.com/r/LocalLLaMA/comments/1srhzii/every_time_a_new_model_comes_out_the_old_one_is/)
+- [ggml-org/llama.cpp: LLM inference in C/C++ - GitHub](https://github.com/ggml-org/llama.cpp)
+- [Guide to optimizing inference performance of large MoE models ...](https://gist.github.com/DocShotgun/a02a4c0c0a57e43ff4f038b46ca66ae0)
+- [Hardware advice needed for building a local LLM server for inference](https://www.reddit.com/r/LocalLLaMA/comments/1fxg68k/hardware_advice_needed_for_building_a_local_llm/)
+- [Is MoE not more usable for consumer hardware? : r/LocalLLaMA - Reddit](https://www.reddit.com/r/LocalLLaMA/comments/1n0uwii/is_moe_not_more_usable_for_consumer_hardware/)
+- [I Tested 13 Local LLMs on Tool Calling: March 2026 - J.D. Hodges](https://www.jdhodges.com/blog/local-llms-on-tool-calling-2026-pt1-local-lm/)
+- [LLM Model Names Decoded: A Developer's Guide to Parameters ...](https://blog.starmorph.com/blog/llm-model-names-decoded)
+- [Local LLM models for 32GB devices - Facebook](https://www.facebook.com/groups/1577315533418837/posts/1653317005818689/)
+- [MoE Model Inference on GPU Cloud: Expert Parallelism, Memory, and ...](https://www.spheron.network/blog/moe-inference-optimization-gpu-cloud/)
+- [Open-Source AI Landscape April 2026: Complete Guide](https://www.digitalapplied.com/blog/open-source-ai-landscape-april-2026-gemma-qwen-llama)
+- [Performant local mixture-of-experts CPU inference with GPU ...](https://huggingface.co/blog/Doctor-Shotgun/llamacpp-moe-offload-guide)
+- [Qwen vs Gemma vs Llama vs Mistral vs DeepSeek Running powerful AI ...](https://www.instagram.com/p/DXOzfgoCGCM/)
+- [Running a Local LLM for Development: Minimum Hardware ...](https://www.reddit.com/r/LocalLLaMA/comments/1pw6qvw/running_a_local_llm_for_development_minimum/)
+- [Simon Willison on llama-cpp](https://simonwillison.net/tags/llama-cpp/)
+
+### Analysis
+# Recommended Upgrades for Your Ryzen 4700U / 36GB RAM / CPU-Only Setup
+
+## Top Pick: Qwen3.5 4B (Q4_K_M GGUF)
+
+**Why it's the clear winner from your search results:**
+
+- J.D. Hodges' March 2026 benchmark of 13 local LLMs on tool calling: **Qwen3.5 4B scored 97.5%** — beating models 5× its size.
+- At ~3.4 GB in Q4_K_M, it fits comfortably in your 36GB RAM.
+- Excellent function calling with llama.cpp's native function calling template.
+- Active model family with strong ecosystem support in 2026.
+
+## Runner-Up: Hermes-2-Pro-Llama (7B variant, Q4_K_M)
+
+- Reddit's r/LocalLLaMA recommends it for small use cases with function calling.
+- At ~4-5 GB quantized, still well within your RAM budget.
+- Purpose-built for tool calling and agent tasks.
+
+## Why Stay Away from MoE Models for Your Setup
+
+Your search results mention Qwen3.6 35B-A3B and Gemma 4 26B A4B — these are MoE models. While they're fast on GPU (selective expert activation), **on CPU-only, MoE offers no advantage** since you can't offload experts to a GPU. The full parameter set still lives in your RAM, and routing overhead can actually make CPU inference slower.
+
+## Practical Recommendation
+
+| Model | Size (Q4_K_M) | Tool Calling Score | RAM Headroom |
+|-------|---------------|-------------------|--------------|
+| **Qwen3.5 4B** | ~3.4 GB | **97.5%** | ✅ Plenty |
+| Hermes-2-Pro-7B | ~4-5 GB | Strong | ✅ Comfortable |
+| Current: Llama-3.2-1B | ~1.0 GB | Basic | ✅ |
+
+**Action:** Download `qwen3.5-4b-instruct-q4_k_m.gguf` and test it with your existing ik-llama setup. The jump from 1B → 4B parameters should be very noticeable for tool calling while leaving ~32GB free for context and OS overhead.
+
+— via owl · openrouter/owl-alpha
+
+## Inference Engines & Optimization
+
+- [An Introduction to Speculative Decoding for Reducing Latency in ...](https://developer.nvidia.com/blog/an-introduction-to-speculative-decoding-for-reducing-latency-in-ai-inference/)
+- [Built a local LLM inference engine on CachyOS — runs faster than llama ...](https://www.reddit.com/r/StableDiffusion/comments/1t2nm4u/built_a_local_llm_inference_engine_on_cachyos/)
+- [Efficient CPU-GPU Collaborative Inference for MoE-based LLMs on ...](https://arxiv.org/html/2512.16473v1)
+- [GitHub - efeslab/fiddler: [ICLR'25] Fast Inference of MoE Models with CPU ...](https://github.com/efeslab/fiddler)
+- [GitHub - ggml-org/llama.cpp: LLM inference in C/C++](https://github.com/ggml-org/llama.cpp)
+- [Guide to optimizing inference performance of large MoE models ...](https://gist.github.com/DocShotgun/a02a4c0c0a57e43ff4f038b46ca66ae0)
+- [ikawrakow/ik_llama.cpp - GitHub](https://github.com/ikawrakow/ik_llama.cpp/)
+- [ik_llama.cpp: llama.cpp fork with better CPU performance - GitHub](https://github.com/ikawrakow/ik_llama.cpp)
+- [Intel and Weizmann Institute Speed AI with Speculative Decoding Advance](https://newsroom.intel.com/artificial-intelligence/intel-weizmann-institute-speed-ai-with-speculative-decoding-advance)
+- [I Tested Ollama vs vLLM vs llama.cpp: The "Easiest" One ...](https://pub.towardsai.net/i-tested-ollama-vs-vllm-vs-llama-cpp-the-easiest-one-collapses-at-5-concurrent-users-d4f8e0e84886)
+- [Latest CPU performance comparison with llama.cpp #164 - GitHub](https://github.com/ikawrakow/ik_llama.cpp/discussions/164)
+- [llama.cpp: Fast Local LLM Inference, Hardware Choices & Tuning - Clarifai](https://www.clarifai.com/blog/ilama.cpp)
+- [New llama.cpp options make MoE offloading trivial: `--n-cpu-moe`](https://www.reddit.com/r/LocalLLaMA/comments/1mi7bem/new_llamacpp_options_make_moe_offloading_trivial/)
+- [One llama.cpp Update Made Local AI 65% Faster - YouTube](https://www.youtube.com/watch?v=kpMLDIj6Ls8)
+
+### Analysis
+Based on your Ryzen 4700U (8C/16T, AVX2) with 36GB RAM and current ik-llama setup, here are the most impactful optimizations:
+
+## Immediate Wins for Your Setup
+
+**1. Upgrade to latest ik_llama.cpp (critical)**
+- The Q8_K_R8 interleaved quantization is a game-changer for CPU prompt processing — reportedly **370 t/s for LLaMA-3.1-8B** on similar hardware
+- Your 36GB RAM can now comfortably run **LLaMA-3.1-8B at Q4_K_M** (~4.5GB) or even **Q8_0** (~8GB)
+- Newer ik-llama versions have significantly better AVX2 utilization
+
+**2. Speculative Decoding (small draft model)**
+- Use your current 1B model as a **draft model** for larger targets
+- On CPU, this can yield **1.5-2.5x speedup** for token generation
+- Command: `--draft-model llama-3.2-1b-instruct-q4_k_m.gguf --draft-tokens 4`
+
+**3. Optimal Model Selection for Your Hardware**
+| Model | Quantization | RAM Usage | Expected Speed |
+|-------|--------------|-----------|----------------|
+| LLaMA-3.1-8B | Q4_K_M | ~4.5GB | ~15-20 t/s |
+| LLaMA-3.1-8B | Q8_0 | ~8GB | ~12-15 t/s |
+| Mistral-7B | Q4_K_M | ~4GB | ~18-22 t/s |
+| Phi-3-mini-4K | Q4_K_M | ~2.5GB | ~25-30 t/s |
+
+**4. Thread Tuning**
+- Set threads to **physical cores (8)** not 16: `--threads 8`
+- Enable NUMA awareness if applicable: `--numa`
+- Use `--batch-size 512` or higher for better throughput
+
+**5. Memory Optimization**
+- Your mismatched 4+32GB config means you're likely running in **single-channel mode** — consider matching sticks for ~30% memory bandwidth improvement
+- Use `--mlock` to prevent swapping
+- Set `--context-size` appropriately (2048-4096 for most tasks)
+
+## Advanced Techniques
+
+**6. MoE Offloading (for future models)**
+- ik-llama now supports `--cpu-moe` flag for Mixture-of-Experts models
+- Could run **Mixtral-8x7B** partially on CPU with smart layer distribution
+
+**7. Vulkan Backend (experimental)**
+- VulkanForge shows promise for CPU+GPU hybrid, but your integrated Vega graphics may not benefit significantly
+- Stick with CPU backend for now unless you add a discrete GPU
+
+## Recommended Next Steps
+
+1. **Update ik_llama.cpp** to latest version
+2. **Test LLaMA-3.1-8B Q4_K_M** — should fit comfortably and give much better quality than 1B
+3. **Enable speculative decoding** with your 1B as draft
+4. **Benchmark with**: `./main -m model.gguf -p "Your prompt" -n 128 -t 8 --draft-model 1b.gguf --draft-tokens 4`
+
+The biggest single improvement will be moving from 1B to 8B model — the quality difference is substantial, and your hardware can handle it at reasonable speeds.
+
+— via owl · openrouter/owl-alpha
+
+## Techniques & Best Practices
+
+- [10 things I wish my homelabs will do for me in 2026 - Reddit](https://www.reddit.com/r/homelab/comments/1pywh1e/10_things_i_wish_my_homelabs_will_do_for_me_in/)
+- [8 local LLM settings most people never touch that fixed my worst AI ...](https://www.xda-developers.com/local-llm-settings-most-people-never-touch/)
+- [AI agents in homelab - Reddit](https://www.reddit.com/r/homelab/comments/1t5di4u/ai_agents_in_homelab/)
+- [Best Local LLMs - Apr 2026 : r/LocalLLaMA - Reddit](https://www.reddit.com/r/LocalLLaMA/comments/1sknx6n/best_local_llms_apr_2026/)
+- [bjeans/homelab-mcp: Model Context Protocol (MCP) servers for ... - GitHub](https://github.com/bjeans/homelab-mcp)
+- [GGUF quantization guide - Langur Monkey](https://tonisagrista.com/blog/2026/quantization/)
+- [GGUF vs GPTQ vs AWQ 2026: Which Quantization Should You Use?](https://localaimaster.com/blog/quantization-explained)
+- [Home AI Assitant : r/homelab - Reddit](https://www.reddit.com/r/homelab/comments/1rqxdfw/home_ai_assitant/)
+- [Homelab MCP Server - LobeHub](https://lobehub.com/mcp/washyu-mcp_python_server)
+- [How to Tune llama.cpp on 8GB VRAM: Why 32K Is Safer and 64K Needs ...](https://www.knightli.com/en/2026/04/23/llama-cpp-8g-vram-32k-64k-kv-cache-tuning/)
+- [I connected Claude Code to my home server through MCP, and now I ...](https://www.xda-developers.com/connected-claude-code-through-mcp-manage-entire-lab-by-talking/)
+- [Improve local LLM performance with llama.cpp and custom-conversation](https://community.home-assistant.io/t/improve-local-llm-performance-with-llama-cpp-and-custom-conversation/935476)
+- [KV Cache quantization forces excess processing onto CPU in llama.cpp](https://www.reddit.com/r/LocalLLaMA/comments/1ng0fmv/psarfc_kv_cache_quantization_forces_excess/)
+- [Llama.cpp GGUF Quantization Guide: Optimize Local LLM Performance ...](https://www.decodesfuture.com/articles/llama-cpp-gguf-quantization-guide-2026)
+
+### Analysis
+# CPU LLM Optimization for Ryzen 4700U (36GB RAM)
+
+## Your Current Setup Analysis
+
+You're running **llama-3.2-1b-instruct-q4_k_m.gguf** on ik-llama. With 36GB RAM and a 4+32 mismatched DDR4 config, you have significant headroom to optimize.
+
+---
+
+## Practical Optimizations You Can Apply Now
+
+### 1. **Upgrade to llama.cpp (if not already)**
+ik-llama is a fork, but upstream **llama.cpp** gets optimizations first. The 2026 builds include:
+- Better AVX2 kernels for your Zen 2 cores
+- Lazy conversion features that prevent loading entire models into RAM
+- Improved thread scheduling for 8C/16T
+
+### 2. **KV Cache Quantization (Critical for CPU)**
+This is the most impactful underrated setting:
+- **Q8_0 KV cache** → ~30% memory savings with minimal quality loss
+- **Q4_0 KV cache** → ~50% memory savings, slight quality tradeoff
+- On CPU, quantized KV cache is actually *faster* because it reduces memory bandwidth pressure (your mismatched 4+32 config is bandwidth-sensitive)
+
+### 3. **Prompt Caching / Reuse**
+llama.cpp supports prompt caching — the system prompt and conversation history don't get re-processed on every turn. Essential for agent-style workloads.
+
+### 4. **Thread and Batch Tuning for 47000U**
+```
+-t 8          # physical cores (not threads — SMT hurts more than helps for PP)
+-c 2048       # context size sweet spot for your RAM
+--flash-attn  # if your build supports it
+```
+Test `-t 6` vs `-t 8` — sometimes leaving 2 cores free for OS/decompression improves throughput.
+
+### 5. **Model Upgrade Path**
+With 36GB RAM, you can comfortably run:
+- **llama-3.2-3b-instruct-q4_k_m** (~2.0GB) — significantly better quality, still fast
+- **Qwen2.5-7B-Instruct-Q4_K_M** (~4.5GB) — excellent multilingual, strong reasoning
+- **phi-3.5-mini-instruct-q4_k_m** (~2.4GB) — surprisingly capable for its size
+
+### 6. **Memory Bandwidth Mitigation**
+Your 4+32 config likely runs in **flex mode** (dual channel for first 8GB, single for rest). To maximize bandwidth:
+- Ensure the 4GB stick is in the correct slot for dual-channel pairing
+- Consider replacing with **2x16GB matched kit** (~$40-50) — this alone can improve inference by 15-25%
+
+---
+
+## What to Avoid
+
+- **Don't use AWQ/GPTQ** — these are GPU-optimized formats; GGUF is correct for CPU
+- **Don't set context above 4096** unless needed — KV cache grows linearly and your bandwidth is the bottleneck
+- **Avoid Q2/Q3 quantization** — quality drops sharply; Q4_K_M is the sweet spot
+
+---
+
+## Quick Win Priority
+
+| Action | Effort | Impact |
+|--------|--------|--------|
+| Switch to latest llama.cpp | Low | Medium |
+| Enable KV cache Q8_0 | Low | **High** |
+| Upgrade to 3B model | Low | **High** |
+| Enable prompt caching | Low | Medium (for chat) |
+| Matched RAM kit (2x16GB) | $40-50 | **High** |
+
+Start with KV cache quantization and the model upgrade — both are free and immediate.
+
+— via owl · openrouter/owl-alpha
+
+## Engine Update Status
+
+- **ik_llama**: Up to date (9f7ba245)
+- **llama.cpp**: Current 1c0f6db54, remote has updates (1 commits behind). Consider rebuilding.
+
+## Action Items
+
+# Top 5 Action Items — Prioritized by Impact
+
+---
+
+## 1. Upgrade Model: Qwen3.5-4B Q4_K_M
+- **What**: Replace `llama-3.2-1b-instruct-q4_k_m.gguf` with `qwen3.5-4b-instruct-q4_k_m.gguf` (~3.4GB). Keep ik-llama; just swap the model file.
+- **Expected improvement**: Tool calling accuracy jumps from basic → **97.5%** (per J.D. Hodges' March 2026 benchmark of 13 LLMs). General reasoning and instruction-following dramatically better. Fits in RAM with ~32GB headroom.
+- **Effort**: **Low** — download + swap, no config changes needed.
+
+---
+
+## 2. Enable KV Cache Quantization (Q8_0)
+- **What**: Add `--kv-cache-type q8_0` (or equivalent flag in your ik-llama build) to your launch command.
+- **Expected improvement**: ~30% KV cache memory reduction → allows larger context within same RAM. On your mismatched 4+32 DDR4 (likely bandwidth-constrained in flex mode), this also **reduces memory bandwidth pressure**, directly improving tokens/s.
+- **Effort**: **Low** — one flag change.
+
+---
+
+## 3. Enable Speculative Decoding with 1B as Draft
+- **What**: Keep your current 1B model as a draft model. Launch with: `--draft-model llama-3.2-1b-instruct-q4_k_m.gguf --draft-tokens 4` targeting the new 4B model.
+- **Expected improvement**: **1.5–2.5x faster token generation** on CPU. The 1B model "guesses" tokens; the 4B model verifies in parallel. Minimal quality loss.
+- **Effort**: **Low** — two flags, no new downloads.
+
+---
+
+## 4. Thread & Batch Tuning
+- **What**: Set `--threads 8` (physical cores, not 16 SMT threads), `--batch-size 512`, and `--context-size 2048` (or 4096 max). Test `-t 6` vs `-t 8` — sometimes freeing 2 cores for OS/decompression improves throughput on Zen 2.
+- **Expected improvement**: 10–20% throughput gain from correct thread pinning; avoids SMT contention that hurts CPU-bound inference.
+- **Effort**: **Low** — benchmark 5 min with each setting.
+
+---
+
+## 5. Matched RAM Kit (2×16GB DDR4)
+- **What**: Replace the mismatched 4+32GB sticks with a matched 2×16GB DDR4 kit (~$40–50). Ensure dual-channel runs across full capacity.
+- **Expected improvement**: **15–25% inference speedup** from full dual-channel bandwidth. Your current 4+32 config likely runs flex mode (dual-channel for first 8GB, single-channel for remaining 28GB) — the model loads into the slow single-channel region.
+- **Effort**: **Medium** — $40–50 cost, 10 min hardware swap, but requires purchasing parts.
+
+---
+
+**Start order**: Do #1 and #2 today (free, 5 minutes). Add #3 immediately after. Benchmark #4 this weekend. Plan #5 as a next-weekend hardware upgrade.
+
+— via owl · openrouter/owl-alpha
+
+## Auto-Discovery Results
+
+Found 20 new model candidates via HuggingFace API:
+
+- **Maddio/Qwen2.5-7B-Instruct-Tool-Planning-v0.1-Q4_K_M-GGUF** / `qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf` — 4.36GB, score=80.0, tags: function-calling, tool-calling, text-generation
+- **hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF** / `llama-3.2-1b-instruct-q4_k_m.gguf` — 0.75GB, score=80.0, tags: text-generation
+- **MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf** / `deepseek-moe-16b-Q4_K_M.gguf` — 10.11GB, score=70.1, tags: moe, text-generation
+- **hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF** / `llama-3.2-3b-instruct-q4_k_m.gguf` — 1.88GB, score=65.0, tags: text-generation
+- **jfer1015/Mistral-7B-Instruct-v0.3-Q4_K_M-GGUF** / `mistral-7b-instruct-v0.3-q4_k_m.gguf` — 4.07GB, score=52.7, tags: none
+- **joshnader/Meta-Llama-3.1-8B-Instruct-Q4_K_M-GGUF** / `meta-llama-3.1-8b-instruct-q4_k_m.gguf` — 4.58GB, score=52.6, tags: text-generation
+- **NoelJacob/Meta-Llama-3-8B-Instruct-Q4_K_M-GGUF** / `meta-llama-3-8b-instruct.Q4_K_M.gguf` — 4.58GB, score=50.9, tags: text-generation
+- **matrixportalx/Llama-3.1-8B-Instruct-Q4_K_M-GGUF** / `llama-3.1-8b-instruct-q4_k_m.gguf` — 4.58GB, score=50.9, tags: text-generation
+- **Fathi773/Meta-Llama-3.1-8B-Instruct-q4_k_m-PRTS-GGUF** / `Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf` — 4.58GB, score=50.7, tags: none
+- **sayi50/Mistral-Nemo-Instruct-2407-Q4_K_M-GGUF** / `mistral-nemo-instruct-2407-q4_k_m.gguf` — 6.96GB, score=50.7, tags: none
+
+## Download Results
+
+- Downloaded: 2 new model(s)
+
+## Benchmark Results
+
+**No change**: llama-3.2-1b-instruct-q4_k_m.gguf remains best (score: 9.66)
+
+
+---
+*Report generated by AgentHarness weekly_optimize.sh (full pipeline)*
+*Next scan: 2026-05-31*
+
+📊 **Sentinel Weekly Scorecard:**
+
+📅 Week of 2026-05-17 to 2026-05-24
+📈 Total incidents: 56
+  ✅ Resolved: 30
+  🔄 Escalated: 17
+  📌 Still open: 9
+🔧 Auto-fix success rate: 100%
+
+📋 Top recurring categories:
+  • python_crash: 7 incident(s)
+  • script_failure: 6 incident(s)
+  • network: 5 incident(s)
+
+🔴 **Reliability: NEEDS ATTENTION** — Multiple critical incidents

@@ -22,6 +22,7 @@ class GoogleProvider(LLMProvider):
         **kwargs: Any,
     ) -> None:
         provider_name = kwargs.pop("name", "google-primary")
+        for k in ["name", "tier", "model"]: kwargs.pop(k, None)
         super().__init__(name=provider_name, tier=2, model=model, **kwargs)
         self.api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
         self.daily_limit = daily_limit

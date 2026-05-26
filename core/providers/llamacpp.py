@@ -20,7 +20,8 @@ class LlamaCppProvider(LLMProvider):
         timeout: int = 15,
         **kwargs: Any,
     ) -> None:
-        super().__init__(name=name, tier=1, model=model)
+        for k in ["name", "tier", "model"]: kwargs.pop(k, None)
+        super().__init__(name=name, tier=1, model=model, **kwargs)
         self.endpoint = endpoint.rstrip("/")
         self.timeout = timeout
 

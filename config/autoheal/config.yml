@@ -1,0 +1,23 @@
+# Autoheal Configuration
+# Monitors Docker containers and restarts them if they become unhealthy
+
+interval: 120  # Check every 2 minutes (instead of 30 seconds)
+timeout: 30    # Timeout for health checks
+retries: 3     # Number of retries before restarting
+
+# Services to monitor (by container name or label)
+# We'll use labels to specify which containers to monitor
+monitor:
+  - label: "autoheal=true"
+  - label: "critical=true"
+  - label: "monitoring=enabled"
+
+# Containers to exclude from monitoring (use Docker labels)
+exclude:
+  - label: "no-autoheal"
+  - label: "critical=skip"
+
+# Services that should not be monitored by autoheal (use container names)
+skip:
+  - pihole
+  - pihole-dns

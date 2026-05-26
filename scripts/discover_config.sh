@@ -283,9 +283,9 @@ detect_llm_servers() {
         CONFIG[LLM_PRIMARY_URL]="http://localhost:8080"
         log_ok "  Primary LLM server detected on port 8080"
     fi
-    if curl -sf http://localhost:8081/health &>/dev/null; then
-        CONFIG[LLM_FAST_URL]="http://localhost:8081"
-        log_ok "  Fast LLM server detected on port 8081"
+    if curl -sf http://localhost:18090/health &>/dev/null; then
+        CONFIG[LLM_FAST_URL]="http://localhost:18090"
+        log_ok "  Local LLM server detected on port 18090"
     fi
 
     # Check existing systemd service files for model paths

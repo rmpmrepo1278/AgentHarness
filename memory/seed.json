@@ -1,0 +1,20 @@
+{
+  "seeded_at": "$(date -Iseconds)",
+  "sources_scanned": [
+    "/home/rohit/agentharness/",
+    "/home/rohit/.hermes/hermes-agent/",
+    "/home/rohit/openclaw/docker/compose/"
+  ],
+  "discovered_repos": [],
+  "discovered_services": [],
+  "past_context": {
+    "agentchaguli": {
+      "note": "Had a failed test job in GitHub workflow; e2e passed but test job failed",
+      "last_activity": "recent"
+    },
+    "goose": {
+      "note": "Research request halted after planning; repo may have migrated (goose has moved message)",
+      "status": "needs_followup"
+    }
+  }
+}

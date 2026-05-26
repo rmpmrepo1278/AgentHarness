@@ -198,7 +198,7 @@ phase_5() {
     if command -v systemctl &>/dev/null; then
         log_info "Setting up systemd services..."
 
-        for svc in agentharness-scheduler agentharness-watchdog llama-primary llama-fast; do
+        for svc in agentharness-scheduler agentharness-watchdog llama-local llama-fast; do
             local src="${AGENTHARNESS_HOME}/config/systemd/${svc}.service"
             if [ -f "${src}" ]; then
                 sudo cp "${src}" /etc/systemd/system/

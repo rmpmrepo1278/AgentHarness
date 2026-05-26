@@ -165,6 +165,42 @@ else
     _clear_cooldown hermes-memory-mcp
 fi
 
+# --- 6. HTTP health: Portainer ---
+if ! curl -sf --max-time 5 http://localhost:9000/ &>/dev/null; then
+    if [ "$(_in_cooldown portainer)" = "yes" ]; then
+        log "portainer DOWN but in cooldown — skipping restart"
+    else
+        log "portainer :9000 unresponsive — restarting container..."
+        if docker restart portainer 2>/dev/null; then
+            log "portainer restarted"
+            _set_cooldown portainer
+        else
+            log "portainer restart FAILED"
+        fi
+        restarts=$((restarts + 1))
+    fi
+else
+    _clear_cooldown portainer
+fi
+
+# --- 7. HTTP health: Stump (ebook UI) ---
+if ! curl -sf --max-time 5 http://localhost:10801/ &>/dev/null; then
+    if [ "$(_in_cooldown stump)" = "yes" ]; then
+        log "stump DOWN but in cooldown — skipping restart"
+    else
+        log "stump :10801 unresponsive — restarting container..."
+        if docker restart stump 2>/dev/null; then
+            log "stump restarted"
+            _set_cooldown stump
+        else
+            log "stump restart FAILED"
+        fi
+        restarts=$((restarts + 1))
+    fi
+else
+    _clear_cooldown stump
+fi
+
 # --- 6. Summary ---
 if [ "$restarts" -gt 0 ]; then
     log "Completed with ${restarts} restart(s)"

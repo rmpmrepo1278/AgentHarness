@@ -125,9 +125,8 @@ else:
 PYEOF
 
     # Alert if security-critical updates exist
-    local update_count
-    update_count=$(grep -c "Updates Available" "${UPDATE_REPORT}" 2>/dev/null || echo "0")
-    if [ "${update_count}" -gt 0 ]; then
+    if grep -q "Updates Available" "${UPDATE_REPORT}"; then
+    
         bash "${SCRIPT_DIR}/alert.sh" INFO "Container updates available. See ${UPDATE_REPORT}" || true
     fi
 

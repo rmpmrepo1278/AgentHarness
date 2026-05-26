@@ -354,6 +354,15 @@ main() {
     ts=$(TZ="${TIMEZONE}" date '+%Y-%m-%d %H:%M %Z')
     log_info "Scheduler run: ${ts} | Network: ${network_state} | Window: ${window}"
 
+    # Write heartbeat for deadman_check
+    python3 -c "
+import json, time, datetime, os
+hb = {'timestamp': time.time(), 'pid': os.getpid(), 'iso': datetime.datetime.now().isoformat()}
+os.makedirs('${AH_DATA_DIR}', exist_ok=True)
+with open('${AH_DATA_DIR}/heartbeat.json', 'w') as f:
+    json.dump(hb, f)
+" 2>/dev/null || true
+
     case "${window}" in
         online)
             run_online_tasks

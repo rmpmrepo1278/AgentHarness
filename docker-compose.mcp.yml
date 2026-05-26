@@ -196,81 +196,6 @@ services:
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-  mnemo-mcp:
-    build: ./mnemo-mcp
-    container_name: mnemo-mcp
-    labels:
-      - "autoheal=true"
-    depends_on:
-    - mnemo-server
-    deploy: *id001
-    environment:
-    - PUBLIC_URL=http://0.0.0.0:8096
-    - MCP_PORT=8096
-    - MNEMO_SERVER_URL=http://127.0.0.1:8001
-    - MCP_DCR_SERVER_SECRET=test-secret
-    - GATEWAY_URL=http://127.0.0.1:8090
-    network_mode: host
-    restart: always
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8096"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    volumes:
-    - mnemo-data:/app/data
-    - ./hf_cache:/app/hf_cache
-  mnemo-postgres:
-    container_name: mnemo-postgres
-    labels:
-      - "autoheal=true"
-    deploy: *id001
-    environment:
-    - POSTGRES_DB=mnemo
-    - POSTGRES_PASSWORD=hermes_memory_secret
-    image: pgvector/pgvector:pg16
-    ports:
-      - 127.0.0.1:5432:5432
-    restart: always
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "mnemo"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    volumes:
-    - /home/rohit/.hermes/data/pg_data:/var/lib/postgresql/data
-  mnemo-server:
-    command: uv run uvicorn mnemo.server.main:app --host 0.0.0.0 --port 8001
-    container_name: mnemo-server
-    labels:
-      - "autoheal=true"
-    depends_on:
-    - mnemo-postgres
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 768M
-    environment:
-    - MNEMO_DATABASE_URL=postgresql://postgres:hermes_memory_secret@127.0.0.1:5432/mnemo
-    - PORT=8001
-    - HF_HOME=/app/hf_cache
-    - MNEMO_EMBEDDING_MODEL=/app/hf_cache/models--sentence-transformers--all-MiniLM-L6-v2/snapshots/c9745ed1d9f207416be6d2e6f8de32d1f16199bf
-    - TRANSFORMERS_OFFLINE=1
-    image: mnemo-server:latest
-    network_mode: host
-    restart: always
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8001"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    volumes:
-    - ./hf_cache:/app/hf_cache
-    - mnemo-data:/app/data
   n8n-mcp:
     build: ./n8n-mcp
     container_name: n8n-mcp
@@ -370,6 +295,33 @@ services:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - rss-data:/data
 
+  hermes-memory-mcp:
+    build: ./hermes-memory-mcp
+    container_name: hermes-memory-mcp
+    labels:
+      - "autoheal=true"
+    depends_on:
+      - mcp-gateway
+    deploy: *id001
+    environment:
+      - MCP_PORT=8091
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - HERMES_HOME=/hermes
+      - SHARED_MEMORY_DIR=/shared-memory
+    network_mode: host
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8091"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/.hermes:/hermes:rw
+      - /home/rohit/shared_agent_memory:/shared-memory:rw
+
   browser-use-mcp:
     build: ./browser-use-mcp
     container_name: browser-use-mcp
@@ -398,5 +350,4 @@ services:
 version: '3.8'
 volumes:
   mcp-stacks: {}
-  mnemo-data: {}
   rss-data: {}

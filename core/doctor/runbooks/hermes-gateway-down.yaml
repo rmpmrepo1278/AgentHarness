@@ -1,35 +1,40 @@
 name: hermes-gateway-down
-version: 2
+version: 1
 trigger: "health_check_fail:hermes_gateway"
 priority: critical
 notify: critical
 description: >
-  Diagnose and recover the Hermes AI Agent Gateway.
-  Hermes runs as a systemd service (hermes-gateway) using long polling for Telegram.
-  Health is verified via the systemd service status and Telegram connectivity.
+  Recover the Hermes gateway service (hermes-gateway.service).
+  Since Hermes IS the notification system, this runbook sends
+  alerts directly via Telegram API on failure.
 
 steps:
-  - name: check-hermes-service
-    check: "systemctl is-active hermes-gateway"
+  - name: check-gateway-state
+    check: "systemctl --user is-active hermes-gateway"
     expect_contains: "active"
     on_fail:
-      - name: restart-hermes-gateway
-        fix: "sudo systemctl restart hermes-gateway"
-        wait: 5
-      - name: verify-hermes-after-restart
-        check: "systemctl is-active hermes-gateway"
+      - name: restart-gateway
+        fix: "systemctl --user restart hermes-gateway"
+        wait: 15
+      - name: verify-gateway-running
+        check: "systemctl --user is-active hermes-gateway"
         expect_contains: "active"
         on_fail:
-          - escalate: "Hermes gateway service failed to restart. Check systemd logs."
+          - name: read-gateway-logs
+            check: "journalctl --user -u hermes-gateway --no-pager -n 50"
+            interpret: llm
+            on_unknown:
+              escalate: true
 
-  - name: check-telegram-connectivity
-    check: "curl -sf http://localhost:8080/health"
-    expect_contains: "ok"
+  - name: notify-telegram-direct
+    check: "systemctl --user is-active hermes-gateway"
+    expect_contains: "active"
     on_fail:
-      - escalate: "LLM proxy not responding. Gateway cannot function."
-
-  - name: verify-hermes-process
-    check: "pgrep -f 'hermes_cli.main gateway run'"
-    expect_regex: "^[0-9]+"
-    on_fail:
-      - escalate: "Hermes gateway process not found despite service being active."
+      - fix: >
+          curl -sf -X POST
+          "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+          -d chat_id="${TELEGRAM_CHAT_ID}"
+          -d parse_mode=Markdown
+          -d text="*AgentHarness Doctor*: Hermes gateway is DOWN and could not be auto-recovered. Manual intervention required."
+        wait: 2
+      - escalate: "Hermes gateway is down and could not be restarted. Direct Telegram alert sent."
