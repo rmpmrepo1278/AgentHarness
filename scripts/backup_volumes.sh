@@ -38,12 +38,21 @@ targets=(
     "nginx-proxy-manager:/var/lib/docker/volumes/npm_npm-data/_data"
     "letsencrypt:/var/lib/docker/volumes/npm_npm-letsencrypt/_data"
     "vaultwarden:/opt/vaultwarden"
-    "gitea:/home/rohit/openclaw/data/gitea"
+    "gitea:/home/rohit/services/data/gitea"
     "paperless:/home/rohit/services/data/paperless"
     "immich_db:/var/lib/docker/volumes/immich_pgdata/_data"
     "pihole:/var/lib/docker/volumes/pihole_pihole_data/_data"
     "portainer:/var/lib/docker/volumes/portainer_data/_data"
     "mnemo:/var/lib/docker/volumes/agentharness_mnemo-data/_data"
+    "uptime-kuma:/var/lib/docker/volumes/compose_uptime_kuma_data/_data"
+    "netdata-config:/var/lib/docker/volumes/compose_netdataconfig/_data"
+    "netdata-lib:/var/lib/docker/volumes/compose_netdatalib/_data"
+    "netdata-cache:/var/lib/docker/volumes/compose_netdatacache/_data"
+    "agentharness-data:/home/rohit/agentharness/data"
+    "hermes-config:/home/rohit/.hermes"
+    "calibre-web-config:/home/rohit/services/calibre-web/config"
+    "homepage-config:/home/rohit/services/homepage/config"
+    "stump-config:/home/rohit/services/agent-status-api"
 )
 
 succeeded=0
@@ -63,7 +72,7 @@ for target in "${targets[@]}"; do
     log "[>] Backing up $name ($path)..."
     backup_file="$BACKUP_DIR/${name}.tar.gz"
 
-    if tar czf "$backup_file" -C "$path" . 2>>"$LOG_FILE"; then
+    if tar czf "$backup_file" --warning=no-file-changed --ignore-failed-read -C "$path" . 2>>"$LOG_FILE"; then
         size=$(du -h "$backup_file" 2>/dev/null | cut -f1)
         log "[✓] $name backed up ($size)"
         succeeded=$((succeeded + 1))
