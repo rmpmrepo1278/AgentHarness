@@ -24,13 +24,13 @@ _DEFAULT_RPM_LIMITS: Dict[str, int] = {
     "groq": 30,          # Groq free tier: 30 req/min
     "cerebras": 30,      # Cerebras free tier: 30 req/min
     "sambanova": 10,     # SambaNova free tier: ~10 req/min
-    "google-alt": 15,    # Gemini free tier: 15 req/min
+    "google-alt": 15,    # Gemini 2.0 flash free tier: 15 req/min
+    "google-alt-2": 15,  # Gemini 2.5 flash free tier: 15 req/min (separate quota)
     "openrouter": 20,    # OpenRouter free models: ~20 req/min
     "owl": 20,           # via OpenRouter
     "laguna": 20,        # via OpenRouter
     "laguna-m1": 20,     # via OpenRouter
     "qwen-coder": 20,    # via OpenRouter
-    "trinity": 20,       # via OpenRouter
     "local": 0,          # unlimited (local)
 }
 
