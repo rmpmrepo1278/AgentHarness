@@ -201,7 +201,18 @@ else
     _clear_cooldown stump
 fi
 
-# --- 6. Summary ---
+# --- 6. Context Harvester heartbeat ---
+HB_FILE="/home/rohit/agentharness/data/harvester_heartbeat.json"
+if [ -f "$HB_FILE" ]; then
+    hb_age=$(( $(date +%s) - $(stat -c %Y "$HB_FILE") ))
+    if [ "$hb_age" -gt 3600 ]; then
+        log "Context harvester heartbeat STALE (${hb_age}s old — expected < 3600s)"
+    fi
+else
+    log "No harvester heartbeat file found — harvester may not have run yet"
+fi
+
+# --- 7. Summary ---
 if [ "$restarts" -gt 0 ]; then
     log "Completed with ${restarts} restart(s)"
 else
