@@ -139,14 +139,6 @@ checks:
 
   # --- Add your custom checks below ---
   # Example: Monitor Jellyfin transcoding queue
-  # jellyfin_transcode:
-  #   enabled: true
-  #   command: "curl -sf http://localhost:8096/Sessions | python3 -c \"import sys,json; sessions=json.load(sys.stdin); active=[s for s in sessions if s.get('TranscodingInfo')]; print(len(active))\""
-  #   type: threshold
-  #   warn: 3
-  #   critical: 5
-  #   unit: "active transcodes"
-  #   message: "Jellyfin has {value} active transcodes"
 
   # Example: Check if Pi-hole is blocking
   # pihole_blocking:
