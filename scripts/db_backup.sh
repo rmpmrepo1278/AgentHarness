@@ -4,6 +4,7 @@
 #
 # Dumps Paperless (Postgres) and Immich (Postgres) databases to
 # /mnt/usb/backups/db-dumps/. Keeps 14 days of dumps.
+# Uses dynamic IP lookup to avoid hardcoded IP breakage on Docker restart.
 # =============================================================================
 
 set -euo pipefail
@@ -26,9 +27,19 @@ log "Starting database backups to $BACKUP_DIR"
 succeeded=0
 failed=0
 
-# Paperless (Postgres 16, on compose_default network)
-log "[>] Dumping paperless (Postgres)..."
-if PGPASSWORD=paperless_db_pass pg_dump -h 172.18.0.6 -U paperless -d paperless -Fc > "$BACKUP_DIR/paperless.dump" 2>>"$LOG_FILE"; then
+# Dynamic IP lookup helper
+get_container_ip() {
+    local container="$1"
+    docker inspect "$container" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null
+}
+
+# Paperless (Postgres 16, on paperless_default network)
+PAPERLESS_DB_IP=$(get_container_ip paperless-db)
+log "[>] Dumping paperless (Postgres) [DB IP: ${PAPERLESS_DB_IP:-NOT_FOUND}]..."
+if [[ -z "$PAPERLESS_DB_IP" ]]; then
+    log "[✗] FAILED paperless (container not found)"
+    failed=$((failed + 1))
+elif PGPASSWORD=paperless_db_pass pg_dump -h "$PAPERLESS_DB_IP" -U paperless -d paperless -Fc > "$BACKUP_DIR/paperless.dump" 2>>"$LOG_FILE"; then
     size=$(du -h "$BACKUP_DIR/paperless.dump" 2>/dev/null | cut -f1)
     log "[✓] paperless backed up ($size)"
     succeeded=$((succeeded + 1))
@@ -38,8 +49,12 @@ else
 fi
 
 # Immich (Postgres pgvecto.rs, on immich_default network)
-log "[>] Dumping immich (Postgres)..."
-if PGPASSWORD=postgres pg_dump -h 172.20.0.2 -U postgres -d immich -Fc > "$BACKUP_DIR/immich.dump" 2>>"$LOG_FILE"; then
+IMMICH_DB_IP=$(get_container_ip database)
+log "[>] Dumping immich (Postgres) [DB IP: ${IMMICH_DB_IP:-NOT_FOUND}]..."
+if [[ -z "$IMMICH_DB_IP" ]]; then
+    log "[✗] FAILED immich (container not found)"
+    failed=$((failed + 1))
+elif PGPASSWORD=postgres pg_dump -h "$IMMICH_DB_IP" -U postgres -d immich -Fc > "$BACKUP_DIR/immich.dump" 2>>"$LOG_FILE"; then
     size=$(du -h "$BACKUP_DIR/immich.dump" 2>/dev/null | cut -f1)
     log "[✓] immich backed up ($size)"
     succeeded=$((succeeded + 1))
