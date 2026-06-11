@@ -2,7 +2,7 @@
 
 ## System Overview
 
-AgentHarness is the LLM inference and context management layer for the homelab. It sits between clients (Claude Code, Telegram/Hermes) and LLM providers (OpenRouter, Groq, Cerebras, Google, local llama.cpp), routing requests intelligently while minimizing token consumption and handling provider failures gracefully.
+AgentHarness is the LLM inference and context management layer for the homelab. It sits between clients (Claude Code, Telegram/Hermes) and LLM providers (OpenRouter, Groq, Cerebras, Google, local Ollama), routing requests intelligently while minimizing token consumption and handling provider failures gracefully.
 
 ## Core Components
 

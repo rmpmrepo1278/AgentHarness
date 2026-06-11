@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# start_llm_server.sh — Start LLM server and proxy on boot (FIXED)
+# start_llm_server.sh — Start LLM proxy on boot
 # =============================================================================
 
 # Export DBUS session bus so systemctl --user works from cron
@@ -13,19 +13,21 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] startup: $*" >> "$LOG"; }
 
 mkdir -p /home/rohit/agentharness/logs
 
-# 1. Start Local LLM (llama-local on port 18090)
-log "Starting llama-local..."
-sudo systemctl start llama-local 2>/dev/null || log "Failed to start llama-local"
-
-# Wait for LLM to be ready
-for i in {1..30}; do
-    curl -sf --max-time 5 http://localhost:18090/health &>/dev/null && break
+# 1. Verify Ollama is running (local LLM on 11434)
+log "Checking Ollama..."
+for i in {1..15}; do
+    curl -sf --max-time 3 http://localhost:11434/ &>/dev/null && break
     sleep 2
 done
+if curl -sf --max-time 3 http://localhost:11434/ &>/dev/null; then
+    log "Ollama healthy on port 11434"
+else
+    log "WARNING: Ollama not responding on port 11434"
+fi
 
 # 2. Start LLM Proxy via Systemd
 log "Starting LLM proxy via systemd..."
-systemctl --user start llm-proxy 2>/dev/null || log "Failed to start llm-proxy"
+systemctl start agentharness-llm-proxy 2>/dev/null || log "Failed to start agentharness-llm-proxy"
 
 sleep 5
 if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then

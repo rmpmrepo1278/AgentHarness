@@ -95,7 +95,7 @@ search_new_models() {
     log_info "Searching for new LLM models..."
 
     local queries=(
-        "new GGUF models 2026 llama.cpp small MoE tool calling"
+        "new GGUF models 2026 Ollama small MoE tool calling"
         "best local LLM models homelab CPU inference $(date +%Y) site:reddit.com/r/LocalLLaMA"
         "Qwen Gemma Mistral new model release $(date +%B) $(date +%Y) GGUF"
         "MoE model small active parameters CPU inference $(date +%Y)"
@@ -137,9 +137,9 @@ search_new_engines() {
     log_info "Searching for inference engine updates..."
 
     local queries=(
-        "ik_llama.cpp update CPU performance $(date +%Y)"
-        "llama.cpp new release CPU optimization MoE $(date +%Y)"
-        "local LLM inference engine faster than llama.cpp CPU $(date +%Y)"
+        "ik_Ollama update CPU performance $(date +%Y)"
+        "Ollama new release CPU optimization MoE $(date +%Y)"
+        "local LLM inference engine faster than Ollama CPU $(date +%Y)"
         "PowerInfer MoE CPU inference update $(date +%Y)"
         "speculative decoding CPU improvements $(date +%Y)"
     )
@@ -179,7 +179,7 @@ search_techniques() {
     log_info "Searching for new techniques and optimizations..."
 
     local queries=(
-        "KV cache optimization llama.cpp CPU $(date +%Y)"
+        "KV cache optimization Ollama CPU $(date +%Y)"
         "quantization technique GGUF improvement $(date +%Y)"
         "prompt caching local LLM optimization $(date +%Y)"
         "homelab AI agent best practices $(date +%Y) site:reddit.com"
@@ -223,7 +223,7 @@ check_engine_updates() {
     echo "## Engine Update Status" >> "${WEEKLY_REPORT}"
     echo "" >> "${WEEKLY_REPORT}"
 
-    for dir in /opt/ik_llama /opt/llama.cpp; do
+    for dir in /opt/ik_llama /opt/Ollama; do
         if [ -d "${dir}/.git" ]; then
             local name
             name=$(basename "${dir}")
@@ -623,7 +623,7 @@ update_engines() {
 
     local engines_updated=0
 
-    for dir in /opt/ik_llama /opt/llama.cpp; do
+    for dir in /opt/ik_llama /opt/Ollama; do
         if [ ! -d "${dir}/.git" ]; then
             log_info "${dir} not found, skipping"
             continue
@@ -668,7 +668,7 @@ update_engines() {
         local bin_prefix
         case "${name}" in
             ik_llama) bin_prefix="ik-llama" ;;
-            llama.cpp) bin_prefix="llama" ;;
+            Ollama) bin_prefix="llama" ;;
             *) bin_prefix="${name}" ;;
         esac
 

@@ -31,7 +31,7 @@ COST_REPORT_FILE = AH_DATA_DIR / "cost_report.json"
 # Cost per 1M tokens (USD) — update as needed
 # Free providers = $0.00
 PROVIDER_COSTS = {
-    "local": {"in": 0.00, "out": 0.00, "label": "Local (llama.cpp) — FREE"},
+    "local": {"in": 0.00, "out": 0.00, "label": "Local (Ollama) — FREE"},
     "owl": {"in": 0.00, "out": 0.00, "label": "Owl Alpha — FREE"},
     "google-alt": {"in": 0.00, "out": 0.00, "label": "Google Alt — FREE"},
     "groq": {"in": 0.00, "out": 0.00, "label": "Groq — FREE (rate-limited)"},

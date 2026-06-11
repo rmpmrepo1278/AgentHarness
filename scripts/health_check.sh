@@ -110,16 +110,16 @@ else
 fi
 
 # --- 3. HTTP health: Local LLM ---
-if ! curl -sf --max-time 10 http://localhost:18090/health &>/dev/null; then
+if ! curl -sf --max-time 10 http://localhost:11434/health &>/dev/null; then
     if [ "$(_in_cooldown local-llm)" = "yes" ]; then
         log "Local LLM DOWN but in cooldown — skipping restart"
     else
-        log "Local LLM :18090 unresponsive — restarting..."
-        if sudo systemctl restart llama-local 2>/dev/null; then
-            log "llama-local restarted"
+        log "Local LLM :11434 unresponsive — restarting..."
+        if sudo systemctl restart Ollama 2>/dev/null; then
+            log "Ollama restarted"
             _set_cooldown local-llm
         else
-            log "llama-local restart FAILED"
+            log "Ollama restart FAILED"
         fi
         restarts=$((restarts + 1))
     fi

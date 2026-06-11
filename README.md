@@ -80,7 +80,7 @@ scripts/
   discover_config.sh            # Find API keys, configs
   discover_storage.sh           # Find USB drives for backup
   discover_chaguli.sh           # Find Chaguli/OpenClaw installation
-  build_inference.sh            # Build llama.cpp + ik_llama.cpp
+  build_inference.sh            # Build Ollama + ik_Ollama
   download_models.sh            # Download models by RAM budget
   benchmark.sh                  # Benchmark model+engine combos
   self_update.sh                # Pull latest and apply

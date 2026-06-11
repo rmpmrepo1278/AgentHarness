@@ -166,7 +166,7 @@ check_inference() {
             # Check if built but not linked
             local build_dir="/opt/${prefix//-/_}/build/bin/llama-server"
             [ "${prefix}" = "ik-llama" ] && build_dir="/opt/ik_llama/build/bin/llama-server"
-            [ "${prefix}" = "llama" ] && build_dir="/opt/llama.cpp/build/bin/llama-server"
+            [ "${prefix}" = "llama" ] && build_dir="/opt/Ollama/build/bin/llama-server"
 
             if [ -f "${build_dir}" ]; then
                 diagnose "${server}" "warn" "built but not in PATH" \
@@ -182,17 +182,17 @@ check_inference() {
     # Check if a server is actually running
     if curl -sf --max-time 3 http://localhost:8080/health &>/dev/null; then
         diagnose "LLM server :8080" "ok" "healthy"
-    elif curl -sf --max-time 3 http://localhost:18090/health &>/dev/null; then
-        diagnose "LLM server :18090" "ok" "healthy (fast model)"
+    elif curl -sf --max-time 3 http://localhost:11434/health &>/dev/null; then
+        diagnose "LLM server :11434" "ok" "healthy (fast model)"
     else
         # Check systemd
-        if systemctl is-active llama-local &>/dev/null; then
+        if systemctl is-active Ollama &>/dev/null; then
             diagnose "LLM server" "warn" "systemd says active but not responding" \
-                "sudo journalctl -u llama-local --no-pager -n 20"
-        elif systemctl is-enabled llama-local &>/dev/null; then
+                "sudo journalctl -u Ollama --no-pager -n 20"
+        elif systemctl is-enabled Ollama &>/dev/null; then
             diagnose "LLM server" "fail" "enabled but not running" \
-                "sudo systemctl start llama-local"
-            try_fix "Starting LLM server" "sudo systemctl start llama-local"
+                "sudo systemctl start Ollama"
+            try_fix "Starting LLM server" "sudo systemctl start Ollama"
         else
             diagnose "LLM server" "warn" "not configured as systemd service" \
                 "Check: ls /etc/systemd/system/llama-*.service"
@@ -232,14 +232,14 @@ check_models() {
     fi
 
     # Check if systemd service points to a valid model
-    if [ -f /etc/systemd/system/llama-local.service ]; then
+    if [ -f /etc/systemd/system/Ollama.service ]; then
         local model_path
-        model_path=$(grep -oP '(?<=--model )\S+' /etc/systemd/system/llama-local.service 2>/dev/null || echo "")
+        model_path=$(grep -oP '(?<=--model )\S+' /etc/systemd/system/Ollama.service 2>/dev/null || echo "")
         if [ -n "${model_path}" ] && [ -f "${model_path}" ]; then
             diagnose "Service model path" "ok" "$(basename ${model_path})"
         elif [ -n "${model_path}" ]; then
             diagnose "Service model path" "fail" "${model_path} does not exist" \
-                "Update the model path in /etc/systemd/system/llama-local.service and run: sudo systemctl daemon-reload"
+                "Update the model path in /etc/systemd/system/Ollama.service and run: sudo systemctl daemon-reload"
         fi
     fi
 }
@@ -412,7 +412,7 @@ check_logs() {
     fi
 
     # systemd journal for llama services
-    for svc in llama-local llama-fast; do
+    for svc in Ollama llama-fast; do
         if systemctl is-enabled "${svc}" &>/dev/null; then
             local errors
             errors=$(journalctl -u "${svc}" --no-pager -n 10 --since "1 hour ago" 2>/dev/null | \

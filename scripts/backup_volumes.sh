@@ -38,22 +38,18 @@ targets=(
     "nginx-proxy-manager:/var/lib/docker/volumes/npm_npm-data/_data"
     "letsencrypt:/var/lib/docker/volumes/npm_npm-letsencrypt/_data"
     "vaultwarden:/opt/vaultwarden"
-    "gitea:/home/rohit/services/data/gitea"
     "paperless:/home/rohit/services/data/paperless"
     "immich_db:/var/lib/docker/volumes/immich_pgdata/_data"
     "pihole:/var/lib/docker/volumes/pihole_pihole_data/_data"
     "portainer:/var/lib/docker/volumes/portainer_data/_data"
-    "mnemo:/var/lib/docker/volumes/agentharness_mnemo-data/_data"
     "uptime-kuma:/var/lib/docker/volumes/compose_uptime_kuma_data/_data"
-    "netdata-config:/var/lib/docker/volumes/compose_netdataconfig/_data"
-    "netdata-lib:/var/lib/docker/volumes/compose_netdatalib/_data"
-    "netdata-cache:/var/lib/docker/volumes/compose_netdatacache/_data"
     "agentharness-data:/home/rohit/agentharness/data"
     "hermes-config:/home/rohit/.hermes"
     "calibre-web-config:/home/rohit/services/calibre-web/config"
     "homepage-config:/home/rohit/services/homepage/config"
-    "stump-config:/home/rohit/services/agent-status-api"
 )
+# NOTE: Excluded netdata-cache/lib/config (huge time-series data, causes OOM)
+# NOTE: Excluded gitea, mnemo, stump-config (not critical / can be rebuilt)
 
 succeeded=0
 failed=0

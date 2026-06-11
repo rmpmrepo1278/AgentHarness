@@ -40,17 +40,17 @@ main() {
     if command -v ik-llama-server &>/dev/null; then
         local ik_ver
         ik_ver=$(ik-llama-server --version 2>&1 | head -1 || echo "unknown")
-        check "ik_llama.cpp" "ok" "${ik_ver}"
+        check "ik_Ollama" "ok" "${ik_ver}"
     else
-        check "ik_llama.cpp" "fail" "not found in PATH"
+        check "ik_Ollama" "fail" "not found in PATH"
     fi
 
     if command -v llama-server &>/dev/null; then
         local stock_ver
         stock_ver=$(llama-server --version 2>&1 | head -1 || echo "unknown")
-        check "stock llama.cpp" "ok" "${stock_ver}"
+        check "stock Ollama" "ok" "${stock_ver}"
     else
-        check "stock llama.cpp" "warn" "not built (optional, needed for benchmarking)"
+        check "stock Ollama" "warn" "not built (optional, needed for benchmarking)"
     fi
 
     echo ""
@@ -90,13 +90,13 @@ main() {
         slots=$(curl -sf http://localhost:8080/slots 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'{len(d)} slot(s)')" 2>/dev/null || echo "running")
         check "LLM Proxy (port 8080)" "ok" "${slots}"
     else
-        check "LLM Proxy (port 8080)" "warn" "not running (start with: sudo systemctl start llama-local)"
+        check "LLM Proxy (port 8080)" "warn" "not running (start with: sudo systemctl start Ollama)"
     fi
 
-    if curl -sf http://localhost:18090/health >/dev/null 2>&1; then
-        check "Local LLM (port 18090)" "ok" "running"
+    if curl -sf http://localhost:11434/health >/dev/null 2>&1; then
+        check "Local LLM (port 11434)" "ok" "running"
     else
-        check "Local LLM (port 18090)" "warn" "not running (optional)"
+        check "Local LLM (port 11434)" "warn" "not running (optional)"
     fi
 
     echo ""
@@ -152,7 +152,7 @@ main() {
     # --- Section 7: System Services ---
     echo "  [Systemd Services]"
 
-    for svc in llama-local llama-fast agentharness-weekly; do
+    for svc in Ollama llama-fast agentharness-weekly; do
         if systemctl is-enabled "${svc}" &>/dev/null; then
             local status
             status=$(systemctl is-active "${svc}" 2>/dev/null || echo "inactive")

@@ -139,7 +139,7 @@ main() {
 
     echo "  [ ] Set up SSH key auth to mini PC"
     echo "  [ ] Install Docker on mini PC"
-    echo "  [ ] Install ik_llama.cpp on mini PC (build with -DGGML_VULKAN=ON)"
+    echo "  [ ] Install Ollama on mini PC (build with Vulkan GPU acceleration)"
     echo "  [ ] Migrate heavy services to mini PC"
     echo "  [ ] Configure distributed inference (exo)"
     echo "  [ ] Update AgentHarness scheduler for two-machine mode"

@@ -68,7 +68,7 @@ discover_mcp_servers() {
     done > /tmp/mcp_discovered.txt
 
     # Method 2: Check common MCP ports with JSON-RPC probe
-    for port in 3000 3001 3333 4000 4001 5000 5001 5555 6000 8000 8001 9000 9001; do
+    for port in 3000 3001 3333 8080 4001 5000 5001 5555 6000 8000 8001 9000 9001; do
         # Skip ports we know are other services
         local known_service
         known_service=$(ss -tlnp 2>/dev/null | grep ":${port} " | grep -oP '(?<=users:\(\().*?(?=,)' || echo "")

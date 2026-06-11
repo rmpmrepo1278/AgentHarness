@@ -157,7 +157,7 @@ print(len(re.findall(r'\"name\":\s*\"(\w+)\"', content)))
     done
 
     # --- Built inference engines ---
-    for dir in "${home_dir}/ik_llama.cpp" "${home_dir}/llama.cpp"; do
+    for dir in "${home_dir}/ik_Ollama" "${home_dir}/Ollama"; do
         if [ -d "${dir}" ] && [ -f "${dir}/build/bin/llama-server" ]; then
             local name
             name=$(basename "${dir}")

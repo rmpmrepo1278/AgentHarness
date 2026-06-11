@@ -63,7 +63,7 @@ import json, subprocess, datetime, os
 
 repo_dirs = [
     "/home/rohit/.hermes/hermes-agent",
-    "/home/rohit/ik_llama.cpp",
+    "/home/rohit/ik_Ollama",
     "/home/rohit/projects/career-ops",
     "/home/rohit/projects/agent-traces",
 ]

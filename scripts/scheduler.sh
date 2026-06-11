@@ -175,7 +175,7 @@ run_online_tasks() {
     fi
 
     # 2. Check for inference engine updates (git fetch)
-    for dir in /opt/ik_llama /opt/llama.cpp; do
+    for dir in /opt/ik_llama /opt/Ollama; do
         if [ -d "${dir}/.git" ]; then
             cd "${dir}"
             local before

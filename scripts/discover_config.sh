@@ -273,7 +273,7 @@ detect_service_urls() {
 }
 
 # -----------------------------------------------------------------------------
-# Check for existing llama.cpp / ik_llama.cpp server configs
+# Check for existing Ollama / ik_Ollama server configs
 # -----------------------------------------------------------------------------
 detect_llm_servers() {
     log_info "Detecting LLM server configurations..."
@@ -283,9 +283,9 @@ detect_llm_servers() {
         CONFIG[LLM_PRIMARY_URL]="http://localhost:8080"
         log_ok "  Primary LLM server detected on port 8080"
     fi
-    if curl -sf http://localhost:18090/health &>/dev/null; then
-        CONFIG[LLM_FAST_URL]="http://localhost:18090"
-        log_ok "  Local LLM server detected on port 18090"
+    if curl -sf http://localhost:11434/health &>/dev/null; then
+        CONFIG[LLM_FAST_URL]="http://localhost:11434"
+        log_ok "  Local LLM server detected on port 11434"
     fi
 
     # Check existing systemd service files for model paths

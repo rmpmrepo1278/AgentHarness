@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/common.sh"
 
 BENCHMARK_RESULTS="${AH_DATA_DIR}/benchmark_results.json"
 BEST_CONFIG="${AH_DATA_DIR}/best_config.env"
-BENCH_TEST_PORT=18090
+BENCH_TEST_PORT=11434
 _BENCH_SERVER_PIDS=()
 
 # Kill any orphaned benchmark servers from previous interrupted runs
@@ -393,7 +393,7 @@ run_all_benchmarks() {
 
     # Stop the primary LLM to free memory for benchmark testing
     log_info "Stopping primary LLM service to free memory for benchmarks..."
-    sudo -n systemctl stop llama-local 2>/dev/null || true
+    sudo -n systemctl stop Ollama 2>/dev/null || true
     sleep 3
 
     # Kill any orphaned servers from previous interrupted benchmark runs
@@ -576,8 +576,8 @@ ENTRY
 
     # Restart primary LLM service
     log_info "Restarting primary LLM service..."
-    sudo -n systemctl start llama-local 2>/dev/null || {
-        log_warn "Could not restart primary LLM - run: sudo systemctl start llama-local"
+    sudo -n systemctl start Ollama 2>/dev/null || {
+        log_warn "Could not restart primary LLM - run: sudo systemctl start Ollama"
     }
 }
 
@@ -707,8 +707,8 @@ auto_switch() {
     log_info "Model path: ${model_path}"
 
     # Update systemd service
-    local service_file="/etc/systemd/system/llama-local.service"
-    local template="${SCRIPT_DIR}/../config/systemd/llama-local.service"
+    local service_file="/etc/systemd/system/Ollama.service"
+    local template="${SCRIPT_DIR}/../config/systemd/Ollama.service"
 
     if [ -f "${template}" ]; then
         local threads="${CPU_CORES:-8}"
@@ -716,7 +716,7 @@ auto_switch() {
         sudo sed -i "s|__MODEL_PATH__|${model_path}|g" "${service_file}"
         sudo sed -i "s|__THREADS__|${threads}|g" "${service_file}"
 
-        # Switch server binary if stock llama.cpp won
+        # Switch server binary if stock Ollama won
         if [ "${BEST_ENGINE}" = "stock" ]; then
             sudo sed -i "s|/usr/local/bin/ik-llama-server|/usr/local/bin/llama-server|g" "${service_file}"
         fi
@@ -724,18 +724,18 @@ auto_switch() {
         sudo systemctl daemon-reload
 
         # Restart if currently running
-        if systemctl is-active llama-local &>/dev/null; then
-            log_info "Restarting llama-local with new configuration..."
-            sudo systemctl restart llama-local
+        if systemctl is-active Ollama &>/dev/null; then
+            log_info "Restarting Ollama with new configuration..."
+            sudo systemctl restart Ollama
             sleep 10
 
             if curl -sf http://localhost:8080/health &>/dev/null; then
                 log_ok "Service restarted successfully with best config"
             else
-                log_error "Service failed to start with new config. Check: sudo journalctl -u llama-local"
+                log_error "Service failed to start with new config. Check: sudo journalctl -u Ollama"
             fi
         else
-            log_info "Service not running. Start with: sudo systemctl start llama-local"
+            log_info "Service not running. Start with: sudo systemctl start Ollama"
         fi
     else
         log_warn "Service template not found at ${template}. Manual update needed."
