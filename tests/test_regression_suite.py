@@ -467,17 +467,18 @@ class TestLocalLLMFallback:
     """Tests local LLM as last-resort fallback."""
 
     def test_local_llm_reachable(self):
-        """Local LLM endpoint responds."""
-        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:18090")
-        r = httpx.get(f"{local_url}/health", timeout=5)
+        """Local LLM endpoint responds (Ollama on 11434)."""
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
+        # Ollama uses / (returns "Ollama is running") instead of /health
+        r = httpx.get(f"{local_url}/", timeout=5)
         assert r.status_code == 200
 
     def test_local_llm_context_size(self):
         """Local LLM model supports at least 32K context (not 4K).
-        Checks n_ctx_train (model's training context) since n_ctx may be
-        set lower via server args for memory reasons."""
-        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:18090")
-        r = httpx.get(f"{local_url}/v1/models", timeout=5)
+        Ollama doesn't expose n_ctx_train in /v1/models, so we check
+        the model name against known large-context models."""
+        local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
+        r = httpx.get(f"{local_url}/api/tags", timeout=5)
         if r.status_code == 200:
             models = r.json().get("data", [])
             if models:
