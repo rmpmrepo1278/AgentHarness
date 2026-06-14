@@ -5,28 +5,72 @@
 # =============================================================================
 
 services:
+  khoj-db:
+    image: pgvector/pgvector:pg17
+    container_name: khoj-db
+    restart: always
+    labels:
+      - "autoheal=true"
+    volumes:
+      - khoj-pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=khoj
+      - POSTGRES_USER=khoj
+      - POSTGRES_PASSWORD=khoj-password-change-me
+    networks:
+      - khoj-internal
+      - core_default
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U khoj"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   khoj:
-    image: khoj-ai/khoj:latest
+    image: ghcr.io/khoj-ai/khoj:latest
     container_name: khoj
     restart: always
     labels:
       - "autoheal=true"
     ports:
-      - "127.0.0.1:4321:4321"
+      - "127.0.0.1:4321:42110"
+      # Note: Khoj binds to 0.0.0.0:42110 inside container
+      # External access via NPM reverse proxy recommended
     volumes:
       - khoj-data:/root/.khoj
-      - /home/rohet/.hermes:/data/hermes:ro
-      - /home/rohet/Documents:/data/documents:ro
-      - /home/rohet/Downloads:/data/downloads:ro
+      - /home/rohit/.hermes:/data/hermes:ro
+      - /home/rohit/Documents:/data/documents:ro
+      - /home/rohit/Downloads:/data/downloads:ro
+    depends_on:
+      khoj-db:
+        condition: service_healthy
     environment:
       - KHOJ_DEBUG=false
+      - KHOJ_HOST=0.0.0.0
+      - KHOJ_PORT=42110
       - KHOJ_SECRET_KEY=${KHOJ_SECRET_KEY:-khoj-secret-key-change-me}
+      - KHOJ_ADMIN_EMAIL=${KHOJ_ADMIN_EMAIL:-admin@chagulihome.duckdns.org}
       - KHOJ_ADMIN_PASSWORD=${KHOJ_ADMIN_PASSWORD:-admin}
+      - POSTGRES_HOST=khoj-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=khoj
+      - POSTGRES_USER=khoj
+      - POSTGRES_PASSWORD=khoj-password-change-me
       # Use free Ollama for local inference
+      - OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+      - OPENAI_API_KEY=placeholder
       - KHOJ_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - KHOJ_MODEL_REGISTRY={"openai":{"gpt-3.5-turbo":{"name":"gpt-3.5-turbo","tokenizer":"cl100k_base","max_tokens":128000},"gpt-4":{"name":"gpt-4","tokenizer":"cl100k_base","max_tokens":128000}},"ollama":{"llama3.2:3b":{"name":"llama3.2:3b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:7b":{"name":"qwen2.5:7b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:14b":{"name":"qwen2.5:14b","tokenizer":"cl100k_base","max_tokens":32768}}}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - khoj-internal
+      - core_default
     deploy:
       resources:
         limits:
@@ -35,11 +79,19 @@ services:
         reservations:
           memory: 512M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4321/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:42110/"]
       interval: 60s
       timeout: 10s
       retries: 3
 
+networks:
+  khoj-internal:
+    driver: bridge
+  core_default:
+    external: true
+
 volumes:
   khoj-data:
+    driver: local
+  khoj-pgdata:
     driver: local

@@ -20,8 +20,9 @@ services:
       - "127.0.0.1:7878:7878"
     volumes:
       - paper-agent-data:/data
-      - /home/rohet/Documents/papers:/data/papers:ro
-      - /home/rohet/.hermes/state:/data/hermes-state:ro
+      - /home/rohit/agentharness/paper-agent:/app:ro
+      - /home/rohit/Documents/papers:/data/papers:ro
+      - /home/rohit/.hermes/state:/data/hermes-state:ro
     working_dir: /app
     command: >
       sh -c "
@@ -37,6 +38,8 @@ services:
       - ZOTERO_API_KEY=${ZOTERO_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - core_default
     deploy:
       resources:
         limits:
@@ -44,6 +47,10 @@ services:
           memory: 1G
         reservations:
           memory: 256M
+
+networks:
+  core_default:
+    external: true
 
 volumes:
   paper-agent-data:

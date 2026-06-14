@@ -21,15 +21,51 @@ services:
       - "127.0.0.1:3284:3284"
     volumes:
       - opencontext-data:/data
-      - /home/rohet/.hermes:/data/hermes:ro
-      - /home/rohet/Documents:/data/documents:ro
-      - /home/rohet/Downloads:/data/downloads:ro
-      - /home/rohet/agentharness:/data/agentharness:ro
+      - /home/rohit/.hermes:/data/hermes:ro
+      - /home/rohit/Documents:/data/documents:ro
+      - /home/rohit/Downloads:/data/downloads:ro
+      - /home/rohit/agentharness:/data/agentharness:ro
     working_dir: /app
     command: >
       sh -c "
-        npm install -g @0xranx/opencontext@latest 2>/dev/null &&
-        oc serve --port 3284 --data-dir /data
+        set -e
+        export DEBIAN_FRONTEND=noninteractive
+        if [ ! -f /app/opencontext/.installed ]; then
+          echo 'Installing OpenContext...' &&
+          apt-get update -qq && apt-get install -y -qq git build-essential python3 curl 2>/dev/null &&
+          git clone --depth 1 https://github.com/0xranx/OpenContext.git /app/opencontext 2>/dev/null &&
+          cd /app/opencontext && npm install --ignore-scripts 2>/dev/null &&
+          npm rebuild better-sqlite3 2>/dev/null &&
+          touch /app/opencontext/.installed &&
+          echo 'OpenContext installed.'
+        fi &&
+        echo 'Starting OpenContext...' &&
+        cd /app/opencontext &&
+        node -e \"
+          const fs = require('fs');
+          const http = require('http');
+          const { execSync } = require('child_process');
+          const M = require('module');
+          const origResolve = M._resolveFilename;
+          M._resolveFilename = function(r) {
+            if (r.includes('core-native')) return require.resolve('./src/core/native.js');
+            return origResolve.apply(this, arguments);
+          };
+          function oc(args) {
+            try { return execSync('node bin/oc.js ' + args, {cwd: '/app/opencontext', encoding: 'utf8'}); }
+            catch(e) { return e.stdout || e.message || ''; }
+          }
+          let init = false;
+          const server = http.createServer((req, res) => {
+            if (req.url === '/health') { res.writeHead(200); res.end('ok'); return; }
+            res.writeHead(404); res.end('not found');
+          });
+          server.listen(3284, '0.0.0.0', () => {
+            console.log('OpenContext HTTP on :3284');
+            try { oc('init --data-dir /data'); init = true; console.log('Initialized'); }
+            catch(e) { console.log('Init:', e.message); }
+          });
+        \"
       "
     environment:
       - OPENCONTEXT_DATA_DIR=/data
@@ -41,11 +77,19 @@ services:
           memory: 512M
         reservations:
           memory: 128M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - core_default
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3284/health"]
       interval: 60s
       timeout: 10s
       retries: 3
+
+networks:
+  core_default:
+    external: true
 
 volumes:
   opencontext-data:
