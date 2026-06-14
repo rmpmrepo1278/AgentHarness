@@ -49,7 +49,51 @@ CLAUDE_FIXABLE_TYPES = {
     "service_down",
     "config_drift",
     "dependency_failure",
+    "missing_script",
+    "api_retry_failure",
 }
+
+# Critical scripts that must exist for the system to function.
+# Maps a human-readable name to the expected absolute path.
+CRITICAL_SCRIPTS = {
+    "claude_code_delegate": Path.home() / ".hermes" / "hermes-agent" / "scripts" / "claude_code_delegate.py",
+    "auto_fix_delegate": AG_HOME / "scripts" / "auto_fix_delegate.py",
+    "autonomous_fixer": AG_HOME / "scripts" / "autonomous_fixer.py",
+    "consolidated_health": AG_HOME / "scripts" / "consolidated_health.sh",
+    "docker_ghost_check": AG_HOME / "scripts" / "docker_ghost_check.sh",
+    "proactive_quality_monitor": HERMES_HOME / "scripts" / "proactive_quality_monitor.py",
+    "unified_cost_guard": HERMES_HOME / "scripts" / "unified_cost_guard.py",
+    "daily_audit": AG_HOME / "scripts" / "daily_audit.py",
+    "cos_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "cos_briefing.py",
+    "evening_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "evening_briefing.py",
+    "weekly_review": HERMES_HOME / "hermes-agent" / "scripts" / "weekly_review.py",
+    "document_auto_ingest": HERMES_HOME / "hermes-agent" / "scripts" / "document_auto_ingest.py",
+    "document_intel": HERMES_HOME / "hermes-agent" / "scripts" / "document_intel.py",
+    "cross_domain_correlator": HERMES_HOME / "hermes-agent" / "scripts" / "cross_domain_correlator.py",
+    "predictive_engine": HERMES_HOME / "hermes-agent" / "scripts" / "predictive_engine.py",
+    "email_action_loop": HERMES_HOME / "hermes-agent" / "scripts" / "email_action_loop.py",
+    "morning_pipeline": HERMES_HOME / "cron" / "morning_pipeline.sh",
+    "morning_prep": HERMES_HOME / "cron" / "morning_prep.sh",
+}
+
+# Log files to scan for API retry / connection errors
+API_ERROR_LOGS = [
+    HERMES_HOME / "logs" / "gateway.log",
+    HERMES_HOME / "logs" / "proxy.log",
+    AG_HOME / "data" / "logs" / "proxy.log",
+    HERMES_HOME / "logs" / "autonomous_tier.log",
+]
+
+# Patterns that indicate API retry / connection failures in logs
+API_RETRY_ERROR_PATTERNS = [
+    "API call failed after.*retries",
+    "Connection error",
+    "All AI providers are currently unavailable",
+    "All providers are currently unavailable",
+    "No fallback provider available",
+    "Max retries.*exhausted",
+    "Connection to provider.*failed after",
+]
 
 # Severity levels for filtering
 SEVERITY_LEVELS = {"low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -261,6 +305,77 @@ def count_recent_sessions(minutes: int = 30) -> int:
 # ---------------------------------------------------------------------------
 # Issue detection
 # ---------------------------------------------------------------------------
+
+def check_critical_scripts() -> list[dict]:
+    """Check that all critical scripts exist on disk."""
+    import os
+    issues = []
+    for name, path in CRITICAL_SCRIPTS.items():
+        if not path.exists():
+            issues.append({
+                "issue": f"Critical script missing: {name} (expected at {path})",
+                "type": "missing_script",
+                "severity": "high",
+                "script_name": name,
+                "script_path": str(path),
+            })
+        elif not os.access(path, os.R_OK):
+            issues.append({
+                "issue": f"Critical script not readable: {name} (at {path})",
+                "type": "missing_script",
+                "severity": "medium",
+                "script_name": name,
+                "script_path": str(path),
+            })
+    return issues
+
+
+def check_api_retry_failures() -> list[dict]:
+    """Scan recent log entries for API retry / connection error patterns."""
+    import re
+    issues = []
+    # Only look at log entries from the last 30 minutes
+    cutoff = time.time() - 1800
+
+    for log_path in API_ERROR_LOGS:
+        if not log_path.exists():
+            continue
+        try:
+            # Read last 500 lines of each log file
+            with open(log_path, "r", errors="replace") as f:
+                lines = f.readlines()
+            recent_lines = lines[-500:]
+            matched_patterns = set()
+            for line in recent_lines:
+                for pattern in API_RETRY_ERROR_PATTERNS:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        matched_patterns.add(pattern)
+                        break
+            if matched_patterns:
+                # Count total matches across all patterns
+                total_matches = sum(
+                    1 for line in recent_lines
+                    for pattern in matched_patterns
+                    if re.search(pattern, line, re.IGNORECASE)
+                )
+                severity = "critical" if total_matches >= 5 else "high"
+                issues.append({
+                    "issue": (
+                        f"API retry/connection errors in {log_path.name}: "
+                        f"{total_matches} occurrences in last 30 min "
+                        f"(patterns: {', '.join(sorted(matched_patterns))})"
+                    ),
+                    "type": "api_retry_failure",
+                    "severity": severity,
+                    "log_file": str(log_path),
+                    "match_count": total_matches,
+                    "patterns": list(matched_patterns),
+                })
+        except Exception:
+            continue
+
+    return issues
+
 
 def detect_issues() -> list[dict]:
     """Scan system state and return list of detected issues."""
@@ -523,6 +638,19 @@ def main():
 
     # ── 1. Detect all issues ──
     all_issues = detect_issues()
+
+    # ── 1b. Check critical scripts exist ──
+    script_issues = check_critical_scripts()
+    if script_issues:
+        log(f"Script checks: {len(script_issues)} missing script(s) detected")
+        all_issues.extend(script_issues)
+
+    # ── 1c. Scan logs for API retry / connection errors ──
+    api_issues = check_api_retry_failures()
+    if api_issues:
+        log(f"Log scan: {len(api_issues)} API retry failure(s) detected")
+        all_issues.extend(api_issues)
+
     log(f"Detected {len(all_issues)} total issues")
 
     # ── 2. Filter to Claude-fixable issues ──

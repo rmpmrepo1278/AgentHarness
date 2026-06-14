@@ -187,6 +187,44 @@ ISSUE_TEMPLATES = {
         ],
         "verify_template": "docker exec <container> python3 -c \"import socket; print(socket.gethostbyname('<dep>'))\"",
     },
+    "missing_script": {
+        "keywords": ["missing script", "script missing", "no such file", "cannot open file", "missing_script"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check if the script exists: ls -la <script_path>",
+            "Search for it elsewhere: find /home/rohit -name '<script_name>' 2>/dev/null",
+            "Check if it was moved to archive: find /home/rohit/.hermes/archive -name '<script_name>' 2>/dev/null",
+            "Check git history for the script: git log --all --full-history -- <script_path>",
+            "Verify the calling code's path reference is correct",
+        ],
+        "fix_permissions": [
+            "cp from archive to expected location",
+            "git checkout <script_path> to restore from git",
+            "edit calling code to point to correct path",
+            "create symlink from expected to actual location",
+        ],
+        "verify_template": "test -f <script_path> && echo 'EXISTS' || echo 'MISSING'",
+    },
+    "api_retry_failure": {
+        "keywords": ["api retry", "connection error", "failed after.*retries", "api_retry_failure", "max retries", "all providers"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check proxy health: curl -s localhost:8080/health",
+            "Check provider status: curl -s localhost:8080/v1/status | python3 -m json.tool",
+            "Check which provider was active when the error occurred",
+            "Review the error classifier logic in agent/error_classifier.py",
+            "Check if _TRANSIENT_TRANSPORT_ERRORS includes the error type",
+            "Check network connectivity to the provider endpoint",
+            "Check proxy logs: tail -100 <log_file>",
+        ],
+        "fix_permissions": [
+            "edit run_agent.py to fix retry logic",
+            "edit agent/error_classifier.py to classify the error correctly",
+            "systemctl restart agentharness-llm-proxy",
+            "restart gateway",
+        ],
+        "verify_template": "curl -s localhost:8080/health && grep -c 'API call failed' <log_file>",
+    },
 }
 
 
