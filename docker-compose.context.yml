@@ -1,0 +1,52 @@
+# =============================================================================
+# OpenContext — Persistent Context Store for AI Agents
+# https://github.com/0xranx/OpenContext
+#
+# Provides a personal knowledge store that persists context across sessions,
+# repos, and days. Solves the "agent forgets what we discussed" problem.
+#
+# Usage:
+#   docker compose -f docker-compose.context.yml up -d
+#   Then use `oc` CLI to capture, search, and reuse context
+# =============================================================================
+
+services:
+  opencontext:
+    image: node:20-slim
+    container_name: opencontext
+    restart: always
+    labels:
+      - "autoheal=true"
+    ports:
+      - "127.0.0.1:3284:3284"
+    volumes:
+      - opencontext-data:/data
+      - /home/rohet/.hermes:/data/hermes:ro
+      - /home/rohet/Documents:/data/documents:ro
+      - /home/rohet/Downloads:/data/downloads:ro
+      - /home/rohet/agentharness:/data/agentharness:ro
+    working_dir: /app
+    command: >
+      sh -c "
+        npm install -g @0xranx/opencontext@latest 2>/dev/null &&
+        oc serve --port 3284 --data-dir /data
+      "
+    environment:
+      - OPENCONTEXT_DATA_DIR=/data
+      - OPENCONTEXT_PORT=3284
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3284/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  opencontext-data:
+    driver: local

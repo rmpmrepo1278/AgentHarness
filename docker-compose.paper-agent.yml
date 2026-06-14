@@ -1,0 +1,50 @@
+# =============================================================================
+# Paper-Agent-Zotero — Personalized Research Paper Digest
+# https://github.com/Marverlises/Paper-Agent-Zotero
+#
+# Daily arXiv paper recommendations tailored to your research interests.
+# Uses Zotero library or local PDFs to build interest profile.
+#
+# Usage:
+#   docker compose -f docker-compose.paper-agent.yml up -d
+# =============================================================================
+
+services:
+  paper-agent:
+    image: python:3.11-slim
+    container_name: paper-agent
+    restart: always
+    labels:
+      - "autoheal=true"
+    ports:
+      - "127.0.0.1:7878:7878"
+    volumes:
+      - paper-agent-data:/data
+      - /home/rohet/Documents/papers:/data/papers:ro
+      - /home/rohet/.hermes/state:/data/hermes-state:ro
+    working_dir: /app
+    command: >
+      sh -c "
+        pip install --quiet arxiv requests beautifulsoup4 openai 2>/dev/null &&
+        python3 /app/agent.py
+      "
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - PAPER_AGENT_PORT=7878
+      - PAPER_AGENT_DATA_DIR=/data
+      - ZOTERO_USER_ID=${ZOTERO_USER_ID:-}
+      - ZOTERO_API_KEY=${ZOTERO_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+
+volumes:
+  paper-agent-data:
+    driver: local
