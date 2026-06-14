@@ -1,0 +1,45 @@
+# =============================================================================
+# Khoj — Personal AI Second Brain
+# Self-hosted semantic search, document RAG, proactive agents, multi-channel
+# https://github.com/khoj-ai/khoj
+# =============================================================================
+
+services:
+  khoj:
+    image: khoj-ai/khoj:latest
+    container_name: khoj
+    restart: always
+    labels:
+      - "autoheal=true"
+    ports:
+      - "127.0.0.1:4321:4321"
+    volumes:
+      - khoj-data:/root/.khoj
+      - /home/rohet/.hermes:/data/hermes:ro
+      - /home/rohet/Documents:/data/documents:ro
+      - /home/rohet/Downloads:/data/downloads:ro
+    environment:
+      - KHOJ_DEBUG=false
+      - KHOJ_SECRET_KEY=${KHOJ_SECRET_KEY:-khoj-secret-key-change-me}
+      - KHOJ_ADMIN_PASSWORD=${KHOJ_ADMIN_PASSWORD:-admin}
+      # Use free Ollama for local inference
+      - KHOJ_OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - KHOJ_MODEL_REGISTRY={"openai":{"gpt-3.5-turbo":{"name":"gpt-3.5-turbo","tokenizer":"cl100k_base","max_tokens":128000},"gpt-4":{"name":"gpt-4","tokenizer":"cl100k_base","max_tokens":128000}},"ollama":{"llama3.2:3b":{"name":"llama3.2:3b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:7b":{"name":"qwen2.5:7b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:14b":{"name":"qwen2.5:14b","tokenizer":"cl100k_base","max_tokens":32768}}}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4321/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  khoj-data:
+    driver: local
