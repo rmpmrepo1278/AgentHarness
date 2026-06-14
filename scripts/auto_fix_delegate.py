@@ -49,7 +49,7 @@ LOG_DIR = AG_HOME / "logs"
 DATA_DIR = AG_HOME / "data"
 
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
-DEFAULT_TIMEOUT = int(os.environ.get("CC_AUTO_FIX_TIMEOUT", "900"))
+DEFAULT_TIMEOUT = int(os.environ.get("CC_AUTO_FIX_TIMEOUT", "1800"))
 RATE_LIMIT_SECONDS = 1800  # 30 minutes
 
 LOCK_FILE = Path("/tmp/auto_fix_delegate.lock")
@@ -225,7 +225,267 @@ ISSUE_TEMPLATES = {
         ],
         "verify_template": "curl -s localhost:8080/health && grep -c 'API call failed' <log_file>",
     },
+    "ssl_cert_expiry": {
+        "keywords": ["ssl", "cert", "certificate", "expir", "tls", "letsencrypt", "duckdns"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check cert expiry: find /home/rohit/services/data/nginx-proxy-manager/letsencrypt -name '*.pem' -exec openssl x509 -in {} -noout -enddate \\;",
+            "List NPM cert files: ls -la /home/rohit/services/data/nginx-proxy-manager/letsencrypt/",
+            "Check if cert auto-renewal is configured in NPM",
+            "Check NPM logs for cert renewal errors: docker logs --tail 200 nginx-proxy-manager | grep -i cert",
+        ],
+        "fix_permissions": [
+            "call NPM API to renew certificate",
+            "docker restart nginx-proxy-manager",
+            "edit NPM cert configuration",
+        ],
+        "verify_template": "find /home/rohit/services/data/nginx-proxy-manager/letsencrypt -name 'fullchain.pem' -exec sh -c 'openssl x509 -in \"$1\" -noout -enddate 2>/dev/null' _ {} \\;",
+    },
+    "oom_kill_pattern": {
+        "keywords": ["oom", "out of memory", "killed process", "oom_kill"],
+        "priority": "critical",
+        "investigation_steps": [
+            "Check recent OOM kills: dmesg | grep -i 'oom\\|killed process' | tail -20",
+            "Check current memory: free -h",
+            "Check top memory consumers: ps aux --sort=-%mem | head -20",
+            "Check Docker container memory: docker stats --no-stream | head -20",
+            "Check swap usage",
+            "Check if any container has no memory limit set",
+        ],
+        "fix_permissions": [
+            "docker restart high-memory containers",
+            "systemctl --user restart services",
+            "docker update --memory 512m <container>",
+        ],
+        "verify_template": "dmesg | grep -i oom | tail -5 && free -h | awk '/^Mem:/{print \"Available:\", $7}'",
+    },
+    "zombie_process": {
+        "keywords": ["zombie", "defunct", "zombie_process"],
+        "priority": "medium",
+        "investigation_steps": [
+            "Count zombies: ps -eo stat,pid,ppid,comm | grep '^Z' | wc -l",
+            "Find zombie parents: ps -eo stat,pid,ppid,comm | grep '^Z' | awk '{print $3}' | sort | uniq -c",
+            "Check parent process health: ps -p <parent_pid> -o pid,comm,stat",
+            "Check if parent is a known service",
+        ],
+        "fix_permissions": [
+            "kill -HUP <parent_pid>",
+            "kill <parent_pid>",
+            "systemctl --user restart <parent_service>",
+        ],
+        "verify_template": "ps -eo stat,pid,ppid,comm | grep '^Z' | wc -l",
+    },
+    "inode_exhaustion": {
+        "keywords": ["inode", "inodes", "inode_exhaustion", "no space left"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check inode usage: df -i / /mnt/usb",
+            "Find directories with many small files: find / -xdev -type d -size +1M 2>/dev/null | head -20",
+            "Check /tmp file count: find /tmp -type f 2>/dev/null | wc -l",
+            "Check Docker overlay: du -sh /var/lib/docker/overlay2",
+            "Check log rotation status",
+        ],
+        "fix_permissions": [
+            "find /tmp -mtime +3 -type f -delete",
+            "docker system prune -f",
+            "find /var/log -name '*.gz' -mtime +30 -delete",
+            "truncate large log files",
+        ],
+        "verify_template": "df -i / | tail -1 | awk '{print $5}'",
+    },
+    "tmp_space": {
+        "keywords": ["tmp", "tmp_space", "/tmp full", "/tmp space"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check /tmp usage: df -h /tmp || df -h /",
+            "Find large /tmp files: find /tmp -type f -size +100M 2>/dev/null",
+            "Find old /tmp files: find /tmp -mtime +7 -type f 2>/dev/null | wc -l",
+            "Check which process is writing to /tmp: lsof +D /tmp 2>/dev/null | head -20",
+        ],
+        "fix_permissions": [
+            "find /tmp -mtime +3 -type f -delete",
+            "find /tmp -type f -size +500M -delete",
+            "truncate large /tmp files",
+        ],
+        "verify_template": "df -h /tmp 2>/dev/null | tail -1 | awk '{print $5}'",
+    },
+    "port_conflict": {
+        "keywords": ["port conflict", "port_conflict", "already in use", "address already"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check port usage: ss -tlnp",
+            "Find conflicting listeners: ss -tlnp | grep ':<port>'",
+            "Check Docker port mappings: docker ps --format '{{.Names}}: {{.Ports}}'",
+            "Identify which service should own the port",
+        ],
+        "fix_permissions": [
+            "docker stop <conflicting-container>",
+            "docker compose restart",
+            "edit compose port mappings",
+            "systemctl stop <conflicting-service>",
+        ],
+        "verify_template": "ss -tlnp | grep ':<port>' | wc -l",
+    },
+    "volume_leak": {
+        "keywords": ["volume leak", "volume_leak", "dangling volume", "unused volume"],
+        "priority": "low",
+        "investigation_steps": [
+            "List dangling volumes: docker volume ls -f dangling=true",
+            "Check volume disk usage: docker system df -v | head -30",
+            "Check total Docker disk: docker system df",
+            "Identify volumes not referenced by any container",
+        ],
+        "fix_permissions": [
+            "docker volume prune -f",
+            "docker volume rm <volume_name>",
+        ],
+        "verify_template": "docker volume ls -f dangling=true | wc -l",
+    },
+    "dns_resolution": {
+        "keywords": ["dns", "resolution", "dns_resolution", "resolve", "dig", "nslookup", "pihole", "pi-hole"],
+        "priority": "critical",
+        "investigation_steps": [
+            "Check Pi-hole container: docker inspect --format='{{.State.Status}}' pihole",
+            "Check Pi-hole logs: docker logs --tail 100 pihole | grep -i error",
+            "Test DNS: dig @127.0.0.1 google.com +short +time=5",
+            "Check resolv.conf: cat /etc/resolv.conf",
+            "Check for port 53 conflicts: ss -tlnp | grep ':53'",
+        ],
+        "fix_permissions": [
+            "docker restart pihole",
+            "docker compose -f <compose_file> restart pihole",
+            "edit /etc/resolv.conf",
+        ],
+        "verify_template": "dig @127.0.0.1 google.com +short +time=5",
+    },
+    "duckdns_sync": {
+        "keywords": ["duckdns", "ddns", "dns sync", "ip mismatch", "external ip", "duckdns_sync"],
+        "priority": "high",
+        "investigation_steps": [
+            "Get current IP: curl -s https://api.ipify.org",
+            "Get DNS record: dig +short chagulihome.duckdns.org @8.8.8.8",
+            "Compare current IP vs DNS record",
+            "Check DuckDNS update log in proxy logs",
+            "Check if DuckDNS update cron job exists and ran: crontab -l | grep -i duck",
+        ],
+        "fix_permissions": [
+            "curl 'https://www.duckdns.org/update?domains=chagulihome&token=<TOKEN>&ip='",
+            "update DuckDNS update cron job schedule",
+        ],
+        "verify_template": "dig +short chagulihome.duckdns.org @8.8.8.8 && echo '---' && curl -s https://api.ipify.org",
+    },
+    "mcp_child_health": {
+        "keywords": ["mcp", "mcp_child", "mcp_health", "mcp gateway", "8090", "8091"],
+        "priority": "high",
+        "investigation_steps": [
+            "Check all MCP ports: for port in 8090 8091 8095 8097 8098 8099 8100 8102 8103 8104 8105 8106 8107; do echo -n \"Port $port: \"; echo > /dev/tcp/127.0.0.1/$port 2>/dev/null && echo UP || echo DOWN; done",
+            "Check MCP gateway logs: docker logs --tail 50 mcp-gateway",
+            "Check individual MCP container logs for the unreachable service",
+            "Check if autoheal is restarting MCP containers in a loop",
+        ],
+        "fix_permissions": [
+            "docker restart <mcp-container>",
+            "docker compose -f /home/rohit/agentharness/docker-compose.mcp.yml restart",
+            "edit MCP healthcheck config",
+        ],
+        "verify_template": "docker ps --filter 'name=mcp' --format '{{.Names}}: {{.Status}}'",
+    },
+    "timer_drift": {
+        "keywords": ["timer", "timer_drift", "systemd timer", "n/a", "never fired"],
+        "priority": "medium",
+        "investigation_steps": [
+            "List all timers: systemctl list-timers --all --no-pager",
+            "Check specific timer: systemctl status <timer>",
+            "Check timer trigger: systemctl show <timer> --property=LastTriggerUSec,NextElapseUSec",
+            "Check if the timer's service exists: systemctl cat <timer>",
+        ],
+        "fix_permissions": [
+            "systemctl restart <timer>",
+            "systemctl start <timer>",
+            "edit timer schedule",
+            "systemctl daemon-reload",
+        ],
+        "verify_template": "systemctl show <timer> --property=LastTriggerUSec",
+    },
+    "git_drift": {
+        "keywords": ["git", "git_drift", "uncommitted", "local behind", "dirty repo"],
+        "priority": "low",
+        "investigation_steps": [
+            "Check git status in all repos: for d in ~/.hermes/hermes-agent ~/agentharness ~/services; do echo \"=== $d ===\"; git -C $d status --porcelain 2>/dev/null; done",
+            "Check if local is behind remote: git -C <repo> fetch --dry-run 2>&1",
+            "Check age of oldest uncommitted change",
+        ],
+        "fix_permissions": [
+            "git add -A && git commit -m '<message>' && git push",
+            "git pull --rebase",
+            "git checkout -- <discard_uncommitted>",
+        ],
+        "verify_template": "git -C <repo> status --porcelain | wc -l",
+    },
+    "api_key_invalid": {
+        "keywords": ["api key", "api_key_invalid", "key missing", "key empty", "credential"],
+        "priority": "critical",
+        "investigation_steps": [
+            "Check env vars: env | grep -i 'API_KEY\\|TOKEN' | head -20",
+            "Check .env file: cat ~/.hermes/.env | grep -i 'API_KEY\\|TOKEN' | head -20",
+            "Check if keys are expired by testing provider endpoints",
+            "Check provider dashboards for key status",
+        ],
+        "fix_permissions": [
+            "edit ~/.hermes/.env to add/update keys",
+            "ALERT HUMAN: API keys must be manually regenerated from provider dashboards",
+        ],
+        "verify_template": "env | grep -c 'API_KEY'",
+    },
 }
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Auto-rollback
+# ---------------------------------------------------------------------------
+
+def auto_rollback(commit_hash: str, issue: str) -> dict:
+    """Automatically rollback to the pre-fix git snapshot when post-fix verification fails."""
+    rollback_result = {"status": "no_snapshot", "actions": []}
+    if not commit_hash or commit_hash == "none":
+        return rollback_result
+    # Determine which git repo to rollback
+    git_dir = AG_HOME  # Default to agentharness
+    if not (git_dir / ".git").exists():
+        git_dir = Path.home() / ".hermes" / "hermes-agent"
+    if not (git_dir / ".git").exists():
+        git_dir = Path.home()
+    try:
+        # Restore files from the pre-fix snapshot
+        subprocess.run(
+            ["git", "-C", str(git_dir), "checkout", commit_hash, "--", "."],
+            capture_output=True, text=True, timeout=60,
+        )
+        rollback_result["actions"].append(f"git checkout {commit_hash} in {git_dir.name}")
+        # Restart MCP stack to apply rolled-back config
+        mcp_compose = AG_HOME / "docker-compose.mcp.yml"
+        if mcp_compose.exists():
+            subprocess.run(
+                ["docker", "compose", "-f", str(mcp_compose), "up", "-d", "--remove-orphans"],
+                capture_output=True, text=True, timeout=120,
+            )
+            rollback_result["actions"].append("docker compose up -d (MCP stack)")
+        # Restart LLM proxy if it was affected
+        proxy_svc = Path("/etc/systemd/system/agentharness-llm-proxy.service")
+        if proxy_svc.exists():
+            subprocess.run(
+                ["sudo", "systemctl", "restart", "agentharness-llm-proxy"],
+                capture_output=True, text=True, timeout=30,
+            )
+            rollback_result["actions"].append("restart agentharness-llm-proxy")
+        rollback_result["status"] = "rolled_back"
+        log(f"ROLLBACK completed for: {issue[:80]}")
+    except Exception as e:
+        rollback_result["status"] = "rollback_failed"
+        rollback_result["error"] = str(e)
+        log(f"ROLLBACK FAILED: {e}")
+    return rollback_result
 
 
 # ---------------------------------------------------------------------------

@@ -42,15 +42,88 @@ STATE_FILE = DATA_DIR / "autonomous_fixer_state.json"
 
 # Issue types that Claude can fix (vs. simple bash or human-only)
 CLAUDE_FIXABLE_TYPES = {
+    # Infrastructure
     "restart_loop",
     "healthcheck_fail",
+    "service_down",
     "disk_space",
     "memory_pressure",
-    "service_down",
+    # Configuration & drift
     "config_drift",
-    "dependency_failure",
     "missing_script",
+    "cron_failure",
+    "timer_drift",
+    "port_conflict",
+    "volume_leak",
+    "git_drift",
+    # Network & DNS
+    "dependency_failure",
+    "network_partition",
+    "dns_resolution",
+    "duckdns_sync",
+    # Data & storage
+    "db_integrity",
+    "backup_integrity",
+    "log_bloat",
+    "inode_exhaustion",
+    "tmp_space",
+    "image_stale",
+    # Application & providers
     "api_retry_failure",
+    "provider_stale",
+    "gateway_log_error",
+    "mcp_child_health",
+    # System-level
+    "oom_kill_pattern",
+    "zombie_process",
+    "ssl_cert_expiry",
+    # Security (alert-only, L3 human)
+    "api_key_invalid",
+}
+
+# Adaptive rate limiting: category-based buckets.
+# Issues from different categories can be processed in the same run.
+RATE_LIMIT_CATEGORIES = {
+    "container":  {"max_per_hour": 4, "cooldown_seconds": 600},
+    "resource":   {"max_per_hour": 2, "cooldown_seconds": 900},
+    "config":     {"max_per_hour": 2, "cooldown_seconds": 1200},
+    "network":    {"max_per_hour": 2, "cooldown_seconds": 600},
+    "security":   {"max_per_hour": 1, "cooldown_seconds": 3600},
+    "data":       {"max_per_hour": 1, "cooldown_seconds": 1800},
+}
+
+# Map issue types to rate-limit categories
+ISSUE_TYPE_CATEGORY = {
+    "restart_loop":        "container",
+    "healthcheck_fail":    "container",
+    "service_down":        "container",
+    "disk_space":          "resource",
+    "memory_pressure":     "resource",
+    "log_bloat":           "resource",
+    "inode_exhaustion":    "resource",
+    "tmp_space":           "resource",
+    "image_stale":         "resource",
+    "config_drift":        "config",
+    "missing_script":      "config",
+    "cron_failure":        "config",
+    "timer_drift":         "config",
+    "port_conflict":       "config",
+    "volume_leak":         "config",
+    "git_drift":           "config",
+    "dependency_failure":  "network",
+    "network_partition":   "network",
+    "dns_resolution":      "network",
+    "duckdns_sync":        "network",
+    "db_integrity":        "data",
+    "backup_integrity":    "data",
+    "api_retry_failure":   "security",
+    "provider_stale":      "security",
+    "gateway_log_error":   "security",
+    "mcp_child_health":    "security",
+    "oom_kill_pattern":    "container",
+    "zombie_process":      "container",
+    "ssl_cert_expiry":     "security",
+    "api_key_invalid":     "security",
 }
 
 # Critical scripts that must exist for the system to function.
@@ -377,6 +450,498 @@ def check_api_retry_failures() -> list[dict]:
     return issues
 
 
+def check_ssl_cert_expiry() -> list[dict]:
+    """Check SSL certificate expiry for all DuckDNS domains."""
+    import re as _re
+    issues = []
+    # Find cert files from NPM or Let's Encrypt
+    cert_dirs = [
+        Path("/home/rohit/services/data/nginx-proxy-manager/letsencrypt"),
+        Path("/home/rohit/.hermes/certs"),
+        Path("/etc/letsencrypt/live"),
+    ]
+    checked_domains = set()
+    for cert_dir in cert_dirs:
+        if not cert_dir.exists():
+            continue
+        for cert_file in cert_dir.rglob("*.pem"):
+            if cert_file.name in ("fullchain.pem", "cert.pem"):
+                domain = cert_file.parent.name
+                if domain in checked_domains:
+                    continue
+                checked_domains.add(domain)
+                try:
+                    result = subprocess.run(
+                        ["openssl", "x509", "-in", str(cert_file),
+                         "-noout", "-enddate"],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    if result.returncode == 0:
+                        # Parse: notAfter=Jun 13 12:00:00 2026 GMT
+                        match = _re.search(r"notAfter=(.+)", result.stdout)
+                        if match:
+                            from datetime import datetime as _dt
+                            expiry = _dt.strptime(match.group(1).strip(), "%b %d %H:%M:%S %Y %Z")
+                            days_left = (expiry - _dt.utcnow()).days
+                            if days_left < 0:
+                                issues.append({
+                                    "issue": f"SSL cert EXPIRED for {domain} ({abs(days_left)} days ago)",
+                                    "type": "ssl_cert_expiry",
+                                    "severity": "critical",
+                                    "domain": domain,
+                                    "days_left": days_left,
+                                })
+                            elif days_left < 7:
+                                issues.append({
+                                    "issue": f"SSL cert expiring in {days_left} days for {domain}",
+                                    "type": "ssl_cert_expiry",
+                                    "severity": "critical",
+                                    "domain": domain,
+                                    "days_left": days_left,
+                                })
+                            elif days_left < 30:
+                                issues.append({
+                                    "issue": f"SSL cert expiring in {days_left} days for {domain}",
+                                    "type": "ssl_cert_expiry",
+                                    "severity": "high",
+                                    "domain": domain,
+                                    "days_left": days_left,
+                                })
+                except Exception:
+                    continue
+    return issues
+
+
+def check_oom_kills() -> list[dict]:
+    """Check dmesg for recent OOM kills."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["dmesg", "--time-format=iso"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            # dmesg may need root; try journalctl
+            result = subprocess.run(
+                ["journalctl", "-k", "--since", "1 hour ago", "--no-pager", "-q"],
+                capture_output=True, text=True, timeout=10,
+            )
+        lines = result.stdout.strip().split("\n")
+        oom_lines = [l for l in lines if "oom" in l.lower() or "killed process" in l.lower()]
+        if oom_lines:
+            # Check for recent (last 1 hour) vs older
+            recent_count = len([l for l in oom_lines if "hour" not in l.lower() or "minute" in l.lower()])
+            severity = "critical" if recent_count > 0 else "high"
+            # Get the process names
+            killed_procs = []
+            for line in oom_lines[-5:]:
+                import re as _re
+                m = _re.search(r"Killed process \d+ \(([^)]+)\)", line)
+                if m:
+                    killed_procs.append(m.group(1))
+            proc_str = ", ".join(killed_procs) if killed_procs else "unknown"
+            issues.append({
+                "issue": f"OOM kills detected: {len(oom_lines)} total, recent: {proc_str}",
+                "type": "oom_kill_pattern",
+                "severity": severity,
+                "oom_count": len(oom_lines),
+                "killed_processes": killed_procs,
+            })
+    except Exception:
+        pass
+    return issues
+
+
+def check_zombie_processes() -> list[dict]:
+    """Check for zombie process accumulation."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["ps", "-eo", "stat,pid,ppid,comm"],
+            capture_output=True, text=True, timeout=5,
+        )
+        zombies = [l for l in result.stdout.strip().split("\n") if l.startswith("Z")]
+        if len(zombies) > 50:
+            issues.append({
+                "issue": f"Critical zombie process count: {len(zombies)}",
+                "type": "zombie_process",
+                "severity": "high",
+                "zombie_count": len(zombies),
+            })
+        elif len(zombies) > 10:
+            issues.append({
+                "issue": f"Elevated zombie process count: {len(zombies)}",
+                "type": "zombie_process",
+                "severity": "medium",
+                "zombie_count": len(zombies),
+            })
+    except Exception:
+        pass
+    return issues
+
+
+def check_inode_exhaustion() -> list[dict]:
+    """Check inode usage across filesystems."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["df", "-i", "/", "/mnt/usb"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.strip().split("\n")[1:]:
+            parts = line.split()
+            if len(parts) >= 6:
+                mount = parts[5]
+                pct_str = parts[4].replace("%", "")
+                try:
+                    pct = int(pct_str)
+                except ValueError:
+                    continue
+                if pct > 95:
+                    issues.append({
+                        "issue": f"Inode exhaustion on {mount}: {pct}% used",
+                        "type": "inode_exhaustion",
+                        "severity": "critical",
+                        "mount": mount,
+                        "inode_pct": pct,
+                    })
+                elif pct > 85:
+                    issues.append({
+                        "issue": f"High inode usage on {mount}: {pct}% used",
+                        "type": "inode_exhaustion",
+                        "severity": "high",
+                        "mount": mount,
+                        "inode_pct": pct,
+                    })
+    except Exception:
+        pass
+    return issues
+
+
+def check_tmp_space() -> list[dict]:
+    """Check /tmp partition usage."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["df", "-h", "/tmp"],
+            capture_output=True, text=True, timeout=5,
+        )
+        lines = result.stdout.strip().split("\n")
+        if len(lines) >= 2:
+            parts = lines[1].split()
+            if len(parts) >= 5:
+                pct_str = parts[4].replace("%", "")
+                try:
+                    pct = int(pct_str)
+                except ValueError:
+                    return issues
+                if pct > 95:
+                    issues.append({
+                        "issue": f"/tmp critically full: {pct}% used ({parts[3]} free)",
+                        "type": "tmp_space",
+                        "severity": "critical",
+                        "tmp_pct": pct,
+                    })
+                elif pct > 85:
+                    issues.append({
+                        "issue": f"/tmp usage high: {pct}% used ({parts[3]} free)",
+                        "type": "tmp_space",
+                        "severity": "high",
+                        "tmp_pct": pct,
+                    })
+    except Exception:
+        pass
+    return issues
+
+
+def check_port_conflicts() -> list[dict]:
+    """Check for port conflicts between services."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["ss", "-tlnp"],
+            capture_output=True, text=True, timeout=5,
+        )
+        # Group by port, but ignore IPv4 vs IPv6 dual-stack (0.0.0.0 + :: is normal)
+        port_addrs = {}  # port -> set of normalized addresses
+        import re as _re
+        for line in result.stdout.strip().split("\n")[1:]:
+            parts = line.split()
+            if len(parts) >= 4:
+                local = parts[3]
+                m = _re.search(r":(\d+)$", local)
+                if m:
+                    port = m.group(1)
+                    addr = _re.sub(r"^.+:", "", local)  # strip port
+                    # Normalize: 0.0.0.0 and :: both mean "all interfaces"
+                    if addr in ("0.0.0.0", "::", "*"):
+                        addr = "*"
+                    port_addrs.setdefault(port, set()).add(addr)
+        for port, addrs in port_addrs.items():
+            if len(addrs) > 1:
+                # Multiple different addresses on same port = real conflict
+                addr_str = ", ".join(sorted(addrs))
+                issues.append({
+                    "issue": f"Port conflict on :{port}: bound on {addr_str}",
+                    "type": "port_conflict",
+                    "severity": "high",
+                    "port": port,
+                    "addrs": sorted(addrs),
+                })
+    except Exception:
+        pass
+    return issues
+
+
+def check_volume_leaks() -> list[dict]:
+    """Check for dangling Docker volumes."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["docker", "volume", "ls", "-f", "dangling=true", "--format", "{{.Name}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        dangling = [l for l in result.stdout.strip().split("\n") if l]
+        if len(dangling) > 10:
+            issues.append({
+                "issue": f"Many dangling Docker volumes: {len(dangling)}",
+                "type": "volume_leak",
+                "severity": "medium",
+                "dangling_count": len(dangling),
+            })
+        elif len(dangling) > 5:
+            issues.append({
+                "issue": f"Dangling Docker volumes: {len(dangling)}",
+                "type": "volume_leak",
+                "severity": "low",
+                "dangling_count": len(dangling),
+            })
+    except Exception:
+        pass
+    return issues
+
+
+def check_dns_resolution() -> list[dict]:
+    """Check DNS resolution via Pi-hole."""
+    issues = []
+    try:
+        import socket
+        # Test Pi-hole resolution
+        try:
+            socket.setdefaulttimeout(5)
+            result = socket.getaddrinfo("google.com", 80)
+            if not result:
+                issues.append({
+                    "issue": "DNS resolution failed: Pi-hole not resolving google.com",
+                    "type": "dns_resolution",
+                    "severity": "critical",
+                })
+        except socket.gaierror:
+            issues.append({
+                "issue": "DNS resolution failed: Pi-hole not resolving google.com",
+                "type": "dns_resolution",
+                "severity": "critical",
+            })
+        # Test DuckDNS resolution
+        try:
+            socket.setdefaulttimeout(5)
+            result = socket.getaddrinfo("chagulihome.duckdns.org", 443)
+            if not result:
+                issues.append({
+                    "issue": "DNS resolution failed: chagulihome.duckdns.org not resolving",
+                    "type": "dns_resolution",
+                    "severity": "high",
+                })
+        except socket.gaierror:
+            issues.append({
+                "issue": "DNS resolution failed: chagulihome.duckdns.org not resolving",
+                "type": "dns_resolution",
+                "severity": "high",
+            })
+    except Exception:
+        pass
+    return issues
+
+
+def check_duckdns_sync() -> list[dict]:
+    """Check if DuckDNS record matches current external IP."""
+    issues = []
+    try:
+        import urllib.request
+        import socket
+        # Get current external IP
+        current_ip = None
+        for url in ["https://api.ipify.org", "https://ifconfig.me/ip"]:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "homelab-monitor/1.0"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    current_ip = resp.read().decode().strip()
+                    break
+            except Exception:
+                continue
+        if not current_ip:
+            return issues  # Can't determine external IP, skip
+        # Get DuckDNS record
+        try:
+            socket.setdefaulttimeout(5)
+            dns_ips = socket.getaddrinfo("chagulihome.duckdns.org", 443)
+            dns_ip = dns_ips[0][4][0] if dns_ips else None
+        except socket.gaierror:
+            dns_ip = None
+        if dns_ip and current_ip != dns_ip:
+            issues.append({
+                "issue": f"DuckDNS out of sync: current={current_ip}, dns={dns_ip}",
+                "type": "duckdns_sync",
+                "severity": "high",
+                "current_ip": current_ip,
+                "dns_ip": dns_ip,
+            })
+    except Exception:
+        pass
+    return issues
+
+
+def check_mcp_child_health() -> list[dict]:
+    """Check individual MCP service ports."""
+    issues = []
+    mcp_ports = {
+        8090: "mcp-gateway",
+        8091: "hermes-memory-mcp",
+        8095: "docker-mcp",
+        8097: "filesystem-mcp",
+        8098: "github-mcp",
+        8099: "web-search-mcp",
+        8100: "postgres-mcp",
+        8102: "redis-mcp",
+        8103: "slack-mcp",
+        8104: "notion-mcp",
+        8105: "browser-use-mcp",
+        8106: "qdrant-mcp",
+        8107: "browser-use-mcp-2",
+    }
+    import socket
+    for port, name in mcp_ports.items():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            result = s.connect_ex(("127.0.0.1", port))
+            s.close()
+            if result != 0:
+                severity = "critical" if port == 8090 else "high"
+                issues.append({
+                    "issue": f"MCP service {name} (port {port}) is unreachable",
+                    "type": "mcp_child_health",
+                    "severity": severity,
+                    "service": name,
+                    "port": port,
+                })
+        except Exception:
+            pass
+    return issues
+
+
+def check_timer_drift() -> list[dict]:
+    """Check systemd timers for drift or failures."""
+    issues = []
+    try:
+        result = subprocess.run(
+            ["systemctl", "list-timers", "--all", "--no-pager"],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in result.stdout.strip().split("\n")[1:]:
+            parts = line.split()
+            if len(parts) >= 5:
+                timer_name = parts[0]
+                if "n/a" in line.lower() and "timer" in timer_name:
+                    # Timer has never fired
+                    if timer_name not in ("fwupd-refresh.timer",):
+                        issues.append({
+                            "issue": f"Systemd timer {timer_name} has never fired (n/a)",
+                            "type": "timer_drift",
+                            "severity": "medium",
+                            "timer": timer_name,
+                        })
+    except Exception:
+        pass
+    return issues
+
+
+def check_git_drift() -> list[dict]:
+    """Check for uncommitted changes or local behind remote."""
+    issues = []
+    repos = [
+        (Path.home() / ".hermes" / "hermes-agent", "hermes-agent"),
+        (Path("/home/rohit/agentharness"), "agentharness"),
+        (Path.home() / "services", "services"),
+    ]
+    for repo_path, repo_name in repos:
+        if not (repo_path / ".git").exists():
+            continue
+        try:
+            # Check for uncommitted changes
+            result = subprocess.run(
+                ["git", "-C", str(repo_path), "status", "--porcelain"],
+                capture_output=True, text=True, timeout=10,
+            )
+            changes = [l for l in result.stdout.strip().split("\n") if l]
+            if changes:
+                # Check if changes are old (>24h)
+                old_changes = 0
+                for f in changes[:5]:
+                    parts = f.split(None, 2)
+                    if len(parts) >= 3:
+                        fpath = repo_path / parts[2]
+                        if fpath.exists():
+                            mtime = fpath.stat().st_mtime
+                            if time.time() - mtime > 86400:
+                                old_changes += 1
+                if old_changes > 0:
+                    issues.append({
+                        "issue": f"Git repo {repo_name} has {len(changes)} uncommitted changes ({old_changes} >24h old)",
+                        "type": "git_drift",
+                        "severity": "medium",
+                        "repo": repo_name,
+                        "change_count": len(changes),
+                    })
+        except Exception:
+            continue
+    return issues
+
+
+def check_api_key_validity() -> list[dict]:
+    """Check that required API keys are set and non-empty."""
+    issues = []
+    env = load_env()
+    required_keys = [
+        "OPENROUTER_API_KEY",
+        "TELEGRAM_BOT_TOKEN",
+    ]
+    optional_but_important = [
+        "GROQ_API_KEY",
+        "CEREBRAS_API_KEY",
+        "SAMBANOVA_API_KEY",
+    ]
+    for key in required_keys:
+        val = env.get(key, "")
+        if not val or val.strip() in ("", "dummy", "your-key-here", "xxx"):
+            issues.append({
+                "issue": f"Required API key {key} is missing or empty",
+                "type": "api_key_invalid",
+                "severity": "critical",
+                "key": key,
+            })
+    for key in optional_but_important:
+        val = env.get(key, "")
+        if not val or val.strip() in ("", "dummy", "your-key-here", "xxx"):
+            issues.append({
+                "issue": f"Optional API key {key} is missing (provider may be unavailable)",
+                "type": "api_key_invalid",
+                "severity": "medium",
+                "key": key,
+            })
+    return issues
+
+
 def detect_issues() -> list[dict]:
     """Scan system state and return list of detected issues."""
     issues = []
@@ -651,6 +1216,57 @@ def main():
         log(f"Log scan: {len(api_issues)} API retry failure(s) detected")
         all_issues.extend(api_issues)
 
+    # ── 1d. SSL certificate expiry ──
+    ssl_issues = check_ssl_cert_expiry()
+    if ssl_issues:
+        log(f"SSL checks: {len(ssl_issues)} cert issue(s) detected")
+        all_issues.extend(ssl_issues)
+
+    # ── 1e. System-level checks (fast, no subprocess where possible) ──
+    all_issues.extend(check_oom_kills())
+    all_issues.extend(check_zombie_processes())
+    all_issues.extend(check_inode_exhaustion())
+    all_issues.extend(check_tmp_space())
+
+    # ── 1f. Docker volume leaks ──
+    all_issues.extend(check_volume_leaks())
+
+    # ── 1g. Port conflicts ──
+    all_issues.extend(check_port_conflicts())
+
+    # ── 1h. DNS resolution ──
+    dns_issues = check_dns_resolution()
+    if dns_issues:
+        log(f"DNS checks: {len(dns_issues)} resolution issue(s) detected")
+        all_issues.extend(dns_issues)
+
+    # ── 1i. MCP child service health ──
+    mcp_issues = check_mcp_child_health()
+    if mcp_issues:
+        log(f"MCP checks: {len(mcp_issues)} service(s) unreachable")
+        all_issues.extend(mcp_issues)
+
+    # ── 1j. DuckDNS sync ──
+    duckdns_issues = check_duckdns_sync()
+    if duckdns_issues:
+        log(f"DuckDNS: sync issue detected")
+        all_issues.extend(duckdns_issues)
+
+    # ── 1k. Systemd timer drift ──
+    all_issues.extend(check_timer_drift())
+
+    # ── 1l. Git drift ──
+    git_issues = check_git_drift()
+    if git_issues:
+        log(f"Git checks: {len(git_issues)} repo(s) with drift")
+        all_issues.extend(git_issues)
+
+    # ── 1m. API key validity ──
+    key_issues = check_api_key_validity()
+    if key_issues:
+        log(f"Key checks: {len(key_issues)} issue(s) detected")
+        all_issues.extend(key_issues)
+
     log(f"Detected {len(all_issues)} total issues")
 
     # ── 2. Filter to Claude-fixable issues ──
@@ -668,16 +1284,50 @@ def main():
     # ── 3. Sort by severity (highest first) ──
     fixable.sort(key=lambda i: SEVERITY_LEVELS.get(i.get("severity", "medium"), 2), reverse=True)
 
-    # ── 4. Check rate limit: max 1 session per 30 min ──
-    recent = count_recent_sessions(30)
-    if recent > 0:
-        log(f"Rate limited: {recent} session(s) in last 30 min — skipping")
+    # ── 4. Adaptive rate limiting: per-category cooldowns ──
+    rate_limit_data = read_json_safe(RATE_LIMIT_FILE) if 'RATE_LIMIT_FILE' in dir() else {}
+    # RATE_LIMIT_FILE may not exist yet; use state file instead
+    rate_limit_state = state.get("rate_limits", {})
+    now = time.time()
+    category_last_fixed = rate_limit_state.get("category_last_fixed", {})
+    category_hour_count = rate_limit_state.get("category_hour_count", {})
+
+    # Clean up hour counts older than 1 hour
+    for cat in list(category_hour_count.keys()):
+        if now - category_last_fixed.get(cat, 0) > 3600:
+            category_hour_count[cat] = 0
+
+    # Filter fixable issues by category rate limits
+    eligible_issues = []
+    for issue in fixable:
+        cat = ISSUE_TYPE_CATEGORY.get(issue["type"], "config")
+        cat_config = RATE_LIMIT_CATEGORIES.get(cat, {"max_per_hour": 2, "cooldown_seconds": 900})
+        last_fixed = category_last_fixed.get(cat, 0)
+        hour_count = category_hour_count.get(cat, 0)
+        if (now - last_fixed) < cat_config["cooldown_seconds"]:
+            log(f"Rate limited (category={cat}): {issue['issue'][:80]}")
+            continue
+        if hour_count >= cat_config["max_per_hour"]:
+            log(f"Hourly limit reached (category={cat}): {issue['issue'][:80]}")
+            continue
+        eligible_issues.append(issue)
+
+    if not eligible_issues:
+        log("All fixable issues are rate-limited — skipping")
         if args.json:
-            print(json.dumps({"status": "rate_limited", "recent_sessions": recent}))
+            print(json.dumps({"status": "rate_limited", "fixable": len(fixable), "eligible": 0}))
         sys.exit(0)
 
-    # ── 5. Process top issue (max 1 per run) ──
-    top_issues = fixable[:MAX_ISSUES_PER_RUN]
+    # ── 5. Process top issues (up to 3 per run, from different categories) ──
+    used_categories = set()
+    top_issues = []
+    for issue in eligible_issues:
+        cat = ISSUE_TYPE_CATEGORY.get(issue["type"], "config")
+        if cat not in used_categories and len(top_issues) < 3:
+            top_issues.append(issue)
+            used_categories.add(cat)
+        if len(top_issues) >= 3:
+            break
     results = []
 
     for issue in top_issues:
@@ -704,6 +1354,16 @@ def main():
     state["last_fixable"] = len(fixable)
     state["last_results"] = [r.get("status") for r in results]
     state["dry_run"] = dry_run
+    # Update per-category rate limit tracking
+    now_ts = time.time()
+    if "rate_limits" not in state:
+        state["rate_limits"] = {"category_last_fixed": {}, "category_hour_count": {}}
+    for issue in top_issues:
+        cat = ISSUE_TYPE_CATEGORY.get(issue["type"], "config")
+        state["rate_limits"]["category_last_fixed"][cat] = now_ts
+        state["rate_limits"]["category_hour_count"][cat] = (
+            state["rate_limits"]["category_hour_count"].get(cat, 0) + 1
+        )
     save_state(state)
 
     # ── 7. Output ──
