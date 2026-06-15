@@ -34,14 +34,25 @@ OUTPUT_FILE = DATA_DIR / "health_dashboard.json"
 
 CHECK_TIMEOUT = 10  # seconds per subprocess check
 
+# Ensure DBUS session bus is available for systemctl --user even when run from cron
+_UID = os.getuid()
+_DBUS_ENV = {
+    "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{_UID}/bus",
+    "XDG_RUNTIME_DIR": f"/run/user/{_UID}",
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run(cmd: list[str], timeout: int = CHECK_TIMEOUT) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], timeout: int = CHECK_TIMEOUT, env: dict | None = None) -> subprocess.CompletedProcess:
+    # Merge extra env vars (used for DBUS session bus access from cron)
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=run_env)
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         return subprocess.CompletedProcess(cmd, returncode=-1, stdout="", stderr="")
 
@@ -108,7 +119,7 @@ def check_systemd() -> dict:
     services = ["hermes-gateway.service", "hermes-watcher.service", "proactive-daemon.service"]
     failed = []
     for svc in services:
-        r = _run(["systemctl", "--user", "is-active", svc])
+        r = _run(["systemctl", "--user", "is-active", svc], env=_DBUS_ENV)
         if r.returncode != 0:
             failed.append(svc)
     if failed:
@@ -308,21 +319,42 @@ def check_duckdns() -> dict:
 
 
 def check_backups() -> dict:
+    """Check backups — supports both *.tar.gz archives and dated subdirectories."""
     backup_dir = Path("/mnt/usb/backups/docker-volumes")
     if not backup_dir.exists():
         return _check("backups", "warning", message="Backup directory not found on /mnt/usb")
-    backups = sorted(backup_dir.glob("*.tar.gz") if backup_dir.exists() else [])
-    if not backups:
-        return _check("backups", "warning", message="No backup archives found")
-    latest = backups[-1]
-    age_hours = (time.time() - latest.stat().st_mtime) / 3600
-    size_mb = latest.stat().st_size / (1024 * 1024)
-    status = "healthy"
-    if age_hours > 168:  # 7 days
-        status = "critical"
-    elif age_hours > 72:  # 3 days
-        status = "warning"
-    return _check("backups", status, {"latest": latest.name, "age_hours": round(age_hours, 1), "size_mb": round(size_mb, 1)})
+
+    # Check for tar.gz archives first
+    archives = sorted(backup_dir.glob("*.tar.gz"))
+    if archives:
+        latest = archives[-1]
+        age_hours = (time.time() - latest.stat().st_mtime) / 3600
+        size_mb = latest.stat().st_size / (1024 * 1024)
+        status = "healthy"
+        if age_hours > 168:  # 7 days
+            status = "critical"
+        elif age_hours > 72:  # 3 days
+            status = "warning"
+        return _check("backups", status, {"latest": latest.name, "age_hours": round(age_hours, 1), "size_mb": round(size_mb, 1)})
+
+    # Check for dated subdirectories (e.g. "2026-06-14")
+    subdirs = sorted(
+        [d for d in backup_dir.iterdir() if d.is_dir() and d.name != "."],
+        key=lambda d: d.stat().st_mtime,
+    )
+    if subdirs:
+        latest = subdirs[-1]
+        age_hours = (time.time() - latest.stat().st_mtime) / 3600
+        # Count files inside the latest backup
+        file_count = sum(1 for _ in latest.rglob("*") if _.is_file())
+        status = "healthy"
+        if age_hours > 168:
+            status = "critical"
+        elif age_hours > 72:
+            status = "warning"
+        return _check("backups", status, {"latest": latest.name, "age_hours": round(age_hours, 1), "files": file_count, "type": "directory"})
+
+    return _check("backups", "warning", message="No backup archives or directories found")
 
 
 def check_ssl_certs() -> dict:
@@ -362,13 +394,23 @@ def check_git() -> dict:
         (Path("/home/rohit/agentharness"), "agentharness"),
     ]
     dirty = []
+    # File patterns that are noise (logs, caches, generated artifacts) — not real issues
+    NOISE_PATTERNS = (
+        ".log", ".log.", ".gz", ".tmp", ".cache", ".pyc",
+        "__pyclogs/", "logs/", "data/logs/",
+    )
     for repo_path, repo_name in repos:
         if not (repo_path / ".git").exists():
             continue
         r = _run(["git", "-C", str(repo_path), "status", "--porcelain"])
-        changes = [l for l in r.stdout.strip().split("\n") if l]
-        if changes:
-            dirty.append({"repo": repo_name, "changes": len(changes)})
+        all_changes = [l for l in r.stdout.strip().split("\n") if l]
+        # Filter out noise files (logs, caches, etc.)
+        real_changes = [
+            l for l in all_changes
+            if not any(pat in l for pat in NOISE_PATTERNS)
+        ]
+        if real_changes:
+            dirty.append({"repo": repo_name, "changes": len(real_changes)})
     if dirty:
         return _check("git", "warning", {"dirty_repos": dirty})
     return _check("git", "healthy")
