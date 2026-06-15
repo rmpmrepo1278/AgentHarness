@@ -307,10 +307,10 @@ def check_duckdns() -> dict:
             current_ip = resp.read().decode().strip()
     except Exception:
         return _check("duckdns", "warning", message="Cannot determine external IP")
+    # Resolve via external DNS to avoid Pi-hole local wildcard returning private IP
     try:
-        socket.setdefaulttimeout(5)
-        dns_ips = socket.getaddrinfo("chagulihome.duckdns.org", 443)
-        dns_ip = dns_ips[0][4][0] if dns_ips else None
+        dns_r = _run(["dig", "+short", "chagulihome.duckdns.org", "@8.8.8.8"], timeout=5)
+        dns_ip = dns_r.stdout.strip().split("\n")[0] if dns_r.returncode == 0 and dns_r.stdout.strip() else None
     except Exception:
         dns_ip = None
     if dns_ip and current_ip != dns_ip:
