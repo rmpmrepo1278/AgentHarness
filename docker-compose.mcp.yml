@@ -309,7 +309,6 @@ services:
     - MCP_BASE_DIR=/mcp-base
     - DOCKER_HOST=tcp://172.17.0.1:2375
     - HOME=/home/rohit
-    - DBUS_SESSION_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
     network_mode: host
     restart: always
     healthcheck:
@@ -328,6 +327,10 @@ services:
     - /mnt/usb:/mnt/usb:ro
     - /tmp/homelab-exec-logs:/home/rohit/.hermes/logs
     - /run/systemd:/run/systemd:ro
+    - /run/user/1000:/run/user/1000:ro
+    - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
+    - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
+    - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
 
   hermes-memory-mcp:
     build: ./hermes-memory-mcp

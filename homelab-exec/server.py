@@ -379,7 +379,15 @@ def _count_lines(path: Path) -> int:
 # ── Tier 2: Service Control ──────────────────────────────────────────────────
 
 def _systemd_cmd(cmd: list[str], timeout: int = 10) -> dict:
-    full_cmd = ["systemctl", "--machine=rohit@.host", "--user"] + cmd
+    """Run systemd user commands via SSH to localhost with host key."""
+    full_cmd = [
+        "ssh", "-i", "/run/ssh/rohit_ed25519",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=5",
+        "rohit@localhost",
+        "systemctl", "--user",
+    ] + cmd
     return _run(full_cmd, timeout=timeout)
 
 
@@ -522,7 +530,7 @@ def run_audit(args: dict) -> dict:
 # ── Tier 4: Maintenance (long-running, guarded) ─────────────────────────────
 
 def backup_status(args: dict) -> dict:
-    return _run(["kopia", "snapshot", "list", "--limit", "5"], timeout=30)
+    return _run(["kopia", "snapshot", "list"], timeout=30)
 
 
 def backup_verify(args: dict) -> dict:
