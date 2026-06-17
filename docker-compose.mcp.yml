@@ -324,7 +324,7 @@ services:
     - /home/rohit/agentharness/scripts:/scripts:ro
     - /home/rohit/.hermes/scripts:/scripts-hm:ro
     - /home/rohit/.hermes/lib:/home/rohit/.hermes/lib:ro
-    - /home/rohit/.hermes:/home/rohit/.hermes:ro
+    - /home/rohit/.hermes:/home/rohit/.hermes:rw
     - /mnt/usb:/mnt/usb:ro
     - /tmp/homelab-exec-logs:/home/rohit/.hermes/logs
     - /run/systemd:/run/systemd:ro
