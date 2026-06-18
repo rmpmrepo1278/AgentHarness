@@ -1,0 +1,53 @@
+# =============================================================================
+# Cognitive Infrastructure — MenteDB + Graphiti
+#
+# MenteDB: Purpose-built cognitive memory engine (14-step cognitive pipeline,
+#   entity-centric memory with graph edges, 5 cognitive tiers, MCP server)
+#   https://github.com/nambok/mentedb
+#
+# Graphiti: Temporal knowledge graph for Capsule outcomes + health data
+#   https://github.com/getzep/graphiti
+#
+# Usage:
+#   docker compose -f docker-compose.cognitive.yml up -d
+# =============================================================================
+
+services:
+  mentedb:
+    image: ghcr.io/nambok/mentedb:latest
+    container_name: mentedb
+    restart: always
+    labels:
+      - "autoheal=true"
+    ports:
+      - "127.0.0.1:6677:8080"
+    volumes:
+      - mentedb-data:/data
+      - /home/rohit/.hermes:/data/hermes:ro
+    environment:
+      - MENTEDB_DATA_DIR=/data
+      - MENTEDB_LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - core_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6677/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+networks:
+  core_default:
+    external: true
+
+volumes:
+  mentedb-data:
+    driver: local
