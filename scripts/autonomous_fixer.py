@@ -39,6 +39,13 @@ DELEGATE_SCRIPT = AG_HOME / "scripts" / "auto_fix_delegate.py"
 SESSION_LOG = STATE_DIR / "auto_fix_sessions.jsonl"
 FIXER_LOG = LOG_DIR / "autonomous_fixer.log"
 STATE_FILE = DATA_DIR / "autonomous_fixer_state.json"
+STAGNATION_FILE = DATA_DIR / "stagnation_state.json"
+REFLEXION_FILE = HERMES_HOME / "reflexion_memory.jsonl"
+EXPERIMENTS_FILE = HERMES_HOME / "experiments.jsonl"
+
+# Stagnation detection: max attempts per (issue_type, target) within window
+STAGNATION_THRESHOLD = 3          # max attempts
+STAGNATION_WINDOW_SECONDS = 1800  # 30 minutes
 
 # Issue types that Claude can fix (vs. simple bash or human-only)
 CLAUDE_FIXABLE_TYPES = {
@@ -142,8 +149,7 @@ CRITICAL_SCRIPTS = {
     "weekly_review": HERMES_HOME / "hermes-agent" / "scripts" / "weekly_review.py",
     "document_auto_ingest": HERMES_HOME / "hermes-agent" / "scripts" / "document_auto_ingest.py",
     "document_intel": HERMES_HOME / "hermes-agent" / "scripts" / "document_intel.py",
-    "cross_domain_correlator": HERMES_HOME / "hermes-agent" / "scripts" / "cross_domain_correlator.py",
-    "predictive_engine": HERMES_HOME / "hermes-agent" / "scripts" / "predictive_engine.py",
+    # Removed in ponytail cleanup (Jun 16): cross_domain_correlator, predictive_engine
     "email_action_loop": HERMES_HOME / "hermes-agent" / "scripts" / "email_action_loop.py",
     "morning_pipeline": HERMES_HOME / "cron" / "morning_pipeline.sh",
     "morning_prep": HERMES_HOME / "cron" / "morning_prep.sh",
@@ -373,6 +379,193 @@ def count_recent_sessions(minutes: int = 30) -> int:
     except Exception:
         pass
     return count
+
+
+# ---------------------------------------------------------------------------
+# Stagnation detection — prevent infinite retry loops
+# ---------------------------------------------------------------------------
+
+def _stagnation_key(issue: dict) -> str:
+    """Build a unique key for tracking repeated fix attempts."""
+    target = (
+        issue.get("container")
+        or issue.get("service")
+        or issue.get("domain")
+        or issue.get("mount")
+        or issue.get("port")
+        or issue.get("script_name")
+        or issue.get("key")
+        or issue.get("repo")
+        or issue.get("log_file")
+        or "unknown"
+    )
+    return f"{issue.get('type', '?')}:{target}"
+
+
+def load_stagnation() -> dict:
+    """Load stagnation state from disk."""
+    return read_json_safe(STAGNATION_FILE)
+
+
+def save_stagnation(state: dict):
+    """Persist stagnation state to disk."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    STAGNATION_FILE.write_text(json.dumps(state, indent=2, default=str))
+
+
+def is_stagnant(issue: dict) -> bool:
+    """Check if this issue type+target has been attempted too many times."""
+    state = load_stagnation()
+    key = _stagnation_key(issue)
+    now = time.time()
+    attempts = state.get(key, [])
+    # Prune old attempts outside the window
+    attempts = [t for t in attempts if now - t < STAGNATION_WINDOW_SECONDS]
+    state[key] = attempts
+    save_stagnation(state)
+    return len(attempts) >= STAGNATION_THRESHOLD
+
+
+def record_attempt(issue: dict):
+    """Record a fix attempt for stagnation tracking."""
+    state = load_stagnation()
+    key = _stagnation_key(issue)
+    attempts = state.get(key, [])
+    attempts.append(time.time())
+    state[key] = attempts
+    save_stagnation(state)
+
+
+# ---------------------------------------------------------------------------
+# Reflexion — query past failures before acting, write reflections after
+# ---------------------------------------------------------------------------
+
+def query_reflexion(issue: dict) -> dict:
+    """Before fixing, query past reflections for this (type, target) to avoid
+    repeating known-failing approaches. Returns reflections + recommendation."""
+    target = (
+        issue.get("container")
+        or issue.get("service")
+        or issue.get("domain")
+        or issue.get("mount")
+        or issue.get("script_name")
+        or issue.get("port")
+        or issue.get("key")
+        or issue.get("repo")
+        or issue.get("log_file")
+        or "unknown"
+    )
+    gene_id = f"gene_{issue.get('type', 'unknown')}"
+    result = {"reflections": [], "recommendation": "Proceed", "capsule_history": {}}
+
+    # Query capsule history
+    capsule_file = HERMES_HOME / "capsules" / "outcomes.jsonl"
+    if capsule_file.exists():
+        capsules = []
+        for line in capsule_file.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                c = json.loads(line)
+                if c.get("gene_id") == gene_id and c.get("target") == target:
+                    capsules.append(c)
+            except json.JSONDecodeError:
+                continue
+        total = len(capsules)
+        successes = sum(1 for c in capsules if c.get("outcome") == "success")
+        failures = sum(1 for c in capsules if c.get("outcome") == "fail")
+        result["capsule_history"] = {
+            "total": total, "successes": successes, "failures": failures,
+            "rate": f"{successes/total:.0%}" if total > 0 else "N/A",
+            "recent_notes": [c.get("notes", "") for c in capsules[-3:] if c.get("notes")],
+        }
+        if failures > successes and total > 2:
+            result["recommendation"] = f"WARNING: This approach has failed {failures}/{total} times for {target}. Consider a different strategy."
+
+    # Query reflection memory
+    if REFLEXION_FILE.exists():
+        reflections = []
+        for line in REFLEXION_FILE.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                r = json.loads(line)
+                if r.get("gene_id") == gene_id and (not target or r.get("target") == target):
+                    reflections.append(r)
+            except json.JSONDecodeError:
+                continue
+        result["reflections"] = reflections[-5:]  # last 5
+
+    return result
+
+
+def write_reflection(issue: dict, outcome: str, notes: str = ""):
+    """After fixing, write a reflection to close the learning loop."""
+    target = (
+        issue.get("container")
+        or issue.get("service")
+        or issue.get("domain")
+        or issue.get("mount")
+        or issue.get("script_name")
+        or issue.get("port")
+        or issue.get("key")
+        or issue.get("repo")
+        or issue.get("log_file")
+        or "unknown"
+    )
+    gene_id = f"gene_{issue.get('type', 'unknown')}"
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "gene_id": gene_id,
+        "target": target,
+        "outcome": outcome,
+        "reflection": notes or f"Fix attempt for {issue.get('issue', '')[:100]} — outcome: {outcome}",
+    }
+    REFLEXION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(REFLEXION_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# CRITIC-style verification — tool-grounded spot checks
+# ---------------------------------------------------------------------------
+
+def critic_verify_claim(claim_type: str, target: str) -> dict:
+    """Independently verify a service health claim via direct tool calls.
+    Returns {claimed, actual, match} to catch hallucinated states."""
+    if claim_type == "container_healthy":
+        r = subprocess.run(
+            ["docker", "inspect", "--format={{.State.Status}}", target],
+            capture_output=True, text=True, timeout=5,
+        )
+        actual = r.stdout.strip()
+        return {"claimed": "running", "actual": actual, "match": actual == "running"}
+    elif claim_type == "service_active":
+        r = subprocess.run(
+            ["systemctl", "is-active", target],
+            capture_output=True, text=True, timeout=5,
+        )
+        actual = r.stdout.strip()
+        return {"claimed": "active", "actual": actual, "match": actual == "active"}
+    elif claim_type == "dns_resolves":
+        import socket
+        try:
+            socket.setdefaulttimeout(5)
+            result = socket.getaddrinfo(target, 80)
+            actual = result[0][4][0] if result else "unresolved"
+            return {"claimed": "resolves", "actual": actual, "match": bool(result)}
+        except socket.gaierror:
+            return {"claimed": "resolves", "actual": "NXDOMAIN", "match": False}
+    elif claim_type == "port_open":
+        import socket
+        port = int(target.split(":")[-1]) if ":" in target else int(target)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        result = s.connect_ex(("127.0.0.1", port))
+        s.close()
+        actual = "open" if result == 0 else "closed"
+        return {"claimed": "open", "actual": actual, "match": result == 0}
+    return {"claimed": claim_type, "actual": "unknown", "match": True}
 
 
 # ---------------------------------------------------------------------------
@@ -781,13 +974,17 @@ def check_duckdns_sync() -> list[dict]:
                 continue
         if not current_ip:
             return issues  # Can't determine external IP, skip
-        # Get DuckDNS record
+        # Get DuckDNS record — must query external DNS (8.8.8.8) to bypass Pi-hole
+        dns_ip = None
         try:
-            socket.setdefaulttimeout(5)
-            dns_ips = socket.getaddrinfo("chagulihome.duckdns.org", 443)
-            dns_ip = dns_ips[0][4][0] if dns_ips else None
-        except socket.gaierror:
-            dns_ip = None
+            dns_r = subprocess.run(
+                ["dig", "+short", "chagulihome.duckdns.org", "@8.8.8.8"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if dns_r.returncode == 0 and dns_r.stdout.strip():
+                dns_ip = dns_r.stdout.strip().split("\n")[0]
+        except Exception:
+            pass
         if dns_ip and current_ip != dns_ip:
             issues.append({
                 "issue": f"DuckDNS out of sync: current={current_ip}, dns={dns_ip}",
@@ -1201,6 +1398,9 @@ def main():
     log(f"=== Autonomous fixer starting ===")
     log(f"Dry run: {dry_run}, Min severity: {args.min_severity}")
 
+    # ── 0. Load persistent state ──
+    state = read_json_safe(STATE_FILE)
+
     # ── 1. Detect all issues ──
     all_issues = detect_issues()
 
@@ -1333,6 +1533,29 @@ def main():
     for issue in top_issues:
         log(f"Processing: {issue['issue']} (type={issue['type']}, severity={issue['severity']})")
 
+        # Stagnation check: skip if we've tried this too many times
+        if is_stagnant(issue):
+            key = _stagnation_key(issue)
+            log(f"STAGNANT: {key} — skipping (threshold={STAGNATION_THRESHOLD})")
+            send_telegram(
+                f"⚠️ <b>Stagnation detected</b>\n\n"
+                f"Fix attempts for <code>{key}</code> exceeded {STAGNATION_THRESHOLD} "
+                f"in {STAGNATION_WINDOW_SECONDS // 60} minutes.\n"
+                f"Human intervention may be needed."
+            )
+            results.append({"status": "stagnant", "issue": issue["issue"], "key": key})
+            continue
+
+        # ── Reflexion: query past failures before acting ──
+        reflexion = query_reflexion(issue)
+        if reflexion.get("reflections"):
+            log(f"Reflexion: {len(reflexion['reflections'])} past reflection(s) found")
+        if "WARNING" in reflexion.get("recommendation", ""):
+            log(f"Reflexion warning: {reflexion['recommendation']}")
+
+        # Record this attempt
+        record_attempt(issue)
+
         if dry_run:
             log(f"DRY RUN: would invoke delegate for: {issue['issue']}")
             result = {
@@ -1340,12 +1563,77 @@ def main():
                 "issue": issue["issue"],
                 "type": issue["type"],
                 "severity": issue["severity"],
+                "reflexion": reflexion,
             }
         else:
             result = invoke_delegate(issue, dry_run=False)
 
         results.append(result)
         log(f"Result: {result.get('status', '?')}")
+
+        # ── Write reflection to close the learning loop ──
+        fix_status = result.get("status", "unknown")
+        outcome = "success" if fix_status in ("completed", "dry_run") else "fail"
+        reflection_notes = (
+            f"Fix for {issue['issue'][:80]}: status={fix_status}. "
+            f"Reflexion pre-check: {reflexion.get('recommendation', 'N/A')}. "
+            f"Result: {result.get('raw', '')[:100] if isinstance(result.get('raw'), str) else ''}"
+        )
+        write_reflection(issue, outcome, reflection_notes)
+        log(f"Reflection recorded: {outcome}")
+
+        # ── ACE playbook: generate candidate update ──
+        try:
+            ace_script = HERMES_HOME / "scripts" / "ace_playbook.py"
+            if ace_script.exists():
+                ace_outcome = "success" if outcome == "success" else "fail" if outcome == "fail" else "partial"
+                subprocess.run(
+                    [sys.executable, str(ace_script), "generate",
+                     "--task", issue["issue"][:100],
+                     "--outcome", ace_outcome,
+                     "--notes", reflection_notes[:300]],
+                    capture_output=True, timeout=10,
+                )
+        except Exception as e:
+            log(f"ACE candidate generation failed: {e}")
+
+        # ── Voyager skill library: extract on success ──
+        if outcome == "success" and fix_status not in ("dry_run",):
+            try:
+                skill_script = HERMES_HOME / "scripts" / "skill_library.py"
+                if skill_script.exists():
+                    subprocess.run(
+                        [sys.executable, str(skill_script), "extract"],
+                        capture_output=True, timeout=10,
+                    )
+            except Exception as e:
+                log(f"Skill extraction failed: {e}")
+
+        # Record Capsule outcome
+        try:
+            from pathlib import Path as _P
+            _capsule_script = _P("/home/rohit/.hermes/scripts/capsule_tracker.py")
+            if _capsule_script.exists():
+                _target = (
+                    issue.get("container")
+                    or issue.get("service")
+                    or issue.get("domain")
+                    or issue.get("mount")
+                    or "unknown"
+                )
+                _outcome = "success" if fix_status in ("completed", "dry_run") else "fail"
+                _signals = [issue.get("type", "")]
+                subprocess.run(
+                    [sys.executable, str(_capsule_script), "record",
+                     "--gene", f"gene_{issue['type']}",
+                     "--target", _target,
+                     "--outcome", _outcome,
+                     "--source", "autonomous_fixer",
+                     "--notes", f"status={fix_status}"],
+                    capture_output=True, timeout=10,
+                )
+        except Exception as e:
+            log(f"Capsule record failed: {e}")
 
     # ── 6. Save state ──
     state = load_state()
