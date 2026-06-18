@@ -986,6 +986,37 @@ def check_duckdns_sync() -> list[dict]:
         except Exception:
             pass
         if dns_ip and current_ip != dns_ip:
+            # L1 self-heal: try running the DuckDNS update script directly
+            script = Path.home() / ".hermes" / "scripts" / "duckdns_update.sh"
+            if script.exists():
+                try:
+                    result = subprocess.run(
+                        ["bash", str(script)],
+                        capture_output=True, text=True, timeout=30,
+                    )
+                    if result.returncode == 0:
+                        log(f"DuckDNS self-healed: {result.stdout.strip()}")
+                        # Re-check DNS after update
+                        import time
+                        time.sleep(5)
+                        dns_r2 = subprocess.run(
+                            ["dig", "+short", "chagulihome.duckdns.org", "@8.8.8.8"],
+                            capture_output=True, text=True, timeout=10,
+                        )
+                        new_dns = dns_r2.stdout.strip().split("\n")[0] if dns_r2.returncode == 0 and dns_r2.stdout.strip() else None
+                        if new_dns and new_dns == current_ip:
+                            log(f"DuckDNS verified: now resolves to {new_dns}")
+                            return issues  # Fixed, don't report
+                        else:
+                            log(f"DuckDNS update ran but DNS still shows {new_dns}, current={current_ip}")
+                    else:
+                        log(f"DuckDNS update script failed: {result.stdout.strip()} {result.stderr.strip()}")
+                except Exception as e:
+                    log(f"DuckDNS update script error: {e}")
+            else:
+                log(f"DuckDNS update script not found at {script}")
+
+            # If we get here, self-heal failed — report the issue
             issues.append({
                 "issue": f"DuckDNS out of sync: current={current_ip}, dns={dns_ip}",
                 "type": "duckdns_sync",
