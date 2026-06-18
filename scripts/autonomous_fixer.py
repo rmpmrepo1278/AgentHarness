@@ -1187,12 +1187,51 @@ def detect_issues() -> list[dict]:
         })
 
     # Also check restart count for running containers that recently crashed
+    # Skip containers that are currently healthy with no recent failures —
+    # high restart count from a past transient event (e.g. ISP outage) is not
+    # an active issue and spawning fix sessions wastes resources.
     for c in containers:
         status = c.get("Status", "")
         name = c.get("Name", c.get("Names", "?"))
         if "Up" in status and "restart" not in status.lower():
             count = get_recent_restart_count(name)
             if count >= 3:
+                # Check if container is currently healthy and stable
+                try:
+                    inspect_result = subprocess.run(
+                        ["docker", "inspect", "--format",
+                         "{{.State.Health.Status}}|{{.State.StartedAt}}|{{.State.FailingStreak}}",
+                         name],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    if inspect_result.returncode == 0:
+                        parts = inspect_result.stdout.strip().split("|", 2)
+                        health = parts[0] if len(parts) > 0 else ""
+                        started_at = parts[1] if len(parts) > 1 else ""
+                        failing_streak = parts[2] if len(parts) > 2 else "0"
+                        # If healthy, running >1h, and no failing streak → skip
+                        is_stable = (
+                            health in ("healthy", "none", "")
+                            and int(failing_streak or 0) == 0
+                            and started_at
+                        )
+                        if is_stable:
+                            from datetime import datetime, timezone
+                            try:
+                                start_dt = datetime.fromisoformat(
+                                    started_at.replace("Z", "+00:00")
+                                )
+                                uptime_hours = (
+                                    datetime.now(timezone.utc) - start_dt
+                                ).total_seconds() / 3600
+                                if uptime_hours >= 1:
+                                    # Container is stable — restarts were
+                                    # transient, not an active loop. Skip.
+                                    continue
+                            except (ValueError, TypeError):
+                                pass
+                except Exception:
+                    pass
                 issues.append({
                     "issue": f"Container {name} has restarted {count} times recently",
                     "type": "restart_loop",
