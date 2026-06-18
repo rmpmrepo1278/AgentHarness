@@ -13,6 +13,13 @@
 
 set -euo pipefail
 
+# Healthchecks ping
+source /home/rohit/.hermes/scripts/hc_uuids.sh 2>/dev/null || true
+HC_PID=""
+hc_start() { [ -n "$HC_UUID_CONSOLIDATED_HEALTH" ] && /home/rohit/.hermes/scripts/hc_ping.sh "$HC_UUID_CONSOLIDATED_HEALTH" start & HC_PID=$!; }
+hc_done() { [ -n "$HC_UUID_CONSOLIDATED_HEALTH" ] && /home/rohit/.hermes/scripts/hc_ping.sh "$HC_UUID_CONSOLIDATED_HEALTH" "$([ "$ISSUES" -eq 0 ] && echo success || echo fail)"; [ -n "$HC_PID" ] && wait "$HC_PID" 2>/dev/null || true; }
+hc_start
+
 LOG_PREFIX="[$(date "+%Y-%m-%d %H:%M:%S")] consolidated_health"
 log() { echo "${LOG_PREFIX}: $*"; }
 
@@ -148,6 +155,25 @@ for log_file in /home/rohit/agentharness/logs/*.log /home/rohit/.hermes/logs/*.l
     fi
 done
 
+# ── 11. DuckDNS sync check ──
+log "=== DuckDNS sync check ==="
+DUCKDNS_TOKEN_FILE="/home/rohit/.duckdns_token"
+if [ -f "$DUCKDNS_TOKEN_FILE" ]; then
+    TOKEN=$(cat "$DUCKDNS_TOKEN_FILE" 2>/dev/null | tr -d '[:space:]')
+    if [ -n "$TOKEN" ] && [ "$TOKEN" != "PASTE_YOUR_TOKEN_HERE" ]; then
+        CURRENT_IP=$(curl -s --max-time 10 https://api.ipify.org 2>/dev/null || echo "")
+        DNS_IP=$(dig +short chagulihome.duckdns.org @8.8.8.8 2>/dev/null | head -1)
+        if [ -n "$CURRENT_IP" ] && [ -n "$DNS_IP" ] && [ "$CURRENT_IP" != "$DNS_IP" ]; then
+            log "WARNING: DuckDNS out of sync — current=$CURRENT_IP dns=$DNS_IP"
+            # Auto-fix: run the update script
+            bash /home/rohit/.hermes/scripts/duckdns_update.sh >> /home/rohit/.hermes/logs/duckdns_auto_fix.log 2>&1 || true
+            ISSUES=$((ISSUES + 1))
+        else
+            log "DuckDNS: in sync ($CURRENT_IP)"
+        fi
+    fi
+fi
+
 # ── Summary ──
 if [ "$ISSUES" -gt 0 ]; then
     log "Health check complete: $ISSUES issue(s) detected"
@@ -155,4 +181,5 @@ else
     log "Health check complete: all clear"
 fi
 
+hc_done
 exit $ISSUES
