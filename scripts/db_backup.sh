@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+# Healthchecks ping
+source /home/rohit/.hermes/scripts/hc_uuids.sh 2>/dev/null || true
+/home/rohit/.hermes/scripts/hc_ping.sh "$HC_UUID_DB_BACKUP" start 2>/dev/null || true
+
 BACKUP_DIR="/mnt/usb/backups/db-dumps/$(date +%Y-%m-%d)"
 LOG_FILE="/home/rohit/agentharness/logs/db_backup_$(date +%Y%m%d).log"
 
@@ -91,4 +95,5 @@ find "/mnt/usb/backups/db-dumps" -maxdepth 1 -type d -mtime +14 -exec rm -rf {} 
 log "Cleaned $cleaned old backup(s)"
 
 log "DB Backup Finished: $succeeded succeeded, $failed failed"
+/home/rohit/.hermes/scripts/hc_ping.sh "$HC_UUID_DB_BACKUP" "$([ "$failed" -eq 0 ] && echo success || echo fail)" 2>/dev/null || true
 [ "$failed" -eq 0 ] || exit 1

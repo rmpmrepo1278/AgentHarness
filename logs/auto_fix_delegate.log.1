@@ -1,32 +1,283 @@
-[2026-06-13 02:48:32] auto-fix-delegate: === Auto-fix session auto-19abbcc9 ===
-[2026-06-13 02:48:32] auto-fix-delegate: Issue: Container paperless is in a restart loop — cannot connect to redis:6379
-[2026-06-13 02:48:32] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: True
-[2026-06-13 02:48:32] auto-fix-delegate: Classified as: restart_loop (priority: high)
-[2026-06-13 02:48:32] auto-fix-delegate: Cost guard: model verified free
-[2026-06-13 02:48:32] auto-fix-delegate: Rate limit: rate limit OK
-[2026-06-13 02:48:33] auto-fix-delegate: Context gathered: 2938 chars
-[2026-06-13 02:48:33] auto-fix-delegate: Git snapshot created: a8ffb5dcf
-[2026-06-13 02:48:33] auto-fix-delegate: Git snapshot: a8ffb5dcf
-[2026-06-13 02:48:33] auto-fix-delegate: Prompt built: 4803 chars
-[2026-06-13 02:48:33] auto-fix-delegate: DRY RUN — not spawning Claude
-[2026-06-13 02:48:33] auto-fix-delegate: Session logged: auto-19abbcc9 status=dry_run
-[2026-06-13 18:00:03] auto-fix-delegate: === Auto-fix session auto-d4eb80ec ===
-[2026-06-13 18:00:03] auto-fix-delegate: Issue: Container immich_server has restarted 4901 times recently
-[2026-06-13 18:00:03] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
-[2026-06-13 18:00:03] auto-fix-delegate: Classified as: restart_loop (priority: high)
-[2026-06-13 18:00:04] auto-fix-delegate: Cost guard: model verified free
-[2026-06-13 18:00:04] auto-fix-delegate: Rate limit: rate limit OK
-[2026-06-13 18:00:04] auto-fix-delegate: Context gathered: 2938 chars
-[2026-06-13 18:00:04] auto-fix-delegate: Git snapshot created: 61c8d7b07
-[2026-06-13 18:00:04] auto-fix-delegate: Git snapshot: 61c8d7b07
-[2026-06-13 18:00:04] auto-fix-delegate: Prompt built: 4789 chars
-[2026-06-13 18:00:05] auto-fix-delegate: Telegram notification sent
-[2026-06-13 18:00:05] auto-fix-delegate: Spawning Claude session auto-1dde43cf (timeout=900s)
-[2026-06-13 18:00:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4789 chars)
-[2026-06-13 18:03:05] auto-fix-delegate: === Auto-fix session auto-f90f946d ===
-[2026-06-13 18:03:05] auto-fix-delegate: Issue: Container immich_server has restarted 4901 times recently
-[2026-06-13 18:03:05] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
-[2026-06-13 18:03:05] auto-fix-delegate: Classified as: restart_loop (priority: high)
-[2026-06-13 18:03:05] auto-fix-delegate: Cost guard: model verified free
-[2026-06-13 18:03:05] auto-fix-delegate: Rate limit: Rate limited: 1619s since last session (min 1800s)
-[2026-06-13 18:03:05] auto-fix-delegate: Session logged: auto-f90f946d status=rate_limited
+[2026-06-17 03:01:12] auto-fix-delegate: === Auto-fix session auto-31c5363f ===
+[2026-06-17 03:01:12] auto-fix-delegate: Issue: Container paper-agent has restarted 2561 times recently
+[2026-06-17 03:01:12] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 03:01:12] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 03:01:12] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 03:01:12] auto-fix-delegate: Rate limit: Rate limited: 18s since last session (min 1800s)
+[2026-06-17 03:01:12] auto-fix-delegate: Session logged: auto-31c5363f status=rate_limited
+[2026-06-17 04:01:08] auto-fix-delegate: === Auto-fix session auto-6d057d2e ===
+[2026-06-17 04:01:08] auto-fix-delegate: Issue: DNS resolution failed: Pi-hole not resolving google.com
+[2026-06-17 04:01:08] auto-fix-delegate: Type: dns_resolution, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 04:01:08] auto-fix-delegate: Classified as: dns_resolution (priority: critical)
+[2026-06-17 04:01:08] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 04:01:08] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 04:01:09] auto-fix-delegate: Context gathered: 2712 chars
+[2026-06-17 04:01:09] auto-fix-delegate: Git snapshot created: 6daab0c80
+[2026-06-17 04:01:09] auto-fix-delegate: Git snapshot: 6daab0c80
+[2026-06-17 04:01:09] auto-fix-delegate: Prompt built: 4419 chars
+[2026-06-17 04:01:24] auto-fix-delegate: Telegram send error: Command '['curl', '-s', '-X', 'POST', 'https://api.telegram.org/bot8783393119:AAGnM9NbrY00cbJOt6Rsrn3y2l_wMBH4yIQ/sendMessage', '-H', 'Content-Type: application/json', '-d', b'{"chat_id": "-1003976074764", "text": "\\ud83e\\udd16 <b>AUTO-FIX SESSION STARTED</b>\\n\\n<b>Issue:</b> DNS resolution failed: Pi-hole not resolving google.com\\n<b>Type:</b> dns_resolution\\n<b>Session:</b> auto-6d057d2e\\n<b>Time:</b> 2026-06-17 04:01:09\\n\\nInvestigating and fixing...\\n\\n\\nThis may take up to 15 minutes.", "parse_mode": "HTML", "disable_web_page_preview": true}']' timed out after 15 seconds
+[2026-06-17 04:01:24] auto-fix-delegate: Spawning Claude session auto-40c118d8 (timeout=900s)
+[2026-06-17 04:01:24] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4419 chars)
+[2026-06-17 04:31:06] auto-fix-delegate: === Auto-fix session auto-d27ec217 ===
+[2026-06-17 04:31:06] auto-fix-delegate: Issue: Container paper-agent has restarted 2690 times recently
+[2026-06-17 04:31:06] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 04:31:06] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 04:31:06] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 04:31:06] auto-fix-delegate: Rate limit: Rate limited: 17s since last session (min 1800s)
+[2026-06-17 04:31:06] auto-fix-delegate: Session logged: auto-d27ec217 status=rate_limited
+[2026-06-17 05:31:14] auto-fix-delegate: === Auto-fix session auto-ddb10def ===
+[2026-06-17 05:31:14] auto-fix-delegate: Issue: DNS resolution failed: Pi-hole not resolving google.com
+[2026-06-17 05:31:14] auto-fix-delegate: Type: dns_resolution, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 05:31:14] auto-fix-delegate: Classified as: dns_resolution (priority: critical)
+[2026-06-17 05:31:14] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 05:31:14] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 05:31:14] auto-fix-delegate: Context gathered: 2889 chars
+[2026-06-17 05:31:14] auto-fix-delegate: Git snapshot created: eb80e58ac
+[2026-06-17 05:31:14] auto-fix-delegate: Git snapshot: eb80e58ac
+[2026-06-17 05:31:14] auto-fix-delegate: Prompt built: 4596 chars
+[2026-06-17 05:31:29] auto-fix-delegate: Telegram send error: Command '['curl', '-s', '-X', 'POST', 'https://api.telegram.org/bot8783393119:AAGnM9NbrY00cbJOt6Rsrn3y2l_wMBH4yIQ/sendMessage', '-H', 'Content-Type: application/json', '-d', b'{"chat_id": "-1003976074764", "text": "\\ud83e\\udd16 <b>AUTO-FIX SESSION STARTED</b>\\n\\n<b>Issue:</b> DNS resolution failed: Pi-hole not resolving google.com\\n<b>Type:</b> dns_resolution\\n<b>Session:</b> auto-ddb10def\\n<b>Time:</b> 2026-06-17 05:31:14\\n\\nInvestigating and fixing...\\n\\n\\nThis may take up to 15 minutes.", "parse_mode": "HTML", "disable_web_page_preview": true}']' timed out after 15 seconds
+[2026-06-17 05:31:29] auto-fix-delegate: Spawning Claude session auto-5381a2f1 (timeout=900s)
+[2026-06-17 05:31:29] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4596 chars)
+[2026-06-17 05:33:14] auto-fix-delegate: === Auto-fix session auto-77aa2b58 ===
+[2026-06-17 05:33:14] auto-fix-delegate: Issue: Container paper-agent has restarted 2776 times recently
+[2026-06-17 05:33:14] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 05:33:14] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 05:33:14] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 05:33:14] auto-fix-delegate: Rate limit: Rate limited: 1695s since last session (min 1800s)
+[2026-06-17 05:33:14] auto-fix-delegate: Session logged: auto-77aa2b58 status=rate_limited
+[2026-06-17 07:01:13] auto-fix-delegate: === Auto-fix session auto-52d69909 ===
+[2026-06-17 07:01:13] auto-fix-delegate: Issue: DNS resolution failed: Pi-hole not resolving google.com
+[2026-06-17 07:01:13] auto-fix-delegate: Type: dns_resolution, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 07:01:13] auto-fix-delegate: Classified as: dns_resolution (priority: critical)
+[2026-06-17 07:01:13] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 07:01:13] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 07:01:14] auto-fix-delegate: Context gathered: 2769 chars
+[2026-06-17 07:01:14] auto-fix-delegate: Git snapshot created: cb7894653
+[2026-06-17 07:01:14] auto-fix-delegate: Git snapshot: cb7894653
+[2026-06-17 07:01:14] auto-fix-delegate: Prompt built: 4476 chars
+[2026-06-17 07:01:28] auto-fix-delegate: Telegram send failed: 
+[2026-06-17 07:01:28] auto-fix-delegate: Spawning Claude session auto-fc3d29a3 (timeout=900s)
+[2026-06-17 07:01:28] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4476 chars)
+[2026-06-17 07:03:14] auto-fix-delegate: === Auto-fix session auto-22696da0 ===
+[2026-06-17 07:03:14] auto-fix-delegate: Issue: Container paper-agent has restarted 2905 times recently
+[2026-06-17 07:03:14] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 07:03:14] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 07:03:14] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 07:03:14] auto-fix-delegate: Rate limit: Rate limited: 1694s since last session (min 1800s)
+[2026-06-17 07:03:14] auto-fix-delegate: Session logged: auto-22696da0 status=rate_limited
+[2026-06-17 08:30:04] auto-fix-delegate: === Auto-fix session auto-bcb9da2b ===
+[2026-06-17 08:30:04] auto-fix-delegate: Issue: Container paper-agent has restarted 3019 times recently
+[2026-06-17 08:30:04] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 08:30:04] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 08:30:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 08:30:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 08:30:04] auto-fix-delegate: Context gathered: 2954 chars
+[2026-06-17 08:30:04] auto-fix-delegate: Git snapshot created: f89dd16fa
+[2026-06-17 08:30:04] auto-fix-delegate: Git snapshot: f89dd16fa
+[2026-06-17 08:30:04] auto-fix-delegate: Prompt built: 4803 chars
+[2026-06-17 08:30:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 08:30:05] auto-fix-delegate: Spawning Claude session auto-1b77f920 (timeout=900s)
+[2026-06-17 08:30:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4803 chars)
+[2026-06-17 08:32:04] auto-fix-delegate: === Auto-fix session auto-24dd3e86 ===
+[2026-06-17 08:32:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 08:32:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 08:32:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 08:32:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 08:32:04] auto-fix-delegate: Rate limit: Rate limited: 1681s since last session (min 1800s)
+[2026-06-17 08:32:04] auto-fix-delegate: Session logged: auto-24dd3e86 status=rate_limited
+[2026-06-17 10:00:04] auto-fix-delegate: === Auto-fix session auto-49f856f5 ===
+[2026-06-17 10:00:04] auto-fix-delegate: Issue: Container immich_server has restarted 4901 times recently
+[2026-06-17 10:00:04] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 10:00:04] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 10:00:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 10:00:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 10:00:04] auto-fix-delegate: Context gathered: 2894 chars
+[2026-06-17 10:00:04] auto-fix-delegate: Git snapshot created: ab5073647
+[2026-06-17 10:00:04] auto-fix-delegate: Git snapshot: ab5073647
+[2026-06-17 10:00:04] auto-fix-delegate: Prompt built: 4745 chars
+[2026-06-17 10:00:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 10:00:05] auto-fix-delegate: Spawning Claude session auto-c69e195c (timeout=900s)
+[2026-06-17 10:00:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4745 chars)
+[2026-06-17 10:02:04] auto-fix-delegate: === Auto-fix session auto-2b22af02 ===
+[2026-06-17 10:02:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 10:02:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 10:02:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 10:02:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 10:02:04] auto-fix-delegate: Rate limit: Rate limited: 1680s since last session (min 1800s)
+[2026-06-17 10:02:04] auto-fix-delegate: Session logged: auto-2b22af02 status=rate_limited
+[2026-06-17 11:30:04] auto-fix-delegate: === Auto-fix session auto-e30a8fa0 ===
+[2026-06-17 11:30:04] auto-fix-delegate: Issue: Container paperless has restarted 2823 times recently
+[2026-06-17 11:30:04] auto-fix-delegate: Type: restart_loop, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 11:30:04] auto-fix-delegate: Classified as: restart_loop (priority: high)
+[2026-06-17 11:30:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 11:30:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 11:30:04] auto-fix-delegate: Context gathered: 3044 chars
+[2026-06-17 11:30:04] auto-fix-delegate: Git snapshot created: c0b05f617
+[2026-06-17 11:30:04] auto-fix-delegate: Git snapshot: c0b05f617
+[2026-06-17 11:30:04] auto-fix-delegate: Prompt built: 4891 chars
+[2026-06-17 11:30:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 11:30:05] auto-fix-delegate: Spawning Claude session auto-cbd9e71c (timeout=900s)
+[2026-06-17 11:30:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4891 chars)
+[2026-06-17 11:32:04] auto-fix-delegate: === Auto-fix session auto-23844e4d ===
+[2026-06-17 11:32:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 11:32:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 11:32:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 11:32:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 11:32:04] auto-fix-delegate: Rate limit: Rate limited: 1680s since last session (min 1800s)
+[2026-06-17 11:32:04] auto-fix-delegate: Session logged: auto-23844e4d status=rate_limited
+[2026-06-17 13:00:04] auto-fix-delegate: === Auto-fix session auto-0cf9cfbb ===
+[2026-06-17 13:00:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 13:00:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 13:00:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 13:00:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 13:00:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 13:00:05] auto-fix-delegate: Context gathered: 2499 chars
+[2026-06-17 13:00:05] auto-fix-delegate: Git snapshot created: 1c99ca4cc
+[2026-06-17 13:00:05] auto-fix-delegate: Git snapshot: 1c99ca4cc
+[2026-06-17 13:00:05] auto-fix-delegate: Prompt built: 4245 chars
+[2026-06-17 13:00:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 13:00:05] auto-fix-delegate: Spawning Claude session auto-96799233 (timeout=900s)
+[2026-06-17 13:00:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4245 chars)
+[2026-06-17 14:30:03] auto-fix-delegate: === Auto-fix session auto-48021dd6 ===
+[2026-06-17 14:30:03] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 14:30:03] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 14:30:03] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 14:30:03] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 14:30:03] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 14:30:03] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 14:30:03] auto-fix-delegate: Git snapshot created: e90e41b94
+[2026-06-17 14:30:03] auto-fix-delegate: Git snapshot: e90e41b94
+[2026-06-17 14:30:03] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 14:30:04] auto-fix-delegate: Telegram notification sent
+[2026-06-17 14:30:04] auto-fix-delegate: Spawning Claude session auto-033eb131 (timeout=900s)
+[2026-06-17 14:30:04] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-17 16:00:02] auto-fix-delegate: === Auto-fix session auto-de90d2c9 ===
+[2026-06-17 16:00:02] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 16:00:02] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 16:00:02] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 16:00:02] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 16:00:02] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 16:00:02] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 16:00:02] auto-fix-delegate: Git snapshot created: 95f16d03d
+[2026-06-17 16:00:02] auto-fix-delegate: Git snapshot: 95f16d03d
+[2026-06-17 16:00:02] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 16:00:03] auto-fix-delegate: Telegram notification sent
+[2026-06-17 16:00:03] auto-fix-delegate: Spawning Claude session auto-9424815d (timeout=900s)
+[2026-06-17 16:00:03] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-17 17:30:03] auto-fix-delegate: === Auto-fix session auto-4fb400ca ===
+[2026-06-17 17:30:03] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=192.168.29.10
+[2026-06-17 17:30:03] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 17:30:03] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 17:30:03] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 17:30:03] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 17:30:03] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 17:30:03] auto-fix-delegate: Git snapshot created: eab2eac78
+[2026-06-17 17:30:03] auto-fix-delegate: Git snapshot: eab2eac78
+[2026-06-17 17:30:03] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 17:30:04] auto-fix-delegate: Telegram notification sent
+[2026-06-17 17:30:04] auto-fix-delegate: Spawning Claude session auto-c11acfbd (timeout=900s)
+[2026-06-17 17:30:04] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-17 18:30:04] auto-fix-delegate: === Auto-fix session auto-cbeb5a06 ===
+[2026-06-17 18:30:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=73.11.240.195
+[2026-06-17 18:30:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 18:30:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 18:30:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 18:30:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 18:30:04] auto-fix-delegate: Context gathered: 2499 chars
+[2026-06-17 18:30:04] auto-fix-delegate: Git snapshot created: a66ce96b4
+[2026-06-17 18:30:04] auto-fix-delegate: Git snapshot: a66ce96b4
+[2026-06-17 18:30:04] auto-fix-delegate: Prompt built: 4245 chars
+[2026-06-17 18:30:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 18:30:05] auto-fix-delegate: Spawning Claude session auto-ec2d0dcb (timeout=900s)
+[2026-06-17 18:30:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4245 chars)
+[2026-06-17 20:00:05] auto-fix-delegate: === Auto-fix session auto-f1fdcdd2 ===
+[2026-06-17 20:00:05] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=73.11.240.195
+[2026-06-17 20:00:05] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 20:00:05] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 20:00:05] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 20:00:05] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 20:00:05] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 20:00:05] auto-fix-delegate: Git snapshot created: a85111b62
+[2026-06-17 20:00:05] auto-fix-delegate: Git snapshot: a85111b62
+[2026-06-17 20:00:05] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 20:00:06] auto-fix-delegate: Telegram notification sent
+[2026-06-17 20:00:06] auto-fix-delegate: Spawning Claude session auto-c444b997 (timeout=900s)
+[2026-06-17 20:00:06] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-17 21:30:04] auto-fix-delegate: === Auto-fix session auto-b56aac0c ===
+[2026-06-17 21:30:04] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=73.11.240.195
+[2026-06-17 21:30:04] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 21:30:04] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 21:30:04] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 21:30:04] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 21:30:04] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 21:30:04] auto-fix-delegate: Git snapshot created: 813ca61ab
+[2026-06-17 21:30:04] auto-fix-delegate: Git snapshot: 813ca61ab
+[2026-06-17 21:30:04] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 21:30:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 21:30:05] auto-fix-delegate: Spawning Claude session auto-a8b7a608 (timeout=900s)
+[2026-06-17 21:30:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-17 23:00:03] auto-fix-delegate: === Auto-fix session auto-3dd5d1f3 ===
+[2026-06-17 23:00:03] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=73.11.240.195
+[2026-06-17 23:00:03] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: False
+[2026-06-17 23:00:03] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-17 23:00:03] auto-fix-delegate: Cost guard: model verified free
+[2026-06-17 23:00:03] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-17 23:00:04] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-17 23:00:04] auto-fix-delegate: Git snapshot created: 0a28c8993
+[2026-06-17 23:00:04] auto-fix-delegate: Git snapshot: 0a28c8993
+[2026-06-17 23:00:04] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-17 23:00:05] auto-fix-delegate: Telegram notification sent
+[2026-06-17 23:00:05] auto-fix-delegate: Spawning Claude session auto-84e74080 (timeout=900s)
+[2026-06-17 23:00:05] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4185 chars)
+[2026-06-18 00:53:20] auto-fix-delegate: === Auto-fix session auto-838360d5 ===
+[2026-06-18 00:53:20] auto-fix-delegate: Issue: DuckDNS out of sync: current=73.221.16.130, dns=73.11.240.195
+[2026-06-18 00:53:20] auto-fix-delegate: Type: duckdns_sync, Source: autonomous_fixer, Dry-run: True
+[2026-06-18 00:53:20] auto-fix-delegate: Classified as: duckdns_sync (priority: high)
+[2026-06-18 00:53:20] auto-fix-delegate: Cost guard: model verified free
+[2026-06-18 00:53:20] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-18 00:53:20] auto-fix-delegate: Context gathered: 2439 chars
+[2026-06-18 00:53:20] auto-fix-delegate: Git snapshot created: 4f91d3e73
+[2026-06-18 00:53:20] auto-fix-delegate: Git snapshot: 4f91d3e73
+[2026-06-18 00:53:20] auto-fix-delegate: Prompt built: 4185 chars
+[2026-06-18 00:53:20] auto-fix-delegate: DRY RUN — not spawning Claude
+[2026-06-18 00:53:20] auto-fix-delegate: Session logged: auto-838360d5 status=dry_run
+[2026-06-18 01:30:29] auto-fix-delegate: === Auto-fix session auto-bdfdb1f4 ===
+[2026-06-18 01:30:29] auto-fix-delegate: Issue: Critical script missing: claude_code_delegate (expected at /home/rohit/.hermes/hermes-agent/scripts/claude_code_delegate.py)
+[2026-06-18 01:30:29] auto-fix-delegate: Type: missing_script, Source: autonomous_fixer, Dry-run: False
+[2026-06-18 01:30:29] auto-fix-delegate: Classified as: missing_script (priority: high)
+[2026-06-18 01:30:29] auto-fix-delegate: Cost guard: model verified free
+[2026-06-18 01:30:29] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-18 01:30:29] auto-fix-delegate: Context gathered: 2499 chars
+[2026-06-18 01:30:29] auto-fix-delegate: Git snapshot created: 63a31bb92
+[2026-06-18 01:30:29] auto-fix-delegate: Git snapshot: 63a31bb92
+[2026-06-18 01:30:29] auto-fix-delegate: Prompt built: 4448 chars
+[2026-06-18 01:30:44] auto-fix-delegate: Telegram send error: Command '['curl', '-s', '-X', 'POST', 'https://api.telegram.org/bot8783393119:AAGnM9NbrY00cbJOt6Rsrn3y2l_wMBH4yIQ/sendMessage', '-H', 'Content-Type: application/json', '-d', b'{"chat_id": "-1003976074764", "text": "\\ud83e\\udd16 <b>AUTO-FIX SESSION STARTED</b>\\n\\n<b>Issue:</b> Critical script missing: claude_code_delegate (expected at /home/rohit/.hermes/hermes-agent/scripts/claude_code_delegate.py)\\n<b>Type:</b> missing_script\\n<b>Session:</b> auto-bdfdb1f4\\n<b>Time:</b> 2026-06-18 01:30:29\\n\\nInvestigating and fixing...\\n\\n\\nThis may take up to 15 minutes.", "parse_mode": "HTML", "disable_web_page_preview": true}']' timed out after 15 seconds
+[2026-06-18 01:30:44] auto-fix-delegate: Spawning Claude session auto-c22212fd (timeout=900s)
+[2026-06-18 01:30:44] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4448 chars)
+[2026-06-18 02:00:24] auto-fix-delegate: === Auto-fix session auto-e9c663c4 ===
+[2026-06-18 02:00:24] auto-fix-delegate: Issue: Critical script missing: claude_code_delegate (expected at /home/rohit/.hermes/hermes-agent/scripts/claude_code_delegate.py)
+[2026-06-18 02:00:24] auto-fix-delegate: Type: missing_script, Source: autonomous_fixer, Dry-run: False
+[2026-06-18 02:00:24] auto-fix-delegate: Classified as: missing_script (priority: high)
+[2026-06-18 02:00:24] auto-fix-delegate: Cost guard: model verified free
+[2026-06-18 02:00:24] auto-fix-delegate: Rate limit: Rate limited: 20s since last session (min 1800s)
+[2026-06-18 02:00:24] auto-fix-delegate: Session logged: auto-e9c663c4 status=rate_limited
+[2026-06-18 02:31:15] auto-fix-delegate: === Auto-fix session auto-9d5aac37 ===
+[2026-06-18 02:31:15] auto-fix-delegate: Issue: DNS resolution failed: Pi-hole not resolving google.com
+[2026-06-18 02:31:15] auto-fix-delegate: Type: dns_resolution, Source: autonomous_fixer, Dry-run: False
+[2026-06-18 02:31:15] auto-fix-delegate: Classified as: dns_resolution (priority: critical)
+[2026-06-18 02:31:15] auto-fix-delegate: Cost guard: model verified free
+[2026-06-18 02:31:15] auto-fix-delegate: Rate limit: rate limit OK
+[2026-06-18 02:31:15] auto-fix-delegate: Context gathered: 2889 chars
+[2026-06-18 02:31:15] auto-fix-delegate: Git snapshot created: 497843bca
+[2026-06-18 02:31:15] auto-fix-delegate: Git snapshot: 497843bca
+[2026-06-18 02:31:15] auto-fix-delegate: Prompt built: 4596 chars
+[2026-06-18 02:31:29] auto-fix-delegate: Telegram send failed: 
+[2026-06-18 02:31:29] auto-fix-delegate: Spawning Claude session auto-f347eed2 (timeout=900s)
+[2026-06-18 02:31:29] auto-fix-delegate: Command: claude --print --output-format json --add-dir /home:/home... (prompt: 4596 chars)
+[2026-06-18 02:33:15] auto-fix-delegate: === Auto-fix session auto-ee3eb203 ===
+[2026-06-18 02:33:15] auto-fix-delegate: Issue: Container pihole is unhealthy
+[2026-06-18 02:33:15] auto-fix-delegate: Type: healthcheck_fail, Source: autonomous_fixer, Dry-run: False
+[2026-06-18 02:33:15] auto-fix-delegate: Classified as: healthcheck_fail (priority: high)
+[2026-06-18 02:33:15] auto-fix-delegate: Cost guard: model verified free
+[2026-06-18 02:33:15] auto-fix-delegate: Rate limit: Rate limited: 1693s since last session (min 1800s)
+[2026-06-18 02:33:15] auto-fix-delegate: Session logged: auto-ee3eb203 status=rate_limited
