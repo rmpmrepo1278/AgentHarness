@@ -319,42 +319,49 @@ def check_duckdns() -> dict:
 
 
 def check_backups() -> dict:
-    """Check backups — supports both *.tar.gz archives and dated subdirectories."""
-    backup_dir = Path("/mnt/usb/backups/docker-volumes")
-    if not backup_dir.exists():
-        return _check("backups", "warning", message="Backup directory not found on /mnt/usb")
+    """Check backups — uses Kopia snapshots (replaced tar-based backups)."""
+    try:
+        result = subprocess.run(
+            ["kopia", "snapshot", "list", "--json"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return _check("backups", "warning", message="Kopia snapshot list failed")
 
-    # Check for tar.gz archives first
-    archives = sorted(backup_dir.glob("*.tar.gz"))
-    if archives:
-        latest = archives[-1]
-        age_hours = (time.time() - latest.stat().st_mtime) / 3600
-        size_mb = latest.stat().st_size / (1024 * 1024)
+        snapshots = json.loads(result.stdout)
+        if not snapshots:
+            return _check("backups", "warning", message="No Kopia snapshots found")
+
+        # Find the latest snapshot across all sources
+        latest = max(snapshots, key=lambda s: s.get("startTime", ""))
+        start_time = latest.get("startTime", "")
+        if start_time:
+            # Parse ISO timestamp
+            from datetime import timezone
+            try:
+                dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+            except Exception:
+                age_hours = 0
+        else:
+            age_hours = 0
+
         status = "healthy"
         if age_hours > 168:  # 7 days
             status = "critical"
         elif age_hours > 72:  # 3 days
             status = "warning"
-        return _check("backups", status, {"latest": latest.name, "age_hours": round(age_hours, 1), "size_mb": round(size_mb, 1)})
 
-    # Check for dated subdirectories (e.g. "2026-06-14")
-    subdirs = sorted(
-        [d for d in backup_dir.iterdir() if d.is_dir() and d.name != "."],
-        key=lambda d: d.stat().st_mtime,
-    )
-    if subdirs:
-        latest = subdirs[-1]
-        age_hours = (time.time() - latest.stat().st_mtime) / 3600
-        # Count files inside the latest backup
-        file_count = sum(1 for _ in latest.rglob("*") if _.is_file())
-        status = "healthy"
-        if age_hours > 168:
-            status = "critical"
-        elif age_hours > 72:
-            status = "warning"
-        return _check("backups", status, {"latest": latest.name, "age_hours": round(age_hours, 1), "files": file_count, "type": "directory"})
-
-    return _check("backups", "warning", message="No backup archives or directories found")
+        return _check("backups", status, {
+            "latest": start_time[:19] if start_time else "unknown",
+            "age_hours": round(age_hours, 1),
+            "snapshots": len(snapshots),
+            "type": "kopia",
+        })
+    except FileNotFoundError:
+        return _check("backups", "warning", message="kopia binary not found")
+    except Exception as e:
+        return _check("backups", "warning", message=f"Kopia check error: {e}")
 
 
 def check_ssl_certs() -> dict:
