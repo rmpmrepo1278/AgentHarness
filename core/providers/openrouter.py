@@ -103,6 +103,15 @@ class OpenRouterProvider(OpenAICompatProvider):
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         try:
+            # Check if we're already in an async event loop (e.g. FastAPI)
+            loop = asyncio.get_running_loop()
+            # We're in an async context — run in a thread to avoid nested event loops
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, self.complete_async(request))
+                return future.result(timeout=self.timeout + 10)
+        except RuntimeError:
+            # No running loop — safe to use asyncio.run directly
             return asyncio.run(self.complete_async(request))
         except Exception as e:
             logger.error(f"Async run error: {e}")

@@ -36,11 +36,11 @@ log = logging.getLogger(__name__)
 
 # ── Configuration ──────────────────────────────────────────────────────────
 
-COOLDOWN_THRESHOLD = int(os.environ.get("RL_COOLDOWN_THRESHOLD", "2"))
-BASE_COOLDOWN_SECS = int(os.environ.get("RL_BASE_COOLDOWN_SECS", "120"))
-MAX_COOLDOWN_SECS = int(os.environ.get("RL_MAX_COOLDOWN_SECS", "1800"))
-ALL_DOWN_RETRY_SECS = int(os.environ.get("RL_ALL_DOWN_RETRY_SECS", "300"))
-HEALTH_DECAY_SECS = int(os.environ.get("RL_HEALTH_DECAY_SECS", "600"))
+COOLDOWN_THRESHOLD = int(os.environ.get("RL_COOLDOWN_THRESHOLD", "3"))
+BASE_COOLDOWN_SECS = int(os.environ.get("RL_BASE_COOLDOWN_SECS", "60"))
+MAX_COOLDOWN_SECS = int(os.environ.get("RL_MAX_COOLDOWN_SECS", "900"))
+ALL_DOWN_RETRY_SECS = int(os.environ.get("RL_ALL_DOWN_RETRY_SECS", "60"))
+HEALTH_DECAY_SECS = int(os.environ.get("RL_HEALTH_DECAY_SECS", "300"))
 
 # Failure type weights (higher = more severe)
 FAILURE_WEIGHTS: dict[str, int] = {}
@@ -358,22 +358,47 @@ class RateLimitTracker:
                 all_cooldown_since = max(all_cooldown_since, remaining)
 
         if not available and providers:
-            # ALL DOWN — deadlock prevention
-            if all_cooldown_since >= ALL_DOWN_RETRY_SECS:
-                # Force retry the healthiest provider
-                best_provider = max(
+            # ALL DOWN — staggered retry: pick provider with shortest remaining cooldown
+            # Tiered: <30s cooldown → retry immediately; <60s → retry with 5s backoff hint;
+            # <300s → retry healthiest; ≥300s → fail (real outage)
+            shortest_remaining = float("inf")
+            best_provider = None
+            for p in providers:
+                remaining = self.get_cooldown_remaining(p, models.get(p, ""))
+                if remaining < shortest_remaining:
+                    shortest_remaining = remaining
+                    best_provider = p
+
+            if shortest_remaining < 30:
+                # Provider almost recovered — retry immediately
+                log.info("Rate limit: ALL cooldown, %s recovers in %ds — staggered retry",
+                         best_provider, int(shortest_remaining))
+                return [best_provider]
+            elif shortest_remaining < 60:
+                # Mid-cooldown — retry healthiest with backoff hint
+                best_healthy = max(
                     providers,
                     key=lambda p: self.get_health_score(p, models.get(p, ""))
                 )
-                best_score = self.get_health_score(best_provider, models.get(best_provider, ""))
+                log.info("Rate limit: ALL cooldown (shortest %ds) — retry healthiest: %s",
+                         int(shortest_remaining), best_healthy)
+                return [best_healthy]
+            elif all_cooldown_since >= ALL_DOWN_RETRY_SECS:
+                # Extended deadlock — force retry healthiest
+                best_healthy = max(
+                    providers,
+                    key=lambda p: self.get_health_score(p, models.get(p, ""))
+                )
+                best_score = self.get_health_score(best_healthy, models.get(best_healthy, ""))
                 log.warning("Rate limit: ALL providers in cooldown for %.0fs — "
                            "forcing retry of healthiest: %s (score=%.2f)",
-                           all_cooldown_since, best_provider, best_score)
-                return [best_provider]
+                           all_cooldown_since, best_healthy, best_score)
+                return [best_healthy]
             else:
                 log.warning("Rate limit: ALL %d providers in cooldown "
-                           "(oldest %.0fs, deadlock threshold %ds)",
-                           len(providers), all_cooldown_since, ALL_DOWN_RETRY_SECS)
+                           "(shortest %ds, oldest %.0fs, deadlock threshold %ds)",
+                           len(providers), int(shortest_remaining),
+                           all_cooldown_since, ALL_DOWN_RETRY_SECS)
 
         return available
 
@@ -412,6 +437,31 @@ class RateLimitTracker:
             "all_time_500s": sum(e.get("total_500s", 0) for e in self._data.values()),
             "all_time_success": sum(e.get("total_success", 0) for e in self._data.values()),
         }
+
+    def get_staggered_retry_hint(self, providers: list[str], models: dict[str, str] | None = None) -> dict:
+        """
+        Return retry guidance when all providers are cooldown.
+        Returns {"retry_after": seconds, "suggest_provider": name} or {"retry_after": -1} if no retry.
+        """
+        models = models or {}
+        if not providers:
+            return {"retry_after": -1}
+
+        # Find provider with shortest cooldown
+        best = None
+        best_remaining = float("inf")
+        for p in providers:
+            remaining = self.get_cooldown_remaining(p, models.get(p, ""))
+            if remaining < best_remaining:
+                best_remaining = remaining
+                best = p
+
+        if best_remaining < 30:
+            return {"retry_after": 0, "suggest_provider": best}
+        elif best_remaining < 120:
+            return {"retry_after": min(5, best_remaining), "suggest_provider": best}
+        else:
+            return {"retry_after": -1}
 
     def reset(self, provider: str | None = None, model: str | None = None):
         """Reset state for a specific pair or all."""
