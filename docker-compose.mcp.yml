@@ -100,6 +100,31 @@ services:
       start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+  homelab-ops-mcp:
+    build: ./homelab-ops-mcp
+    container_name: homelab-ops-mcp
+    labels:
+      - "autoheal=true"
+    depends_on:
+    - mcp-gateway
+    deploy: *id001
+    environment:
+    - MCP_PORT=8120
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    network_mode: host
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8120"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /usr/bin/docker:/usr/bin/docker:ro
+    - /home/rohit/agentharness/data:/home/rohit/agentharness/data:ro
   file-mcp:
     build: ./file-mcp
     container_name: file-mcp

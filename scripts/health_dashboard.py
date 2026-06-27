@@ -509,6 +509,19 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(dashboard, indent=2, default=str))
 
+    # Emit containers.json for the health dashboard UI / MCP server.
+    c_out = DATA_DIR / "containers.json"
+    container_list = []
+    cresult = _run(["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}"])
+    if cresult.returncode == 0:
+        for line in cresult.stdout.strip().split("\n"):
+            if "\t" not in line:
+                continue
+            name, status = line.split("\t", 1)
+            healthy = "unhealthy" not in status.lower() and "restarting" not in status.lower()
+            container_list.append({"name": name, "healthy": healthy, "status": status})
+    c_out.write_text(json.dumps(container_list, indent=2))
+
     if args.text:
         status_icon = {"healthy": "✅", "warning": "⚠️", "critical": "❌"}
         print(f"\n{'=' * 60}")
