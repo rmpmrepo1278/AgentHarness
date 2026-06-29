@@ -105,6 +105,17 @@ class Router:
         # 3. Call complete.
         response = provider.complete(request)
 
+        # 3b. Treat empty/whitespace-only content as a failure so the
+        # router falls through to the next provider. Some free-tier
+        # models (e.g. owl-alpha) return HTTP 200 with empty content on
+        # simple prompts — without this, the empty string is returned
+        # as the final answer and Hermes has no fallback to retry.
+        if response.success and not (response.text or "").strip():
+            logger.warning(
+                "Provider %s returned empty content, skipping", provider.name
+            )
+            return None
+
         if response.success:
             # 4. Record usage and return.
             self._budget.record_usage(
