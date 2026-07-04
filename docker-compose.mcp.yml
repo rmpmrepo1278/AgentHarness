@@ -4,13 +4,13 @@ services:
     container_name: autoheal
     restart: always
     environment:
-      - AUTOHEAL_CONTAINER_LABEL=autoheal
-      - AUTOHEAL_INTERVAL=120
-      - AUTOHEAL_START_PERIOD=60
-      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
-      - CURL_TIMEOUT=30
+    - AUTOHEAL_CONTAINER_LABEL=autoheal
+    - AUTOHEAL_INTERVAL=120
+    - AUTOHEAL_START_PERIOD=60
+    - AUTOHEAL_DEFAULT_STOP_TIMEOUT=30
+    - CURL_TIMEOUT=30
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
     network_mode: host
     deploy:
       resources:
@@ -19,12 +19,11 @@ services:
           memory: 128M
         reservations:
           memory: 64M
-
   backup-mcp:
     build: ./backup-mcp
     container_name: backup-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: &id001
@@ -42,7 +41,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8102"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8102
       interval: 30s
       timeout: 5s
       retries: 3
@@ -54,7 +57,7 @@ services:
     build: ./docker-mcp
     container_name: docker-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -66,7 +69,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8095"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8095
       interval: 30s
       timeout: 5s
       retries: 3
@@ -81,7 +88,7 @@ services:
     build: ./doctor-mcp
     container_name: doctor-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -93,7 +100,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8105"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8105
       interval: 30s
       timeout: 5s
       retries: 3
@@ -104,7 +115,7 @@ services:
     build: ./homelab-ops-mcp
     container_name: homelab-ops-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -115,7 +126,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8120"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8120
       interval: 30s
       timeout: 5s
       retries: 3
@@ -129,7 +144,7 @@ services:
     build: ./file-mcp
     container_name: file-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -140,7 +155,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8097"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8097
       interval: 30s
       timeout: 5s
       retries: 3
@@ -154,7 +173,7 @@ services:
     build: ./git-mcp
     container_name: git-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -166,7 +185,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8100"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8100
       interval: 30s
       timeout: 5s
       retries: 3
@@ -177,7 +200,7 @@ services:
     build: ./global-chat-mcp
     container_name: global-chat-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -188,7 +211,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8106"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8106
       interval: 30s
       timeout: 5s
       retries: 3
@@ -199,7 +226,7 @@ services:
     build: ./mcp-gateway
     container_name: mcp-gateway
     labels:
-      - "autoheal=true"
+    - autoheal=true
     deploy: *id001
     environment:
     - GATEWAY_PORT=8090
@@ -211,7 +238,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8090"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8090
       interval: 30s
       timeout: 5s
       retries: 3
@@ -221,35 +252,11 @@ services:
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-  n8n-mcp:
-    build: ./n8n-mcp
-    container_name: n8n-mcp
-    labels:
-      - "autoheal=true"
-    depends_on:
-    - mcp-gateway
-    deploy: *id001
-    environment:
-    - MCP_PORT=8098
-    - GATEWAY_URL=http://127.0.0.1:8090
-    - MCP_BASE_DIR=/mcp-base
-    - N8N_URL=http://127.0.0.1:5678
-    network_mode: host
-    restart: always
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8098"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    volumes:
-    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-    - /home/rohit/openclaw/data/provider_keys.env:/data/.env:ro
   network-mcp:
     build: ./network-mcp
     container_name: network-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -261,7 +268,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8103"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8103
       interval: 30s
       timeout: 5s
       retries: 3
@@ -272,7 +283,7 @@ services:
     build: ./paperless-mcp
     container_name: paperless-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -286,7 +297,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8099"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8099
       interval: 30s
       timeout: 5s
       retries: 3
@@ -300,7 +315,7 @@ services:
     build: ./rss-mcp
     container_name: rss-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -311,7 +326,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8104"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8104
       interval: 30s
       timeout: 5s
       retries: 3
@@ -319,12 +338,11 @@ services:
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - rss-data:/data
-
   homelab-exec:
     build: ./homelab-exec
     container_name: homelab-exec
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
     - mcp-gateway
     deploy: *id001
@@ -337,7 +355,11 @@ services:
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8108"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8108
       interval: 30s
       timeout: 5s
       retries: 3
@@ -356,59 +378,65 @@ services:
     - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
     - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
     - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
-
   hermes-memory-mcp:
     build: ./hermes-memory-mcp
     container_name: hermes-memory-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy: *id001
     environment:
-      - MCP_PORT=8091
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - HERMES_HOME=/hermes
-      - SHARED_MEMORY_DIR=/shared-memory
+    - MCP_PORT=8091
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - HERMES_HOME=/hermes
+    - SHARED_MEMORY_DIR=/shared-memory
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8091"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8091
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/.hermes:/hermes:rw
-      - /home/rohit/shared_agent_memory:/shared-memory:rw
-
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/.hermes:/hermes:rw
+    - /home/rohit/shared_agent_memory:/shared-memory:rw
   browser-use-mcp:
     build: ./browser-use-mcp
     container_name: browser-use-mcp
     labels:
-      - "autoheal=true"
+    - autoheal=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy: *id001
     environment:
-      - MCP_PORT=8107
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - LLM_PROXY_URL=http://127.0.0.1:8080/v1
-      - LLM_PROXY_API_KEY=not-needed
-      - BROWSER_USE_MODEL=groq/llama-3.3-70b-versatile
+    - MCP_PORT=8107
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - LLM_PROXY_URL=http://127.0.0.1:8080/v1
+    - LLM_PROXY_API_KEY=not-needed
+    - BROWSER_USE_MODEL=groq/llama-3.3-70b-versatile
     network_mode: host
     restart: always
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8107"]
+      test:
+      - CMD
+      - bash
+      - -c
+      - echo > /dev/tcp/127.0.0.1/8107
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
 version: '3.8'
 volumes:
   mcp-stacks: {}

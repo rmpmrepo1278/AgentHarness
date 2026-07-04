@@ -86,7 +86,12 @@ class OpenAICompatProvider(LLMProvider):
             )
 
         data = resp.json()
-        choice = data["choices"][0]["message"]["content"]
+        # ponytail: free-tier providers (e.g. SambaNova) sometimes return 200
+        # with a message that has no `content` (tool-call-only or empty).
+        # Treat that as a failure so the router falls through instead of
+        # raising KeyError and taking down the whole request.
+        message = data.get("choices", [{}])[0].get("message", {}) or {}
+        choice = message.get("content") or ""
         usage = data.get("usage", {})
         self._usage_today += 1
 

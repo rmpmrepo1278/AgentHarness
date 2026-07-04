@@ -37,10 +37,9 @@ services:
     restart: always
     labels:
       - "autoheal=true"
+    command: ["--host", "0.0.0.0", "--port", "42110"]
     ports:
       - "127.0.0.1:4321:42110"
-      # Note: Khoj binds to 0.0.0.0:42110 inside container
-      # External access via NPM reverse proxy recommended
     volumes:
       - khoj-data:/root/.khoj
       - /home/rohit/.hermes:/data/hermes:ro
@@ -51,8 +50,8 @@ services:
         condition: service_healthy
     environment:
       - KHOJ_DEBUG=false
-      - KHOJ_HOST=0.0.0.0
-      - KHOJ_PORT=42110
+      # Note: KHOJ_HOST/KHOJ_PORT env vars are NOT read by Khoj CLI parser.
+      # Host/port are now set via command: ["--host", "0.0.0.0", "--port", "42110"]
       - KHOJ_SECRET_KEY=${KHOJ_SECRET_KEY:-khoj-secret-key-change-me}
       - KHOJ_ADMIN_EMAIL=${KHOJ_ADMIN_EMAIL:-admin@chagulihome.duckdns.org}
       - KHOJ_ADMIN_PASSWORD=${KHOJ_ADMIN_PASSWORD:-admin}

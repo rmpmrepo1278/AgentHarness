@@ -156,7 +156,7 @@ LRU cache with TTL for identical requests. Keyed on hash of model + system promp
 | Suite | File | Tests | Time | Coverage |
 |-------|------|-------|------|----------|
 | Fast | `test_regression_suite.py` | 33 | ~35s | Proxy, routing, chat, tools, failover, probes, secrets, circuit breaker, cache, config, local LLM, Vaultwarden |
-| Extended | `test_regression_extended.py` | 78 | ~15s | MCP gateway (12 servers), cron (29 jobs), n8n, backups, Hermes memory, log aggregation, rate limits, TokenJuice, context harvester, Docker volumes |
+| Extended | `test_regression_extended.py` | 78 | ~15s | MCP gateway (12 servers), cron (29 jobs), backups, Hermes memory, log aggregation, rate limits, TokenJuice, context harvester, Docker volumes |
 
 **Run:** `make test` (both suites) or `make test-all` (full unit suite)
 
@@ -233,7 +233,7 @@ LRU cache with TTL for identical requests. Keyed on hash of model + system promp
 | `circuit_breaker` | Suppress repeated alerts, auto-reset on recovery |
 | `watchdog` | 5-minute heartbeat, restarts if stale |
 | `autoheal` | Docker container auto-restart |
-| `network-watchdog` | Network connectivity monitoring |
+| `autoheal` | Docker container auto-restart |
 
 ## File Layout
 
