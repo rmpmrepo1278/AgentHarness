@@ -23,6 +23,12 @@ try:
 except ImportError:
     HAS_FASTAPI = False
 
+# PII redaction - strips emails, phones, SSNs, etc. before cloud LLMs
+from core.providers.pii_redact import (
+    redact as redact_pii,
+    is_enabled as pii_redact_enabled,
+)
+
 
 def create_proxy_app(data_dir: str = "") -> object:
     """Create the LLM proxy FastAPI app."""
@@ -47,6 +53,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.google import GoogleProvider
         from core.providers.cerebras import CerebrasProvider
         from core.providers.sambanova import SambaNovaProvider
+        from core.providers.freellmapi import FreeLLMAPIProvider
         from core.providers.openrouter import OpenRouterProvider
 
         bt = BudgetTracker(data_dir=data_dir)
@@ -86,13 +93,22 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers.append(CerebrasProvider(model="gpt-oss-120b", daily_limit=50000))
         if os.environ.get("SAMBANOVA_API_KEY"):
             providers.append(SambaNovaProvider(model="gpt-oss-120b", daily_limit=50000))
+        # FreeLLMAPI — aggregates 16+ free providers, used as deep fallback
+        if os.environ.get("FREELLMAPI_KEY"):
+            providers.append(FreeLLMAPIProvider(
+                name="freellmapi",
+                model=os.environ.get("FREELLMAPI_MODEL", "auto"),
+                daily_limit=int(os.environ.get("FREELLMAPI_DAILY_LIMIT", "100000")),
+            ))
 
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
         # Routing — prioritized by speed (fastest first)
         # Groq ~300t/s, Cerebras ~250t/s, SambaNova ~150t/s, Mistral variable
-        speed_order = ["groq", "cerebras", "sambanova", "mistral", "owl", "google-alt", "openrouter", "local"]
+        # freellmapi last: aggregates 16+ free providers but exhausts fast under
+        # burst load, so it's a deep fallback, not a primary.
+        speed_order = ["groq", "cerebras", "sambanova", "mistral", "owl", "google-alt", "openrouter", "freellmapi", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -124,12 +140,19 @@ def create_proxy_app(data_dir: str = "") -> object:
         rtp = router._providers_by_name
         providers_info = {}
         for name, p in rtp.items():
+            # ponytail: consecutive_failures is a module-level global dict;
+            # per-provider locks if this ever runs multi-process.
+            fails = _failure_counts.get(name, 0)
             providers_info[name] = {
                 "type": "local" if name == "local" else "cloud",
                 "healthy": p.is_available() if hasattr(p, "is_available") else True,
                 "model": getattr(p, "model", "unknown"),
                 "has_api_key": bool(getattr(p, "api_key", "")),
                 "enabled": getattr(p, "enabled", True),
+                "health_probe": {
+                    "consecutive_failures": fails,
+                    "healthy": fails == 0,
+                },
             }
         return JSONResponse({
             "timestamp": int(time.time()),
@@ -137,6 +160,62 @@ def create_proxy_app(data_dir: str = "") -> object:
             "providers": providers_info,
             "routing_order": router._routing.get("critical", []),
         })
+
+    @app.get("/v1/cache")
+    def cache_stats():
+        # ponytail: thin read-only view over existing caches, not a new caching
+        # layer. Add a real response cache only if hit-rate proves it's needed.
+        from core.providers import token_juice, short_circuit
+        tj = token_juice.get_stats()
+        sc_len = len(getattr(short_circuit, "_cache", {}))
+        hits = tj.get("cache_hits", 0)
+        misses = tj.get("cache_misses", 0)
+        return JSONResponse({
+            "hits": hits,
+            "misses": misses,
+            "size": sc_len + len(getattr(token_juice, "_content_cache", {})._cache
+                     if hasattr(token_juice, "_content_cache") else sc_len),
+            "token_juice": tj,
+            "short_circuit_size": sc_len,
+        })
+
+    @app.delete("/v1/cache")
+    def cache_clear():
+        from core.providers import token_juice, short_circuit
+        if hasattr(token_juice, "_content_cache"):
+            token_juice._content_cache._cache.clear()  # type: ignore[attr-defined]
+        if hasattr(short_circuit, "_cache"):
+            short_circuit._cache.clear()
+        token_juice._stats["cache_hits"] = 0  # type: ignore[assignment]
+        token_juice._stats["cache_misses"] = 0  # type: ignore[assignment]
+        return JSONResponse({"success": True})
+
+    # ponytail: global failure counter, per-provider locks if multi-process.
+    _failure_counts: dict[str, int] = {}
+
+    @app.post("/v1/routing")
+    async def routing_control(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+        action = body.get("action")
+        router = _get_router()
+        if action in ("disable_provider", "enable_provider"):
+            name = body.get("provider", "")
+            p = router._providers_by_name.get(name)
+            if p is None:
+                return JSONResponse({"success": False, "error": f"unknown provider {name}"}, status_code=404)
+            p.enabled = (action == "enable_provider")  # type: ignore[attr-defined]
+            if p.enabled:
+                _failure_counts.pop(name, None)
+            return JSONResponse({"success": True})
+        if action == "reset_cooldowns":
+            for p in router._providers_by_name.values():
+                if hasattr(p, "reset_cooldowns"):
+                    p.reset_cooldowns()
+            return JSONResponse({"success": True})
+        return JSONResponse({"success": False, "error": f"unknown action {action}"}, status_code=400)
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
@@ -176,6 +255,20 @@ def create_proxy_app(data_dir: str = "") -> object:
             complexity = Complexity.HIGH
 
         router = _get_router()
+
+        # PII redaction - intercept before reaching cloud providers
+        pii_result = None
+        if pii_redact_enabled():
+            redacted_system = redact_pii(system_prompt) if system_prompt else None
+            redacted_prompt = redact_pii(prompt)
+            if redacted_prompt.total or (redacted_system and redacted_system.total):
+                pii_result = {
+                    "total": redacted_prompt.total + (redacted_system.total if redacted_system else 0),
+                    "fields": {**redacted_prompt.redacted, **(redacted_system.redacted if redacted_system else {})},
+                }
+                prompt = redacted_prompt.text
+                system_prompt = redacted_system.text if redacted_system else system_prompt
+
         llm_request = LLMRequest(
             prompt=prompt,
             max_tokens=max_tokens,
@@ -198,7 +291,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             )
 
         # Format as OpenAI response
-        return JSONResponse({
+        resp_data = {
             "id": f"chatcmpl-ah-{int(time.time())}",
             "object": "chat.completion",
             "created": int(time.time()),
@@ -217,7 +310,10 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "provider": response.provider,
                 "latency_ms": elapsed_ms,
             },
-        })
+        }
+        if pii_result:
+            resp_data["pii_redacted"] = pii_result
+        return JSONResponse(resp_data)
 
     return app
 

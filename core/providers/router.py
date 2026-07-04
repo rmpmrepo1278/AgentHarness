@@ -16,6 +16,14 @@ from core.providers.budget import BudgetTracker
 
 logger = logging.getLogger(__name__)
 
+# ponytail: module-level failure counter, exposed as a helper; per-provider
+# locks if this ever runs multi-process.
+_failure_counts: Dict[str, int] = {}
+
+
+def get_failure_counts() -> Dict[str, int]:
+    return dict(_failure_counts)
+
 # Default routing order: complexity -> list of provider names in priority order.
 _DEFAULT_ROUTING: Dict[str, List[str]] = {
     Complexity.LOW.value: ["local_small"],
@@ -104,6 +112,12 @@ class Router:
 
         # 3. Call complete.
         response = provider.complete(request)
+
+        # Track consecutive failures for the health_probe status view.
+        if not response.success:
+            _failure_counts[provider.name] = _failure_counts.get(provider.name, 0) + 1
+        else:
+            _failure_counts.pop(provider.name, None)
 
         # 3b. Treat empty/whitespace-only content as a failure so the
         # router falls through to the next provider. Some free-tier

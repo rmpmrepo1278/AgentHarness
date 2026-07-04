@@ -116,12 +116,13 @@ def check_docker() -> dict:
 
 
 def check_systemd() -> dict:
-    services = ["hermes-gateway.service", "hermes-watcher.service", "proactive-daemon.service"]
+    services = ["hermes-gateway.service", "hermes-mind-loop.service"]
     failed = []
     for svc in services:
         r = _run(["systemctl", "--user", "is-active", svc], env=_DBUS_ENV)
         if r.returncode != 0:
             failed.append(svc)
+    # Note: hermes-watcher and proactive-daemon removed Jun 30 - no longer checked
     if failed:
         return _check("systemd", "critical", {"failed": failed})
     return _check("systemd", "healthy", {"services_checked": len(services)})
@@ -134,15 +135,14 @@ def check_disk() -> dict:
     usage = {}
     for line in r.stdout.strip().split("\n")[1:]:
         parts = line.split()
-        if len(parts) >= 5:
+        if len(parts) >= 6:
             mount = parts[-1]
             try:
-                pct = int(parts[3].replace("%", ""))
+                pct = int(parts[4].replace("%", ""))
                 usage[mount] = pct
             except ValueError:
                 continue
     max_pct = max(usage.values()) if usage else 0
-    min_free = min(usage.values(), key=lambda x: 100 - x) if usage else 100
     status = "healthy"
     if max_pct > 90:
         status = "critical"
@@ -322,7 +322,7 @@ def check_backups() -> dict:
     """Check backups — uses Kopia snapshots (replaced tar-based backups)."""
     try:
         result = subprocess.run(
-            ["kopia", "snapshot", "list", "--json"],
+            ["/usr/local/bin/kopia", "snapshot", "list", "--json"],
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:

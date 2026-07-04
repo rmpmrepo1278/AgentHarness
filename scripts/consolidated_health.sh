@@ -21,7 +21,11 @@ hc_done() { [ -n "$HC_UUID_CONSOLIDATED_HEALTH" ] && /home/rohit/.hermes/scripts
 hc_start
 
 LOG_PREFIX="[$(date "+%Y-%m-%d %H:%M:%S")] consolidated_health"
-log() { echo "${LOG_PREFIX}: $*"; }
+log() {
+    local msg="${LOG_PREFIX}: $*"
+    echo "$msg"
+    echo "$msg" | logger -t consolidated_health 2>/dev/null || true
+}
 
 # DBUS for systemctl --user from cron
 _UID=$(id -u)
@@ -52,7 +56,7 @@ fi
 
 # ── 2. Systemd user services ──
 log "=== Systemd service check ==="
-for svc in hermes-gateway.service hermes-watcher.service proactive-daemon.service; do
+for svc in hermes-gateway.service; do
     state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "unknown")
     if [ "$state" != "active" ]; then
         log "WARNING: $svc is $state"
@@ -75,8 +79,6 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 OUTPUT="/home/rohit/.hermes/systemd_status.json"
 SERVICES=(
     "hermes-gateway.service"
-    "hermes-watcher.service"
-    "proactive-daemon.service"
     "homelab-backup.service"
     "gdrive-sync.service"
 )
