@@ -1,7 +1,7 @@
 """LLM Proxy Server — OpenAI-compatible API that routes through AgentHarness.
 
 Sits on port 8080 and routes requests to the best available provider
-(local Gemma 4, Groq, Google, Cerebras, SambaNova, OpenRouter).
+(freellmapi, Groq, Cerebras, OpenRouter, local Ollama).
 
 Chaguli and any other client just calls http://localhost:8080/v1/chat/completions
 and gets routed automatically.
@@ -50,10 +50,9 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.router import Router
         from core.providers.llamacpp import LlamaCppProvider
         from core.providers.groq import GroqProvider
-        from core.providers.google import GoogleProvider
         from core.providers.cerebras import CerebrasProvider
-        from core.providers.sambanova import SambaNovaProvider
         from core.providers.freellmapi import FreeLLMAPIProvider
+        from core.providers.openai_compat import OpenAICompatProvider
         from core.providers.openrouter import OpenRouterProvider
 
         bt = BudgetTracker(data_dir=data_dir)
@@ -87,13 +86,16 @@ def create_proxy_app(data_dir: str = "") -> object:
             ))
         if os.environ.get("GROQ_API_KEY"):
             providers.append(GroqProvider(model="llama-3.3-70b-versatile", daily_limit=12000))
-        if os.environ.get("GOOGLE_API_KEY"):
-            providers.append(GoogleProvider(name="google-alt", model="gemini-2.5-flash", daily_limit=1500))
         if os.environ.get("CEREBRAS_API_KEY"):
             providers.append(CerebrasProvider(model="gpt-oss-120b", daily_limit=50000))
-        if os.environ.get("SAMBANOVA_API_KEY"):
-            providers.append(SambaNovaProvider(model="gpt-oss-120b", daily_limit=50000))
-        # FreeLLMAPI — aggregates 16+ free providers, used as deep fallback
+        if os.environ.get("GITHUB_API_KEY"):
+            providers.append(OpenAICompatProvider(
+                name="github-models",
+                endpoint="https://models.inference.ai.azure.com",
+                env_key="GITHUB_API_KEY",
+                model="gpt-4o",
+                daily_limit=150,
+            ))
         if os.environ.get("FREELLMAPI_KEY"):
             providers.append(FreeLLMAPIProvider(
                 name="freellmapi",
@@ -104,11 +106,10 @@ def create_proxy_app(data_dir: str = "") -> object:
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
-        # Routing — prioritized by speed (fastest first)
-        # Groq ~300t/s, Cerebras ~250t/s, SambaNova ~150t/s, Mistral variable
-        # freellmapi last: aggregates 16+ free providers but exhausts fast under
-        # burst load, so it's a deep fallback, not a primary.
-        speed_order = ["groq", "cerebras", "sambanova", "mistral", "owl", "google-alt", "openrouter", "freellmapi", "local"]
+        # Routing — distribute load across all working providers
+        # freellmapi first: auto-routes across 16+ providers internally
+        # then round-robin: groq → cerebras → mistral → owl → openrouter → local
+        speed_order = ["freellmapi", "groq", "github-models", "cerebras", "mistral", "owl", "openrouter", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -278,7 +279,6 @@ def create_proxy_app(data_dir: str = "") -> object:
         )
 
         start = time.monotonic()
-        # Use asyncio.run_coroutine_threadsafe for async providers (OpenRouter) in async context
         import asyncio
         loop = asyncio.get_event_loop()
         response = router.route(llm_request)
@@ -290,7 +290,24 @@ def create_proxy_app(data_dir: str = "") -> object:
                 status_code=503,
             )
 
-        # Format as OpenAI response
+        # Streaming support (SSE)
+        if body.get("stream", False):
+            from starlette.responses import StreamingResponse
+            import json as _json
+            resp_text = response.text or ""
+
+            async def stream_response():
+                yield "data: " + _json.dumps({"choices": [{"delta": {"role": "assistant"}, "index": 0}]}) + "\n\n"
+                for i in range(0, len(resp_text), max(1, len(resp_text) // 20)):
+                    chunk = resp_text[i:i + max(1, len(resp_text) // 20)]
+                    yield "data: " + _json.dumps({"choices": [{"delta": {"content": chunk}, "index": 0}]}) + "\n\n"
+                    await asyncio.sleep(0)
+                yield "data: " + _json.dumps({"choices": [{"delta": {}, "finish_reason": "stop", "index": 0}]}) + "\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(stream_response(), media_type="text/event-stream")
+
+        # Format as OpenAI response (non-streaming)
         resp_data = {
             "id": f"chatcmpl-ah-{int(time.time())}",
             "object": "chat.completion",

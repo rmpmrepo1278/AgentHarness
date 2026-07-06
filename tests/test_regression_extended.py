@@ -177,8 +177,6 @@ CRITICAL_CRON_JOBS = [
     # Security
     ("0 3 * * 0", "/home/rohit/.hermes/scripts/cve_monitor.sh"),
     ("0 21 * * *", "/home/rohit/.hermes/scripts/proactive_quality_monitor.py"),
-    # Daily audit
-    ("0 11 * * *", "/home/rohit/agentharness/scripts/daily_audit.py"),
     # Every 3 hours
     ("0 */3 * * *", "/home/rohit/.hermes/scripts/proactive_quality_monitor.py"),
     # Weekly
@@ -196,7 +194,6 @@ CRITICAL_SCRIPTS = [
     "/home/rohit/agentharness/scripts/db_backup.sh",
     "/home/rohit/agentharness/scripts/backup_all.sh",
     "/home/rohit/agentharness/scripts/verify_backups.sh",
-    "/home/rohit/agentharness/scripts/daily_audit.py",
     "/home/rohit/.hermes/scripts/cve_monitor.sh",
     "/home/rohit/.hermes/scripts/proactive_quality_monitor.py",
 ]

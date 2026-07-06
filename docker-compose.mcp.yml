@@ -1,4 +1,4 @@
-services:
+ervices:
   autoheal:
     image: willfarrell/autoheal:latest
     container_name: autoheal
@@ -17,8 +17,14 @@ services:
         limits:
           cpus: '0.25'
           memory: 128M
+          pids: 500
         reservations:
           memory: 64M
+    oom_score_adj: -500
+    memswap_limit: 128M
+    read_only: true
+    tmpfs:
+    - /tmp
   backup-mcp:
     build: ./backup-mcp
     container_name: backup-mcp
@@ -31,6 +37,7 @@ services:
         limits:
           cpus: '0.50'
           memory: 512M
+          pids: 500
         reservations:
           memory: 128M
     environment:
@@ -53,6 +60,10 @@ services:
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - /mnt/usb/backups:/backups
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   docker-mcp:
     build: ./docker-mcp
     container_name: docker-mcp
@@ -84,6 +95,10 @@ services:
     - ~/mcp-gateway/secrets:/secrets
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - mcp-stacks:/data/stacks
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   doctor-mcp:
     build: ./doctor-mcp
     container_name: doctor-mcp
@@ -111,6 +126,10 @@ services:
       start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   homelab-ops-mcp:
     build: ./homelab-ops-mcp
     container_name: homelab-ops-mcp
@@ -140,6 +159,8 @@ services:
     - /var/run/docker.sock:/var/run/docker.sock:ro
     - /usr/bin/docker:/usr/bin/docker:ro
     - /home/rohit/agentharness/data:/home/rohit/agentharness/data:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
   file-mcp:
     build: ./file-mcp
     container_name: file-mcp
@@ -169,6 +190,7 @@ services:
     - /home/rohit/openclaw/data:/home/rohit/openclaw/data:rw
     - /opt:/opt:rw
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
   git-mcp:
     build: ./git-mcp
     container_name: git-mcp
@@ -196,6 +218,10 @@ services:
       start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   global-chat-mcp:
     build: ./global-chat-mcp
     container_name: global-chat-mcp
@@ -222,6 +248,10 @@ services:
       start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   mcp-gateway:
     build: ./mcp-gateway
     container_name: mcp-gateway
@@ -252,6 +282,8 @@ services:
     - ./templates/docker:/templates/repo:ro
     - ~/mcp-gateway/templates:/templates/local
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
   network-mcp:
     build: ./network-mcp
     container_name: network-mcp
@@ -279,6 +311,10 @@ services:
       start_period: 15s
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+    - /tmp
   paperless-mcp:
     build: ./paperless-mcp
     container_name: paperless-mcp
@@ -311,6 +347,7 @@ services:
     - /mnt/usb:/mnt/usb:ro
     - /home/rohit/openclaw/data:/home/rohit/openclaw/data:ro
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
   rss-mcp:
     build: ./rss-mcp
     container_name: rss-mcp
@@ -338,6 +375,7 @@ services:
     volumes:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - rss-data:/data
+    memswap_limit: 512M
   homelab-exec:
     build: ./homelab-exec
     container_name: homelab-exec
@@ -378,6 +416,8 @@ services:
     - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
     - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
     - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
   hermes-memory-mcp:
     build: ./hermes-memory-mcp
     container_name: hermes-memory-mcp
@@ -408,35 +448,7 @@ services:
     - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     - /home/rohit/.hermes:/hermes:rw
     - /home/rohit/shared_agent_memory:/shared-memory:rw
-  browser-use-mcp:
-    build: ./browser-use-mcp
-    container_name: browser-use-mcp
-    labels:
-    - autoheal=true
-    depends_on:
-    - mcp-gateway
-    deploy: *id001
-    environment:
-    - MCP_PORT=8107
-    - GATEWAY_URL=http://127.0.0.1:8090
-    - MCP_BASE_DIR=/mcp-base
-    - LLM_PROXY_URL=http://127.0.0.1:8080/v1
-    - LLM_PROXY_API_KEY=not-needed
-    - BROWSER_USE_MODEL=groq/llama-3.3-70b-versatile
-    network_mode: host
-    restart: always
-    healthcheck:
-      test:
-      - CMD
-      - bash
-      - -c
-      - echo > /dev/tcp/127.0.0.1/8107
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    volumes:
-    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    memswap_limit: 512M
 version: '3.8'
 volumes:
   mcp-stacks: {}

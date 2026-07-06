@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Sync latest homelab backup to Google Drive (alternate account)
 set -euo pipefail
 
@@ -15,6 +15,7 @@ fi
 DATE=$(basename "$LATEST")
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Syncing $DATE to Google Drive..." | tee -a "$LOG_FILE"
 
-rclone copy "$LATEST" "$REMOTE/$DATE/" -v 2>&1 | tee -a "$LOG_FILE"
+# Exclude large calibre-web files that exceed Drive quota
+rclone copy "$LATEST" "$REMOTE/$DATE/" -v --exclude "calibre-web-config.tar.gz" 2>&1 | tee -a "$LOG_FILE"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sync complete" | tee -a "$LOG_FILE"

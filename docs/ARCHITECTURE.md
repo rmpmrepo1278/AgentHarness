@@ -174,7 +174,6 @@ LRU cache with TTL for identical requests. Keyed on hash of model + system promp
 | Every 30 min | `calendar_prep_watcher.py` | Calendar monitoring |
 | Hourly | `document_intel.py` | Document intelligence |
 | Every 3 hours | `proactive_quality_monitor.py` | Quality monitoring |
-| Daily 11am | `daily_audit.py` | Daily audit |
 | Daily 12pm | `autonomous_tier_engine.py` | Tier engine |
 | Daily 1pm | `daily_research.py` | Research |
 | Daily 6am,6pm | `autonomous_tier_engine.py` | Tier engine |

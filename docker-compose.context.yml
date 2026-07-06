@@ -1,96 +1,69 @@
-# =============================================================================
-# OpenContext — Persistent Context Store for AI Agents
-# https://github.com/0xranx/OpenContext
-#
-# Provides a personal knowledge store that persists context across sessions,
-# repos, and days. Solves the "agent forgets what we discussed" problem.
-#
-# Usage:
-#   docker compose -f docker-compose.context.yml up -d
-#   Then use `oc` CLI to capture, search, and reuse context
-# =============================================================================
-
 services:
   opencontext:
     image: node:20-slim
     container_name: opencontext
     restart: always
     labels:
-      - "autoheal=true"
+    - autoheal=true
     ports:
-      - "127.0.0.1:3284:3284"
+    - 127.0.0.1:3284:3284
     volumes:
-      - opencontext-data:/data
-      - /home/rohit/.hermes:/data/hermes:ro
-      - /home/rohit/Documents:/data/documents:ro
-      - /home/rohit/Downloads:/data/downloads:ro
-      - /home/rohit/agentharness:/data/agentharness:ro
+    - opencontext-data:/data
+    - /home/rohit/.hermes:/data/hermes:ro
+    - /home/rohit/Documents:/data/documents:ro
+    - /home/rohit/Downloads:/data/downloads:ro
+    - /home/rohit/agentharness:/data/agentharness:ro
     working_dir: /app
-    command: >
-      sh -c "
-        set -e
-        export DEBIAN_FRONTEND=noninteractive
-        if [ ! -f /app/opencontext/.installed ]; then
-          echo 'Installing OpenContext...' &&
-          apt-get update -qq && apt-get install -y -qq git build-essential python3 curl 2>/dev/null &&
-          git clone --depth 1 https://github.com/0xranx/OpenContext.git /app/opencontext 2>/dev/null &&
-          cd /app/opencontext && npm install --ignore-scripts 2>/dev/null &&
-          npm rebuild better-sqlite3 2>/dev/null &&
-          touch /app/opencontext/.installed &&
-          echo 'OpenContext installed.'
-        fi &&
-        echo 'Starting OpenContext...' &&
-        cd /app/opencontext &&
-        node -e \"
-          const fs = require('fs');
-          const http = require('http');
-          const { execSync } = require('child_process');
-          const M = require('module');
-          const origResolve = M._resolveFilename;
-          M._resolveFilename = function(r) {
-            if (r.includes('core-native')) return require.resolve('./src/core/native.js');
-            return origResolve.apply(this, arguments);
-          };
-          function oc(args) {
-            try { return execSync('node bin/oc.js ' + args, {cwd: '/app/opencontext', encoding: 'utf8'}); }
-            catch(e) { return e.stdout || e.message || ''; }
-          }
-          let init = false;
-          const server = http.createServer((req, res) => {
-            if (req.url === '/health') { res.writeHead(200); res.end('ok'); return; }
-            res.writeHead(404); res.end('not found');
-          });
-          server.listen(3284, '0.0.0.0', () => {
-            console.log('OpenContext HTTP on :3284');
-            try { oc('init --data-dir /data'); init = true; console.log('Initialized'); }
-            catch(e) { console.log('Init:', e.message); }
-          });
-        \"
-      "
+    command: "sh -c \"\n  set -e\n  export DEBIAN_FRONTEND=noninteractive\n  if [\
+      \ ! -f /app/opencontext/.installed ]; then\n    echo 'Installing OpenContext...'\
+      \ &&\n    apt-get update -qq && apt-get install -y -qq git build-essential python3\
+      \ curl 2>/dev/null &&\n    git clone --depth 1 https://github.com/0xranx/OpenContext.git\
+      \ /app/opencontext 2>/dev/null &&\n    cd /app/opencontext && npm install --ignore-scripts\
+      \ 2>/dev/null &&\n    npm rebuild better-sqlite3 2>/dev/null &&\n    touch /app/opencontext/.installed\
+      \ &&\n    echo 'OpenContext installed.'\n  fi &&\n  echo 'Starting OpenContext...'\
+      \ &&\n  cd /app/opencontext &&\n  node -e \\\"\n    const fs = require('fs');\n\
+      \    const http = require('http');\n    const { execSync } = require('child_process');\n\
+      \    const M = require('module');\n    const origResolve = M._resolveFilename;\n\
+      \    M._resolveFilename = function(r) {\n      if (r.includes('core-native'))\
+      \ return require.resolve('./src/core/native.js');\n      return origResolve.apply(this,\
+      \ arguments);\n    };\n    function oc(args) {\n      try { return execSync('node\
+      \ bin/oc.js ' + args, {cwd: '/app/opencontext', encoding: 'utf8'}); }\n    \
+      \  catch(e) { return e.stdout || e.message || ''; }\n    }\n    let init = false;\n\
+      \    const server = http.createServer((req, res) => {\n      if (req.url ===\
+      \ '/health') { res.writeHead(200); res.end('ok'); return; }\n      res.writeHead(404);\
+      \ res.end('not found');\n    });\n    server.listen(3284, '0.0.0.0', () => {\n\
+      \      console.log('OpenContext HTTP on :3284');\n      try { oc('init --data-dir\
+      \ /data'); init = true; console.log('Initialized'); }\n      catch(e) { console.log('Init:',\
+      \ e.message); }\n    });\n  \\\"\n\"\n"
     environment:
-      - OPENCONTEXT_DATA_DIR=/data
-      - OPENCONTEXT_PORT=3284
+    - OPENCONTEXT_DATA_DIR=/data
+    - OPENCONTEXT_PORT=3284
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 512M
+          pids: 500
         reservations:
           memory: 128M
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+    - host.docker.internal:host-gateway
     networks:
-      - core_default
+    - core_default
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3284/health"]
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:3284/health
       interval: 60s
       timeout: 10s
       retries: 3
-
+    oom_score_adj: -250
+    memswap_limit: 512M
 networks:
   core_default:
     external: true
-
 volumes:
   opencontext-data:
     driver: local

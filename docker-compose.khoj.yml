@@ -1,94 +1,98 @@
-# =============================================================================
-# Khoj — Personal AI Second Brain
-# Self-hosted semantic search, document RAG, proactive agents, multi-channel
-# https://github.com/khoj-ai/khoj
-# =============================================================================
-
 services:
   khoj-db:
     image: pgvector/pgvector:pg17
     container_name: khoj-db
     restart: always
     labels:
-      - "autoheal=true"
+    - autoheal=true
     volumes:
-      - khoj-pgdata:/var/lib/postgresql/data
+    - khoj-pgdata:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=khoj
-      - POSTGRES_USER=khoj
-      - POSTGRES_PASSWORD=khoj-password-change-me
+    - POSTGRES_DB=khoj
+    - POSTGRES_USER=khoj
+    - POSTGRES_PASSWORD=khoj-password-change-me
     networks:
-      - khoj-internal
-      - core_default
+    - khoj-internal
+    - core_default
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 512M
+          pids: 500
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U khoj"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U khoj
       interval: 30s
       timeout: 5s
       retries: 5
-
+    oom_score_adj: -250
+    memswap_limit: 512M
   khoj:
     image: ghcr.io/khoj-ai/khoj:latest
     container_name: khoj
     restart: always
     labels:
-      - "autoheal=true"
-    command: ["--host", "0.0.0.0", "--port", "42110"]
+    - autoheal=true
+    command:
+    - --host
+    - 0.0.0.0
+    - --port
+    - '42110'
     ports:
-      - "127.0.0.1:4321:42110"
+    - 127.0.0.1:4321:42110
     volumes:
-      - khoj-data:/root/.khoj
-      - /home/rohit/.hermes:/data/hermes:ro
-      - /home/rohit/Documents:/data/documents:ro
-      - /home/rohit/Downloads:/data/downloads:ro
+    - khoj-data:/root/.khoj
+    - /home/rohit/.hermes:/data/hermes:ro
+    - /home/rohit/Documents:/data/documents:ro
+    - /home/rohit/Downloads:/data/downloads:ro
     depends_on:
       khoj-db:
         condition: service_healthy
     environment:
-      - KHOJ_DEBUG=false
-      # Note: KHOJ_HOST/KHOJ_PORT env vars are NOT read by Khoj CLI parser.
-      # Host/port are now set via command: ["--host", "0.0.0.0", "--port", "42110"]
-      - KHOJ_SECRET_KEY=${KHOJ_SECRET_KEY:-khoj-secret-key-change-me}
-      - KHOJ_ADMIN_EMAIL=${KHOJ_ADMIN_EMAIL:-admin@chagulihome.duckdns.org}
-      - KHOJ_ADMIN_PASSWORD=${KHOJ_ADMIN_PASSWORD:-admin}
-      - POSTGRES_HOST=khoj-db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=khoj
-      - POSTGRES_USER=khoj
-      - POSTGRES_PASSWORD=khoj-password-change-me
-      # Use free Ollama for local inference
-      - OPENAI_BASE_URL=http://host.docker.internal:11434/v1
-      - OPENAI_API_KEY=placeholder
-      - KHOJ_OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - KHOJ_MODEL_REGISTRY={"openai":{"gpt-3.5-turbo":{"name":"gpt-3.5-turbo","tokenizer":"cl100k_base","max_tokens":128000},"gpt-4":{"name":"gpt-4","tokenizer":"cl100k_base","max_tokens":128000}},"ollama":{"llama3.2:3b":{"name":"llama3.2:3b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:7b":{"name":"qwen2.5:7b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:14b":{"name":"qwen2.5:14b","tokenizer":"cl100k_base","max_tokens":32768}}}
+    - KHOJ_DEBUG=false
+    - KHOJ_SECRET_KEY=${KHOJ_SECRET_KEY:-khoj-secret-key-change-me}
+    - KHOJ_ADMIN_EMAIL=${KHOJ_ADMIN_EMAIL:-admin@chagulihome.duckdns.org}
+    - KHOJ_ADMIN_PASSWORD=${KHOJ_ADMIN_PASSWORD:-admin}
+    - POSTGRES_HOST=khoj-db
+    - POSTGRES_PORT=5432
+    - POSTGRES_DB=khoj
+    - POSTGRES_USER=khoj
+    - POSTGRES_PASSWORD=khoj-password-change-me
+    - OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+    - OPENAI_API_KEY=placeholder
+    - KHOJ_OLLAMA_BASE_URL=http://host.docker.internal:11434
+    - KHOJ_MODEL_REGISTRY={"openai":{"gpt-3.5-turbo":{"name":"gpt-3.5-turbo","tokenizer":"cl100k_base","max_tokens":128000},"gpt-4":{"name":"gpt-4","tokenizer":"cl100k_base","max_tokens":128000}},"ollama":{"llama3.2:3b":{"name":"llama3.2:3b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:7b":{"name":"qwen2.5:7b","tokenizer":"cl100k_base","max_tokens":32768},"qwen2.5:14b":{"name":"qwen2.5:14b","tokenizer":"cl100k_base","max_tokens":32768}}}
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+    - host.docker.internal:host-gateway
     networks:
-      - khoj-internal
-      - core_default
+    - khoj-internal
+    - core_default
     deploy:
       resources:
         limits:
           cpus: '2.0'
           memory: 2G
+          pids: 500
         reservations:
           memory: 512M
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:42110/"]
+      test:
+      - CMD
+      - curl
+      - -sf
+      - http://localhost:42110/
       interval: 60s
       timeout: 10s
       retries: 3
-
+    oom_score_adj: -250
+    memswap_limit: 2G
 networks:
   khoj-internal:
     driver: bridge
   core_default:
     external: true
-
 volumes:
   khoj-data:
     driver: local
