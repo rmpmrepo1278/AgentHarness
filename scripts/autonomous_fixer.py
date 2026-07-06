@@ -22,7 +22,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -143,7 +143,6 @@ CRITICAL_SCRIPTS = {
     "docker_ghost_check": AG_HOME / "scripts" / "docker_ghost_check.sh",
     "proactive_quality_monitor": HERMES_HOME / "scripts" / "proactive_quality_monitor.py",
     "unified_cost_guard": HERMES_HOME / "scripts" / "unified_cost_guard.py",
-    "daily_audit": AG_HOME / "scripts" / "daily_audit.py",
     "cos_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "cos_briefing.py",
     "evening_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "evening_briefing.py",
     "weekly_review": HERMES_HOME / "hermes-agent" / "scripts" / "weekly_review.py",
@@ -566,6 +565,52 @@ def critic_verify_claim(claim_type: str, target: str) -> dict:
         actual = "open" if result == 0 else "closed"
         return {"claimed": "open", "actual": actual, "match": result == 0}
     return {"claimed": claim_type, "actual": "unknown", "match": True}
+
+
+# ---------------------------------------------------------------------------
+# Mandatory post-fix verification — structural Maker/Checker split
+# Loop Engineering: the implementer is never the verifier.
+# ---------------------------------------------------------------------------
+
+_VERIFY_CLAIM_MAP = {
+    "restart_loop":       "container_healthy",
+    "healthcheck_fail":   "container_healthy",
+    "service_down":       "service_active",
+    "duckdns_sync":       "dns_resolves",
+    "dns_resolution":     "dns_resolves",
+    "mcp_child_health":   "port_open",
+    "port_conflict":      "port_open",
+    # Human-only — no auto-verify possible
+    "ssl_cert_expiry":    None,
+    "api_key_invalid":    None,
+    "config_drift":       None,
+    "missing_script":     None,
+}
+
+def verify_fix(issue: dict, result: dict) -> dict:
+    """Tool-grounded verification after delegate returns (Checker half).
+    Returns {'verified': bool|None, 'actual': str, 'claimed': str}.
+    verified=None means no verifier defined for this issue type (human-only)."""
+    claim_type = _VERIFY_CLAIM_MAP.get(issue.get("type"))
+    if claim_type is None:
+        return {"verified": None, "actual": "no_verifier", "claimed": "no_verifier"}
+
+    target = (
+        issue.get("container")
+        or issue.get("service")
+        or issue.get("domain")
+        or issue.get("mount")
+        or issue.get("port")
+        or issue.get("key")
+        or issue.get("repo")
+        or issue.get("log_file")
+        or "unknown"
+    )
+    if claim_type == "port_open" and issue.get("port"):
+        target = str(issue["port"])
+
+    r = critic_verify_claim(claim_type, target)
+    return {"verified": r["match"], "actual": r["actual"], "claimed": r["claimed"]}
 
 
 # ---------------------------------------------------------------------------
@@ -1036,16 +1081,18 @@ def check_mcp_child_health() -> list[dict]:
         8090: "mcp-gateway",
         8091: "hermes-memory-mcp",
         8095: "docker-mcp",
-        8097: "filesystem-mcp",
-        8098: "github-mcp",
-        8099: "web-search-mcp",
-        8100: "postgres-mcp",
-        8102: "redis-mcp",
-        8103: "slack-mcp",
-        8104: "notion-mcp",
-        8105: "browser-use-mcp",
-        8106: "qdrant-mcp",
-        8107: "browser-use-mcp-2",
+        8097: "file-mcp",
+        8098: "n8n-mcp",
+        8099: "paperless-mcp",
+        8100: "git-mcp",
+        8102: "backup-mcp",
+        8103: "network-mcp",
+        8104: "rss-mcp",
+        8105: "doctor-mcp",
+        8106: "global-chat-mcp",
+        8107: "browser-use-mcp",
+        8108: "homelab-exec",
+        8120: "homelab-ops-mcp",
     }
     import socket
     for port, name in mcp_ports.items():
@@ -1167,6 +1214,61 @@ def check_api_key_validity() -> list[dict]:
                 "severity": "medium",
                 "key": key,
             })
+    return issues
+
+
+def check_ux_quality() -> list[dict]:
+    """Check UX quality signals: message spam, broken commitments, no-op sessions.
+
+    These are application-level quality checks that infrastructure monitors miss.
+    """
+    issues = []
+
+    # 1. Outbound message spam — same pattern >10 times in last 24h
+    try:
+        db_path = HERMES_HOME / "state.db"
+        if db_path.exists():
+            import sqlite3
+            conn = sqlite3.connect(str(db_path))
+            cutoff = int((datetime.now() - __import__("datetime").timedelta(hours=24)).timestamp())
+            rows = conn.execute(
+                "SELECT content FROM messages WHERE role='assistant' AND timestamp >= ?",
+                (cutoff,),
+            ).fetchall()
+            # Count by pattern prefix (first 40 chars)
+            from collections import Counter
+            prefixes = Counter()
+            for (content,) in rows:
+                if content:
+                    prefixes[content[:40]] += 1
+            top_spam = prefixes.most_common(3)
+            for prefix, count in top_spam:
+                if count > 10:
+                    issues.append({
+                        "issue": f"Message spam: '{prefix}...' sent {count} times in 24h",
+                        "type": "ux_quality",  # NOT claude-fixable — just log + alert
+                        "severity": "high" if count > 20 else "medium",
+                        "log_file": "state.db",
+                    })
+            conn.close()
+    except Exception:
+        pass
+
+    # 2. Commitment tracker not working — 0 commitments despite being active
+    try:
+        ct_file = HERMES_HOME / "state" / "commitments_active.json"
+        if ct_file.exists():
+            ct = json.loads(ct_file.read_text())
+            if ct.get("stats", {}).get("total_made", -1) == 0:
+                # Running for days but never tracked a commitment
+                issues.append({
+                    "issue": "Commitment tracker has 0 commitments — likely not intercepting promises",
+                    "type": "ux_quality",  # NOT claude-fixable — just log + alert
+                    "severity": "medium",
+                })
+    except Exception:
+        pass
+
     return issues
 
 
@@ -1460,13 +1562,33 @@ def main():
     parser.add_argument("--min-severity", default="medium",
                         choices=["low", "medium", "high", "critical"],
                         help="Minimum severity to process (default: medium)")
+    parser.add_argument("--verify-only", action="store_true",
+                        help="Re-verify recent fixes without detecting new issues")
     args = parser.parse_args()
+
+    # ── Verify-only mode (L1 stub) ──
+    if args.verify_only:
+        log("=== VERIFY-ONLY MODE ===")
+        try:
+            sys.path.insert(0, str(HERMES_HOME / "scripts"))
+            from loop_state import RunLog
+            rl = RunLog()
+            tail = rl.tail(50)
+            success_count = len([e for e in tail if e.get("outcome") == "success"])
+            log(f"Would re-verify {success_count} recent success entries from run log")
+            print(f"Verify-only: {success_count} entries to re-verify (L1 stub)")
+        except Exception as e:
+            log(f"Verify-only: run log unavailable ({e})")
+        sys.exit(0)
 
     # Determine dry run mode
     dry_run = args.dry_run or DRY_RUN_FLAG.exists()
 
     log(f"=== Autonomous fixer starting ===")
     log(f"Dry run: {dry_run}, Min severity: {args.min_severity}")
+
+    run_start = time.time()  # ponytail: for run log duration
+    outcome = None
 
     # ── 0. Load persistent state ──
     state = read_json_safe(STATE_FILE)
@@ -1537,12 +1659,28 @@ def main():
         log(f"Key checks: {len(key_issues)} issue(s) detected")
         all_issues.extend(key_issues)
 
+    # ── 1n. UX quality checks (message spam, broken commitments) ──
+    ux_issues = check_ux_quality()
+    if ux_issues:
+        log(f"UX checks: {len(ux_issues)} quality issue(s) detected")
+        all_issues.extend(ux_issues)
+
     log(f"Detected {len(all_issues)} total issues")
 
     # ── 2. Filter to Claude-fixable issues ──
     fixable = filter_issues(all_issues, args.min_severity)
     fixable = deduplicate_issues(fixable)
     log(f"Claude-fixable issues (severity >= {args.min_severity}): {len(fixable)}")
+
+    # ── 2b. Log + alert UX quality issues (don't delegate to Claude) ──
+    ux_issues = [i for i in all_issues if i.get("type") == "ux_quality"]
+    for ux in ux_issues:
+        log(f"UX: {ux['issue']}")
+        if ux.get("severity") in ("high", "critical"):
+            try:
+                send_telegram(f"📊 **UX Alert**: {ux['issue'][:200]}")
+            except Exception:
+                pass
 
     if not fixable:
         log("No fixable issues found — all clear")
@@ -1607,12 +1745,14 @@ def main():
         if is_stagnant(issue):
             key = _stagnation_key(issue)
             log(f"STAGNANT: {key} — skipping (threshold={STAGNATION_THRESHOLD})")
-            send_telegram(
-                f"⚠️ <b>Stagnation detected</b>\n\n"
-                f"Fix attempts for <code>{key}</code> exceeded {STAGNATION_THRESHOLD} "
-                f"in {STAGNATION_WINDOW_SECONDS // 60} minutes.\n"
-                f"Human intervention may be needed."
-            )
+            # Only alert for high/critical severity stagnation
+            if issue.get("severity") in ("high", "critical"):
+                send_telegram(
+                    f"⚠️ <b>Stagnation detected</b>\n\n"
+                    f"Fix attempts for <code>{key}</code> exceeded {STAGNATION_THRESHOLD} "
+                    f"in {STAGNATION_WINDOW_SECONDS // 60} minutes.\n"
+                    f"Human intervention may be needed."
+                )
             results.append({"status": "stagnant", "issue": issue["issue"], "key": key})
             continue
 
@@ -1621,7 +1761,24 @@ def main():
         if reflexion.get("reflections"):
             log(f"Reflexion: {len(reflexion['reflections'])} past reflection(s) found")
         if "WARNING" in reflexion.get("recommendation", ""):
-            log(f"Reflexion warning: {reflexion['recommendation']}")
+            log(f"Reflexion SKIP: {reflexion['recommendation']}")
+            # Only alert for high/critical severity
+            if issue.get("severity") in ("high", "critical"):
+                send_telegram(
+                    f"⏭️ <b>Skipped fix (reflexion)</b>\n\n"
+                    f"Issue: <code>{issue['issue'][:80]}</code>\n"
+                    f"Reason: {reflexion['recommendation']}\n\n"
+                    f"Capsule history: {reflexion['capsule_history'].get('failures', 0)}/"
+                    f"{reflexion['capsule_history'].get('total', 0)} failures. "
+                    f"Human may need to try a different approach."
+                )
+            results.append({
+                "status": "skipped_reflexion", "issue": issue["issue"],
+                "reflexion": reflexion["recommendation"],
+            })
+            # Still record the skip as an attempt so stagnation tracking works
+            record_attempt(issue)
+            continue
 
         # Record this attempt
         record_attempt(issue)
@@ -1641,9 +1798,33 @@ def main():
         results.append(result)
         log(f"Result: {result.get('status', '?')}")
 
-        # ── Write reflection to close the learning loop ──
+        # ── Maker/Checker: mandatory post-fix verification ──
         fix_status = result.get("status", "unknown")
-        outcome = "success" if fix_status in ("completed", "dry_run") else "fail"
+        if fix_status == "completed" and not dry_run:
+            v = verify_fix(issue, result)
+            log(f"VERIFY: claimed={v['claimed']} actual={v['actual']} verified={v['verified']}")
+            if v["verified"] is False:
+                fix_status = "fix_unverified"
+                result["status"] = "fix_unverified"
+                result["verify_detail"] = v
+                log(f"FIX UNVERIFIED — checker rejected (actual={v['actual']})")
+                try:
+                    send_telegram(
+                        f"⚠️ <b>Fix unverified</b>\n\n"
+                        f"Issue: <code>{issue['issue'][:80]}</code>\n"
+                        f"Delegate reported success but checker found: <code>{v['actual']}</code>\n"
+                        f"Claimed: {v['claimed']} — human review needed."
+                    )
+                except Exception:
+                    pass
+
+        # ── Write reflection to close the learning loop ──
+        outcome = (
+            "success" if fix_status == "dry_run"
+            else "success" if fix_status == "completed"
+            else "fix_unverified" if fix_status == "fix_unverified"
+            else "fail"
+        )
         reflection_notes = (
             f"Fix for {issue['issue'][:80]}: status={fix_status}. "
             f"Reflexion pre-check: {reflexion.get('recommendation', 'N/A')}. "
@@ -1667,8 +1848,8 @@ def main():
         except Exception as e:
             log(f"ACE candidate generation failed: {e}")
 
-        # ── Voyager skill library: extract on success ──
-        if outcome == "success" and fix_status not in ("dry_run",):
+        # ── Voyager skill library: extract on verified success ──
+        if outcome == "success" and fix_status == "completed":
             try:
                 skill_script = HERMES_HOME / "scripts" / "skill_library.py"
                 if skill_script.exists():
@@ -1691,7 +1872,11 @@ def main():
                     or issue.get("mount")
                     or "unknown"
                 )
-                _outcome = "success" if fix_status in ("completed", "dry_run") else "fail"
+                _outcome = (
+                    "success" if fix_status in ("completed", "dry_run")
+                    else fix_status if fix_status == "fix_unverified"
+                    else "fail"
+                )
                 _signals = [issue.get("type", "")]
                 subprocess.run(
                     [sys.executable, str(_capsule_script), "record",
@@ -1723,6 +1908,52 @@ def main():
             state["rate_limits"]["category_hour_count"].get(cat, 0) + 1
         )
     save_state(state)
+
+    # ── 6b. Structured loop state + run log ──
+    try:
+        sys.path.insert(0, str(HERMES_HOME / "scripts"))
+        from loop_state import LoopState, RunLog
+        ls = LoopState()
+        rl = RunLog()
+        # Upsert processed issues
+        for issue in top_issues:
+            r = next((r for r in results if r.get("issue") == issue["issue"]), {})
+            ls.add_or_update({
+                "id": _stagnation_key(issue),
+                "pattern": "autonomous_fixer",
+                "type": issue["type"],
+                "target": (
+                    issue.get("container") or issue.get("service") or issue.get("domain")
+                    or issue.get("mount") or "unknown"
+                ),
+                "severity": issue.get("severity", "medium"),
+                "status": "waiting_human" if r.get("status") == "fix_unverified" else "active",
+                "last_action": r.get("status", "unknown"),
+                "last_run": datetime.now(timezone.utc).isoformat(),
+            })
+        ls.prune()
+        ls.write()
+        # Append run log entry
+        duration = time.time() - run_start
+        escalations_list = [
+            r.get("status") for r in results
+            if r.get("status") in ("stagnant", "skipped_reflexion", "fix_unverified")
+        ]
+        actions = [f"{r.get('status','?')}({_stagnation_key(top_issues[i])})"
+                   for i, r in enumerate(results) if i < len(top_issues)]
+        # Determine run-level outcome
+        if any(r.get("status") == "fix_unverified" for r in results):
+            run_outcome = "fix_unverified"
+        elif all(r.get("status") in ("completed", "dry_run") for r in results):
+            run_outcome = "success"
+        elif not results:
+            run_outcome = "all_clear"
+        else:
+            run_outcome = "fail"
+        rl.record("autonomous_fixer", duration, len(all_issues),
+                  actions, escalations_list, run_outcome)
+    except Exception as e:
+        log(f"loop_state sync skipped: {e}")
 
     # ── 7. Output ──
     output = {

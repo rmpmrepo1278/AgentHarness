@@ -13,33 +13,30 @@
   Phase 2: Discovering New Models (HuggingFace API)
 =========================================
 
-[INFO] Max model size: ~24GB (total=35GB, docker=7GB)
+[INFO] Max model size: ~25GB (total=35GB, docker=6GB)
 [INFO] Querying HuggingFace API...
 [OK] Found 20 candidate models
 [INFO] Top candidates:
-  1. Maddio/Qwen2.5-7B-Instruct-Tool-Planning-v0.1-Q4_K_M-GGUF / qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf (4.36GB, score=80.0, downloads=10)
-  2. hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF / llama-3.2-1b-instruct-q4_k_m.gguf (0.75GB, score=71.7, downloads=31691)
-  3. MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB, score=70.1, downloads=59)
-  4. hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF / llama-3.2-3b-instruct-q4_k_m.gguf (1.88GB, score=58.0, downloads=18035)
-  5. joshnader/Meta-Llama-3.1-8B-Instruct-Q4_K_M-GGUF / meta-llama-3.1-8b-instruct-q4_k_m.gguf (4.58GB, score=52.6, downloads=2633)
+  1. hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF / llama-3.2-1b-instruct-q4_k_m.gguf (0.75GB, score=85.5, downloads=45450)
+  2. Maddio/Qwen2.5-7B-Instruct-Tool-Planning-v0.1-Q4_K_M-GGUF / qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf (4.36GB, score=80.2, downloads=211)
+  3. hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF / llama-3.2-3b-instruct-q4_k_m.gguf (1.88GB, score=73.5, downloads=33472)
+  4. MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB, score=70.1, downloads=131)
+  5. joshnader/Meta-Llama-3.1-8B-Instruct-Q4_K_M-GGUF / meta-llama-3.1-8b-instruct-q4_k_m.gguf (4.58GB, score=53.7, downloads=3661)
 
 =========================================
   Phase 3: Downloading New Models
 =========================================
 
-[INFO] Available disk space: ~4147GB
+[INFO] Available disk space: ~4149GB
 /home/rohit/agentharness/venv/lib/python3.13/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
   warnings.warn(
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-[INFO] qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf already exists. Skipping.
 [INFO] llama-3.2-1b-instruct-q4_k_m.gguf already exists. Skipping.
-[INFO] Downloading MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB)...
-[OK] Downloaded: deepseek-moe-16b-Q4_K_M.gguf (10.1GB)
+[INFO] qwen2.5-7b-instruct-tool-planning-v0.1-q4_k_m.gguf already exists. Skipping.
 [INFO] Downloading hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF / llama-3.2-3b-instruct-q4_k_m.gguf (1.88GB)...
 [OK] Downloaded: llama-3.2-3b-instruct-q4_k_m.gguf (1.9GB)
+[INFO] Downloading MikeKuykendall/deepseek-moe-16b-q4-k-m-cpu-offload-gguf / deepseek-moe-16b-Q4_K_M.gguf (10.11GB)...
+[OK] Downloaded: deepseek-moe-16b-Q4_K_M.gguf (10.1GB)
 Downloads complete: 2 new, 0 failed
-[INFO] Rebuilding model catalog...
-Catalog updated: 4 models
 [OK] Downloads complete: 2 new, 0 failed
 
 =========================================
@@ -54,22 +51,4 @@ Catalog updated: 4 models
   Phase 5: Benchmarking All Configurations
 =========================================
 
-[INFO] Running full benchmark suite...
-[INFO] Previous best: llama-3.2-1b-instruct-q4_k_m.gguf (score: 9.97)
-
-=========================================
-  AgentHarness Benchmark Suite
-=========================================
-
-[INFO] Scanning for existing benchmarking tools...
-[WARN] No existing benchmark tools found. Using built-in benchmarks.
-
-=========================================
-  Running Full Benchmark Suite
-=========================================
-
-[INFO] Stopping primary LLM service to free memory for benchmarks...
-[INFO] Found 4 model(s) in /home/rohit/agentharness/models
-[WARN] Engine ik-llama: bench binary not found at /usr/local/bin/ik-llama-bench
-[WARN] Engine stock: bench binary not found at /usr/local/bin/llama-bench
-[ERROR] No inference engines found. Run build_inference.sh first.
+[ERROR] benchmark.sh not found at /home/rohit/agentharness/scripts/benchmark.sh

@@ -1,0 +1,28 @@
+====================================================================================================
+Ollama Benchmark - Ryzen 7 4700U (8C/8T, CPU only)
+Prompt: "Explain the concept of quantum computing in 3-4 sentences."
+====================================================================================================
+
+--- llama3.2:3b ---
+  llama3.2:3b        t=8 b=  512 cold | gen: 100 tok in   9.6s =   10.4 t/s | prompt:  39 tok in 0.10s =   398 t/s | load:  0.2s | "Quantum computing is a revolutionary technology that uses the principles of quan..."
+  llama3.2:3b        t=8 b=  512 warm | gen: 131 tok in  12.6s =   10.4 t/s | prompt:  39 tok in 0.10s =   397 t/s | load:  0.2s | "Quantum computing is a revolutionary technology that uses the principles of quan..."
+  llama3.2:3b        t=8 b= 1024 warm | gen: 121 tok in  11.8s =   10.3 t/s | prompt:  39 tok in 0.50s =    77 t/s | load:  4.3s | "Quantum computing is a new paradigm for computation that uses the principles of ..."
+  llama3.2:3b        t=8 b= 2048 warm | gen: 104 tok in   9.9s =   10.5 t/s | prompt:  39 tok in 0.50s =    78 t/s | load:  4.6s | "Quantum computing is a revolutionary technology that uses the principles of quan..."
+  llama3.2:3b        t=6 b=  512 warm | gen: 103 tok in   9.9s =   10.4 t/s | prompt:  39 tok in 0.49s =    79 t/s | load:  4.3s | "Quantum computing is a revolutionary technology that utilizes the principles of ..."
+  llama3.2:3b        t=6 b= 1024 warm | gen: 106 tok in  10.2s =   10.4 t/s | prompt:  39 tok in 0.51s =    77 t/s | load:  4.3s | "Quantum computing is a new paradigm for computing that uses the principles of qu..."
+  llama3.2:3b        t=6 b= 2048 warm | gen: 102 tok in   9.9s =   10.3 t/s | prompt:  39 tok in 0.49s =    79 t/s | load:  4.6s | "Quantum computing is a revolutionary technology that uses the principles of quan..."
+  llama3.2:3b        t=4 b=  512 warm | gen: 105 tok in  10.0s =   10.5 t/s | prompt:  39 tok in 0.50s =    79 t/s | load:  4.6s | "Quantum computing is a new paradigm for computing that uses the principles of qu..."
+  llama3.2:3b        t=4 b= 1024 warm | gen: 116 tok in  11.8s =    9.8 t/s | prompt:  39 tok in 0.55s =    71 t/s | load:  4.3s | "Quantum computing is a revolutionary technology that uses the principles of quan..."
+  llama3.2:3b        t=4 b= 2048 warm | gen:  97 tok in   9.3s =   10.4 t/s | prompt:  39 tok in 0.50s =    77 t/s | load:  4.6s | "Quantum computing is a new paradigm for computing that uses the principles of qu..."
+
+--- mistral:latest ---
+  mistral:latest     t=8 b=  512 cold | gen: 140 tok in  28.3s =    4.9 t/s | prompt:  18 tok in 1.00s =    18 t/s | load:  8.3s | " Quantum computing is a type of computation that utilizes the principles of quan..."
+  mistral:latest     t=8 b=  512 warm | gen: 102 tok in  20.6s =    5.0 t/s | prompt:  18 tok in 0.20s =    89 t/s | load:  0.1s | " Quantum computing is a type of computing that uses quantum bits, or qubits, ins..."
+  mistral:latest     t=8 b= 1024 warm | gen: 114 tok in  22.8s =    5.0 t/s | prompt:  18 tok in 0.92s =    20 t/s | load:  5.4s | " Quantum computing is a type of computation that utilizes quantum bits, or qubit..."
+  mistral:latest     t=8 b= 2048 warm | gen: 118 tok in  23.9s =    4.9 t/s | prompt:  18 tok in 0.93s =    19 t/s | load:  5.6s | " Quantum computing is a novel form of computation that utilizes quantum-mechanic..."
+  mistral:latest     t=6 b=  512 warm | gen: 131 tok in  26.2s =    5.0 t/s | prompt:  18 tok in 0.93s =    19 t/s | load:  5.3s | " Quantum computing is a type of computation that utilizes quantum bits, or qubit..."
+  mistral:latest     t=6 b= 1024 warm | gen:  90 tok in  17.9s =    5.0 t/s | prompt:  18 tok in 0.94s =    19 t/s | load:  5.3s | " Quantum computing is a type of computation that utilizes quantum bits or qubits..."
+  mistral:latest     t=6 b= 2048 warm | gen: 127 tok in  25.6s =    5.0 t/s | prompt:  18 tok in 0.99s =    18 t/s | load:  5.6s | " Quantum computing is a revolutionary type of computing that leverages the princ..."
+  mistral:latest     t=4 b=  512 warm | gen:  90 tok in  17.9s =    5.0 t/s | prompt:  18 tok in 0.92s =    20 t/s | load:  5.3s | " Quantum computing is a revolutionary type of computation that leverages the pri..."
+  mistral:latest     t=4 b= 1024 warm | gen: 131 tok in  26.2s =    5.0 t/s | prompt:  18 tok in 0.90s =    20 t/s | load:  5.3s | " Quantum computing is a type of computing that utilizes the principles of quantu..."
+  mistral:latest     t=4 b= 2048 warm | gen: 103 tok in  23.4s =    4.4 t/s | prompt:  18 tok in 0.92s =    20 t/s | load:  5.5s | " Quantum computing is a type of computing that utilizes quantum bits, or qubits,..."

@@ -210,7 +210,7 @@ def check_network() -> dict:
     # Check key ports
     key_ports = {
         8080: "llm-proxy", 8787: "hermes-webui", 3002: "grafana",
-        3001: "uptime-kuma", 5678: "n8n", 9000: "portainer",
+        4321: "khoj", 8000: "paperless", 9000: "portainer",
     }
     down = []
     for port, name in key_ports.items():
