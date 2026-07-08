@@ -1,1187 +1,533 @@
-[2026-07-05 03:00:41] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 03:00:41] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 03:00:41] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 03:00:41] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 03:01:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 03:01:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 03:01:18] autonomous-fixer: Detected 6 total issues
-[2026-07-05 03:01:18] autonomous-fixer: Detected 6 total issues
-[2026-07-05 03:01:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 03:01:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 03:01:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 03:01:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 03:01:18] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 03:01:18] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 03:01:18] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 03:01:18] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 03:01:33] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 03:01:33] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 03:01:33] autonomous-fixer: Reflexion: 1 past reflection(s) found
-[2026-07-05 03:01:33] autonomous-fixer: Reflexion: 1 past reflection(s) found
-[2026-07-05 03:01:33] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Container linkwarden is unhealthy --issue-type...
-[2026-07-05 03:01:33] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Container linkwarden is unhealthy --issue-type...
-[2026-07-05 03:03:33] autonomous-fixer: Result: delegate_timeout
-[2026-07-05 03:03:33] autonomous-fixer: Result: delegate_timeout
-[2026-07-05 03:03:33] autonomous-fixer: Reflection recorded: fail
-[2026-07-05 03:03:33] autonomous-fixer: Reflection recorded: fail
-[2026-07-05 03:03:33] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 03:03:33] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 03:03:33] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 03:03:33] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 03:03:33] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 03:03:33] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 6 issues, 5 fixable, 3 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - delegate_timeout: delegate_timeout
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 03:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 03:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 03:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 03:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 03:30:34] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 03:30:34] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 03:30:34] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 03:30:34] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 03:31:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 03:31:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 03:31:03] autonomous-fixer: Detected 6 total issues
-[2026-07-05 03:31:03] autonomous-fixer: Detected 6 total issues
-[2026-07-05 03:31:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 03:31:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 03:31:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 03:31:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=container): Container pihole is unhealthy
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=container): Container pihole is unhealthy
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 03:31:03] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 03:31:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 03:31:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 03:31:03] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 03:31:03] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 04:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 04:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 04:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 04:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 04:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 04:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 04:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 04:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 04:01:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 04:01:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 04:01:06] autonomous-fixer: Detected 4 total issues
-[2026-07-05 04:01:06] autonomous-fixer: Detected 4 total issues
-[2026-07-05 04:01:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 04:01:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 04:01:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 04:01:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 04:01:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 04:01:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 04:01:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 04:01:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 04:01:06] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 04:01:06] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 04:01:06] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 04:01:06] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 04:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 04:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 04:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 04:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 04:30:39] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 04:30:39] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 04:30:39] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 04:30:39] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 04:31:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 04:31:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 04:31:17] autonomous-fixer: Detected 4 total issues
-[2026-07-05 04:31:17] autonomous-fixer: Detected 4 total issues
-[2026-07-05 04:31:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 04:31:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 04:31:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 04:31:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 04:31:17] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 04:31:17] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 04:31:17] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 04:31:17] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 04:31:32] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 04:31:32] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 04:31:32] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 04:31:32] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 04:31:32] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 04:31:32] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 4 issues, 3 fixable, 2 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 05:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 05:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 05:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 05:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 05:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 05:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 05:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 05:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 05:01:14] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 05:01:14] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 05:01:14] autonomous-fixer: Detected 6 total issues
-[2026-07-05 05:01:14] autonomous-fixer: Detected 6 total issues
-[2026-07-05 05:01:14] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 05:01:14] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 05:01:14] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 05:01:14] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 05:01:14] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 05:01:14] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 05:01:14] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 05:01:14] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 05:01:14] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 05:01:14] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 05:01:14] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 05:01:14] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 05:01:14] autonomous-fixer: Reflexion: 2 past reflection(s) found
-[2026-07-05 05:01:14] autonomous-fixer: Reflexion: 2 past reflection(s) found
-[2026-07-05 05:01:14] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Container linkwarden is unhealthy --issue-type...
-[2026-07-05 05:01:14] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Container linkwarden is unhealthy --issue-type...
-[2026-07-05 05:03:15] autonomous-fixer: Result: delegate_timeout
-[2026-07-05 05:03:15] autonomous-fixer: Result: delegate_timeout
-[2026-07-05 05:03:15] autonomous-fixer: Reflection recorded: fail
-[2026-07-05 05:03:15] autonomous-fixer: Reflection recorded: fail
-Autonomous fixer: 6 issues, 5 fixable, 1 processed
-  - delegate_timeout: delegate_timeout
-[2026-07-05 05:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 05:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 05:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 05:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 05:30:39] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 05:30:39] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 05:30:39] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 05:30:39] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 05:31:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 05:31:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 05:31:15] autonomous-fixer: Detected 4 total issues
-[2026-07-05 05:31:15] autonomous-fixer: Detected 4 total issues
-[2026-07-05 05:31:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 05:31:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 05:31:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 05:31:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 05:31:15] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 05:31:15] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 05:31:15] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 05:31:15] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 05:31:15] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 05:31:15] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 05:31:15] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 05:31:15] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 06:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 06:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 06:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 06:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 06:00:41] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 06:00:41] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 06:00:41] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 06:00:41] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 06:01:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 06:01:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 06:01:15] autonomous-fixer: Detected 4 total issues
-[2026-07-05 06:01:15] autonomous-fixer: Detected 4 total issues
-[2026-07-05 06:01:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 06:01:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 06:01:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 06:01:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 06:01:15] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 06:01:15] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 06:01:15] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 06:01:15] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 06:01:30] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 06:01:30] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 06:01:30] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 06:01:30] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 06:01:30] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 06:01:30] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 4 issues, 3 fixable, 2 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 06:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 06:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 06:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 06:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 06:30:33] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 06:30:33] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 06:30:33] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 06:30:33] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 06:31:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 06:31:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 06:31:06] autonomous-fixer: Detected 6 total issues
-[2026-07-05 06:31:06] autonomous-fixer: Detected 6 total issues
-[2026-07-05 06:31:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 06:31:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 06:31:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 06:31:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 06:31:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 06:31:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 06:31:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 06:31:06] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 06:31:06] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 06:31:06] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 06:31:06] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 06:31:06] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 06:31:06] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 06:31:06] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 06:31:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 06:31:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 6 issues, 5 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 07:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 07:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 07:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 07:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 07:00:43] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 07:00:43] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 07:00:43] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 07:00:43] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 07:01:23] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 07:01:23] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 07:01:23] autonomous-fixer: Detected 4 total issues
-[2026-07-05 07:01:23] autonomous-fixer: Detected 4 total issues
-[2026-07-05 07:01:23] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 07:01:23] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 07:01:23] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 07:01:23] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 07:01:23] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 07:01:23] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 07:01:23] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 07:01:23] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 07:01:23] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 07:01:23] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 07:01:23] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 07:01:23] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 07:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 07:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 07:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 07:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 07:30:33] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 07:30:33] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 07:30:33] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 07:30:33] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 07:31:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 07:31:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 07:31:06] autonomous-fixer: Detected 4 total issues
-[2026-07-05 07:31:06] autonomous-fixer: Detected 4 total issues
-[2026-07-05 07:31:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 07:31:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 07:31:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 07:31:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 07:31:06] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 07:31:06] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 07:31:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 07:31:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 07:31:21] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 07:31:21] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 07:31:21] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 07:31:21] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 07:31:21] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 07:31:21] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 4 issues, 3 fixable, 2 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 08:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 08:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 08:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 08:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 08:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 08:00:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 08:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 08:00:38] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 08:01:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 08:01:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 08:01:18] autonomous-fixer: Detected 4 total issues
-[2026-07-05 08:01:18] autonomous-fixer: Detected 4 total issues
-[2026-07-05 08:01:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 08:01:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 08:01:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 08:01:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 08:01:18] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 08:01:18] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 08:01:18] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 08:01:18] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 08:01:18] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 08:01:18] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 08:01:18] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 08:01:18] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 08:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 08:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 08:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 08:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 08:30:37] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 08:30:37] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 08:30:37] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 08:30:37] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 08:31:12] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 08:31:12] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 08:31:12] autonomous-fixer: Detected 6 total issues
-[2026-07-05 08:31:12] autonomous-fixer: Detected 6 total issues
-[2026-07-05 08:31:12] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 08:31:12] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-05 08:31:12] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 08:31:12] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 08:31:12] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 08:31:12] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 08:31:12] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 08:31:12] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 08:31:12] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 08:31:12] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 08:31:12] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 08:31:12] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 08:31:12] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 08:31:12] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 08:31:12] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 08:31:12] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 6 issues, 5 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 09:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 09:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 09:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 09:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 09:00:35] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 09:00:35] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 09:00:35] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 09:00:35] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 09:01:11] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 09:01:11] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 09:01:11] autonomous-fixer: Detected 4 total issues
-[2026-07-05 09:01:11] autonomous-fixer: Detected 4 total issues
-[2026-07-05 09:01:11] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 09:01:11] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 09:01:11] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 09:01:11] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 09:01:11] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 09:01:11] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-05 09:01:11] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 09:01:11] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-05 09:01:26] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 09:01:26] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 09:01:26] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 09:01:26] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 09:01:26] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 09:01:26] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 4 issues, 3 fixable, 2 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 09:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 09:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 09:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 09:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 09:30:35] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 09:30:35] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-05 09:30:35] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 09:30:35] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 09:31:09] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 09:31:09] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 09:31:09] autonomous-fixer: Detected 4 total issues
-[2026-07-05 09:31:09] autonomous-fixer: Detected 4 total issues
-[2026-07-05 09:31:09] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 09:31:09] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
-[2026-07-05 09:31:09] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 09:31:09] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 09:31:09] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 09:31:09] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-05 09:31:09] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 09:31:09] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-05 09:31:09] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 09:31:09] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 09:31:09] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 09:31:09] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 10:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 10:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 10:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 10:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 10:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 10:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 10:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 10:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 10:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 10:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 10:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 10:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 10:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 10:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 10:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 10:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 10:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 10:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 10:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 10:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 10:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 10:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 10:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 10:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 10:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 10:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 10:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 10:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 10:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 10:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 10:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 10:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 10:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 10:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 10:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 10:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 10:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 10:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 2 issues, 1 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 11:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 11:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 11:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 11:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 11:00:05] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 11:00:05] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 11:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 11:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 11:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 11:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 11:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 11:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 11:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 11:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 11:00:05] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 11:00:05] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 11:00:05] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 11:00:05] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 11:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 11:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 11:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 11:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 11:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 11:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 11:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 11:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 11:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 11:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 11:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 11:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 11:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 11:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 11:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 11:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 11:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 11:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 12:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 12:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 12:00:02] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 12:00:02] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 12:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 12:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 12:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 12:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 12:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 12:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 12:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 12:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 12:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 12:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 12:00:05] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 12:00:05] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 12:00:05] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 12:00:05] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 12:00:05] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 12:00:05] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 2 issues, 1 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 12:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 12:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 12:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 12:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 12:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 12:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 12:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 12:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 12:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 12:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 12:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 12:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 12:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 12:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 12:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 12:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 12:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 12:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 13:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 13:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 13:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 13:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 13:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 13:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 13:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 13:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 13:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 13:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 13:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 13:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 13:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 13:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 13:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 13:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 13:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 13:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 13:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 13:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 13:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 13:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 13:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 13:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 13:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 13:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 13:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 13:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 13:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 13:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 13:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 13:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 13:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 13:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 13:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 13:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 13:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 13:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 2 issues, 1 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 14:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 14:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 14:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 14:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 14:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 14:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 14:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 14:00:05] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 14:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 14:00:05] autonomous-fixer: Detected 2 total issues
-[2026-07-05 14:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 14:00:05] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
-[2026-07-05 14:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 14:00:05] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 14:00:05] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 14:00:05] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 14:00:05] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 14:00:05] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 14:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 14:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 14:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 14:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 14:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 14:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 14:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 14:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 14:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 14:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 14:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 14:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 14:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 14:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 14:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 14:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 14:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 14:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 14:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 14:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 14:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 14:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 15:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 15:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 15:00:02] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 15:00:02] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 15:00:05] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 15:00:05] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 15:00:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 15:00:06] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 15:00:06] autonomous-fixer: Detected 3 total issues
-[2026-07-05 15:00:06] autonomous-fixer: Detected 3 total issues
-[2026-07-05 15:00:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 15:00:06] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 15:00:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 15:00:06] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 15:00:06] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 15:00:06] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 15:00:06] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 15:00:06] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 15:00:06] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 15:00:06] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 15:00:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 15:00:06] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 15:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 15:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 15:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 15:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 15:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 15:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 15:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 15:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 15:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 15:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 15:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 15:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 15:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 15:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 15:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 15:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 16:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 16:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 16:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 16:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 16:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 16:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 16:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 16:00:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 16:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 16:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 16:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 16:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 16:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 16:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 16:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 16:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 16:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 16:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 2 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 16:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 16:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 16:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 16:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 16:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 16:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 16:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 16:30:04] autonomous-fixer: Detected 2 total issues
-[2026-07-05 16:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 16:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 16:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 16:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 16:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 16:30:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 16:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 16:30:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 16:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 16:30:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 2 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 17:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 17:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 17:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 17:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 17:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 17:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 17:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 17:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 17:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 17:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 17:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 17:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 17:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 17:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 17:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 17:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 17:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 17:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 17:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 17:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 17:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 17:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 17:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 17:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 17:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 17:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 17:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 17:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 17:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 17:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 17:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 17:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 17:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 17:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 17:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 17:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 17:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 17:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 17:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 17:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 17:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 17:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 18:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 18:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 18:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 18:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 18:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 18:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 18:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 18:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 18:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 18:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 18:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 18:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 18:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 18:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 18:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 18:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 18:00:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 18:00:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 18:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 18:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 18:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 18:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 18:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 18:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 18:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 18:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 18:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 18:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 18:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 18:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 18:30:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 18:30:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 18:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 18:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 18:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 18:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 18:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 18:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 18:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 18:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 18:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 18:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 19:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 19:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 19:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 19:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 19:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 19:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 19:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 19:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 19:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 19:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 19:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 19:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 19:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 19:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 19:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 19:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 19:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 19:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 19:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 19:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 19:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 19:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 19:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 19:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 19:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 19:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 19:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 19:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 19:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 19:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 19:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 19:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 19:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 19:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 19:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 19:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 19:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 19:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 19:30:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 19:30:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 19:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 19:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 19:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 19:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 20:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 20:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 20:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 20:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 20:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 20:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 20:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 20:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 20:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 20:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 20:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 20:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 20:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 20:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 20:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 20:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 20:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 20:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 20:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 20:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 20:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 20:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 20:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 20:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 20:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 20:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 20:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 20:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 20:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 20:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 20:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 20:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 20:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 20:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 20:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 20:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 20:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 20:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 20:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 20:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 20:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 20:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 21:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 21:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 21:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 21:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 21:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 21:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 21:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 21:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 21:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 21:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 21:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 21:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 21:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 21:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 21:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 21:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 21:00:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 21:00:04] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 21:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 21:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 21:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 21:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 21:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 21:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 21:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 21:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 21:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 21:30:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 21:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 21:30:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 21:30:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 21:30:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 21:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 21:30:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 21:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 21:30:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 21:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 21:30:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 21:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 21:30:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 21:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 21:30:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 22:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 22:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 22:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 22:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 22:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 22:00:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 22:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 22:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 22:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 22:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 22:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 22:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 22:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 22:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 22:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 22:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 22:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 22:00:04] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 22:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 22:00:04] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 22:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 22:00:04] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-05 22:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 22:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 22:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 22:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 22:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 22:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 22:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 22:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 22:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 22:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 22:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 22:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 22:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 22:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 22:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 22:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 22:30:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 22:30:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-05 22:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 22:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 22:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-05 22:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-05 23:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 23:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 23:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 23:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 23:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 23:00:04] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 23:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 23:00:04] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 23:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 23:00:04] autonomous-fixer: Detected 3 total issues
-[2026-07-05 23:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 23:00:04] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 23:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 23:00:04] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 23:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 23:00:04] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-05 23:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 23:00:04] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 23:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 23:00:04] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-05 23:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 23:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-05 23:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 23:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-05 23:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 23:30:03] autonomous-fixer: MCP checks: 1 service(s) unreachable
-[2026-07-05 23:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 23:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-05 23:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 23:30:03] autonomous-fixer: Detected 3 total issues
-[2026-07-05 23:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 23:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
-[2026-07-05 23:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 23:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-05 23:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 23:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-05 23:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 23:30:03] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-05 23:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 23:30:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-05 23:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-05 23:30:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 3 issues, 2 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-06 00:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 00:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 00:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 00:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 00:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 00:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 00:00:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 00:00:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 00:00:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 00:00:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 00:00:03] autonomous-fixer: Detected 5 total issues
-[2026-07-06 00:00:03] autonomous-fixer: Detected 5 total issues
-[2026-07-06 00:00:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 00:00:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 00:00:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 00:00:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 00:00:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 00:00:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 00:00:03] autonomous-fixer: Processing: Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) (type=missing_script, severity=high)
-[2026-07-06 00:00:03] autonomous-fixer: Processing: Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) (type=missing_script, severity=high)
-[2026-07-06 00:00:03] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) --issue-type...
-[2026-07-06 00:00:03] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) --issue-type...
-[2026-07-06 00:02:03] autonomous-fixer: Result: delegate_timeout
-[2026-07-06 00:02:03] autonomous-fixer: Result: delegate_timeout
-[2026-07-06 00:02:03] autonomous-fixer: Reflection recorded: fail
-[2026-07-06 00:02:03] autonomous-fixer: Reflection recorded: fail
-[2026-07-06 00:02:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-06 00:02:03] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-06 00:02:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 00:02:03] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 00:02:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-06 00:02:03] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 5 issues, 4 fixable, 2 processed
-  - delegate_timeout: delegate_timeout
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-06 00:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 00:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 00:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 00:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 00:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 00:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 00:30:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 00:30:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 00:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 00:30:03] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 00:30:03] autonomous-fixer: Detected 5 total issues
-[2026-07-06 00:30:03] autonomous-fixer: Detected 5 total issues
-[2026-07-06 00:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 00:30:03] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 00:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 00:30:03] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 00:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 00:30:03] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 00:30:03] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 00:30:03] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 00:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 00:30:03] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 00:30:03] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 00:30:03] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 00:30:03] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-06 00:30:03] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-06 01:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 01:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 01:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 01:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 01:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 01:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 01:00:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 01:00:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 01:00:28] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 01:00:28] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 01:00:28] autonomous-fixer: Detected 5 total issues
-[2026-07-06 01:00:28] autonomous-fixer: Detected 5 total issues
-[2026-07-06 01:00:28] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 01:00:28] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 01:00:28] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 01:00:28] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 01:00:28] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 01:00:28] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 01:00:28] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 01:00:28] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 01:00:28] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 01:00:28] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 01:00:28] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-06 01:00:28] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-06 01:00:28] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 01:00:28] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 01:00:28] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-06 01:00:28] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 5 issues, 4 fixable, 1 processed
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-06 01:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 01:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 01:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 01:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 01:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 01:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 01:30:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 01:30:02] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 01:30:31] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 01:30:31] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 01:30:31] autonomous-fixer: Detected 5 total issues
-[2026-07-06 01:30:31] autonomous-fixer: Detected 5 total issues
-[2026-07-06 01:30:31] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 01:30:31] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
-[2026-07-06 01:30:31] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 01:30:31] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 01:30:31] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 01:30:31] autonomous-fixer: Hourly limit reached (category=container): Container linkwarden is unhealthy
-[2026-07-06 01:30:31] autonomous-fixer: Processing: Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) (type=missing_script, severity=high)
-[2026-07-06 01:30:31] autonomous-fixer: Processing: Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) (type=missing_script, severity=high)
-[2026-07-06 01:30:31] autonomous-fixer: Reflexion: 1 past reflection(s) found
-[2026-07-06 01:30:31] autonomous-fixer: Reflexion: 1 past reflection(s) found
-[2026-07-06 01:30:31] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) --issue-type...
-[2026-07-06 01:30:31] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Critical script missing: daily_audit (expected at /home/rohit/agentharness/scripts/daily_audit.py) --issue-type...
-[2026-07-06 01:32:31] autonomous-fixer: Result: delegate_timeout
-[2026-07-06 01:32:31] autonomous-fixer: Result: delegate_timeout
-[2026-07-06 01:32:31] autonomous-fixer: Reflection recorded: fail
-[2026-07-06 01:32:31] autonomous-fixer: Reflection recorded: fail
-[2026-07-06 01:32:31] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-06 01:32:31] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
-[2026-07-06 01:32:31] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 01:32:31] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 01:32:31] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-[2026-07-06 01:32:31] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
-Autonomous fixer: 5 issues, 4 fixable, 2 processed
-  - delegate_timeout: delegate_timeout
-  - MCP service n8n-mcp (port 8098) is unreachable: skipped_reflexion
-[2026-07-06 02:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 02:00:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 02:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 02:00:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 02:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 02:00:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 02:00:42] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-06 02:00:42] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-06 02:00:42] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 02:00:42] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 02:01:14] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 02:01:14] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 02:01:14] autonomous-fixer: Detected 8 total issues
-[2026-07-06 02:01:14] autonomous-fixer: Detected 8 total issues
-[2026-07-06 02:01:14] autonomous-fixer: Claude-fixable issues (severity >= medium): 7
-[2026-07-06 02:01:14] autonomous-fixer: Claude-fixable issues (severity >= medium): 7
-[2026-07-06 02:01:14] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 02:01:14] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 02:01:14] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 02:01:14] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 02:01:14] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 02:01:14] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 02:01:14] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 02:01:14] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 02:01:14] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-06 02:01:14] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
-[2026-07-06 02:01:14] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-06 02:01:14] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
-[2026-07-06 02:01:29] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-06 02:01:29] autonomous-fixer: Processing: Container linkwarden is unhealthy (type=healthcheck_fail, severity=high)
-[2026-07-06 02:01:29] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 02:01:29] autonomous-fixer: Reflexion: 3 past reflection(s) found
-[2026-07-06 02:01:29] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-[2026-07-06 02:01:29] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for linkwarden. Consider a different strategy.
-Autonomous fixer: 8 issues, 7 fixable, 2 processed
-  - DNS resolution failed: Pi-hole not resolving google.com: skipped_reflexion
-  - Container linkwarden is unhealthy: skipped_reflexion
-[2026-07-06 02:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 02:30:01] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 02:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 02:30:01] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 02:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 02:30:02] autonomous-fixer: Script checks: 1 missing script(s) detected
-[2026-07-06 02:30:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-06 02:30:38] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
-[2026-07-06 02:30:38] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 02:30:38] autonomous-fixer: MCP checks: 2 service(s) unreachable
-[2026-07-06 02:31:16] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 02:31:16] autonomous-fixer: UX checks: 1 quality issue(s) detected
-[2026-07-06 02:31:16] autonomous-fixer: Detected 6 total issues
-[2026-07-06 02:31:16] autonomous-fixer: Detected 6 total issues
-[2026-07-06 02:31:16] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-06 02:31:16] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
-[2026-07-06 02:31:16] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 02:31:16] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=config): Critical script missing: daily_audit (expected at /home/rohit/agentharness/scrip
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-06 02:31:16] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
-[2026-07-06 02:31:16] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 02:31:16] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
-[2026-07-06 02:31:16] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 02:31:16] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
-[2026-07-06 02:31:16] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-06 02:31:16] autonomous-fixer: All fixable issues are rate-limited — skipping
-[2026-07-06 03:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 03:00:02] autonomous-fixer: === Autonomous fixer starting ===
-[2026-07-06 03:00:02] autonomous-fixer: Dry run: False, Min severity: medium
-[2026-07-06 03:00:02] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 03:02:28] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 03:02:28] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 03:02:58] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 03:02:58] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 03:03:34] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 03:03:34] autonomous-fixer: Detected 5 total issues
+[2026-07-07 03:03:34] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 03:03:34] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 03:03:34] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 03:03:34] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 03:03:34] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 03:03:34] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 03:03:34] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 03:32:29] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 03:32:29] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 03:33:06] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 03:33:06] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 03:33:36] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 03:33:36] autonomous-fixer: Detected 6 total issues
+[2026-07-07 03:33:36] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
+[2026-07-07 03:33:36] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 03:33:36] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 03:33:36] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 03:33:36] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 03:33:36] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 03:33:36] autonomous-fixer: Processing: Container prometheus is unhealthy (type=healthcheck_fail, severity=high)
+[2026-07-07 03:33:36] autonomous-fixer: Reflexion: 2 past reflection(s) found
+[2026-07-07 03:33:36] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue Container prometheus is unhealthy --issue-type...
+[2026-07-07 03:35:36] autonomous-fixer: Result: delegate_timeout
+[2026-07-07 03:35:36] autonomous-fixer: Reflection recorded: fail
+[2026-07-07 04:02:38] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 04:02:38] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 04:03:18] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 04:03:18] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 04:03:54] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 04:03:54] autonomous-fixer: Detected 5 total issues
+[2026-07-07 04:03:54] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 04:03:54] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 04:03:54] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
+[2026-07-07 04:03:54] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
+[2026-07-07 04:04:09] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 04:04:09] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 04:04:09] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 04:32:32] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 04:32:32] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 04:33:07] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 04:33:07] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 04:33:43] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 04:33:43] autonomous-fixer: Detected 6 total issues
+[2026-07-07 04:33:43] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
+[2026-07-07 04:33:43] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 04:33:43] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 04:33:43] autonomous-fixer: Hourly limit reached (category=container): Container prometheus is unhealthy
+[2026-07-07 04:33:43] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 04:33:43] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 04:33:43] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 04:33:43] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 05:02:38] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 05:02:38] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 05:03:13] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 05:03:13] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 05:03:45] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 05:03:45] autonomous-fixer: Detected 5 total issues
+[2026-07-07 05:03:45] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 05:03:45] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 05:03:45] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 05:03:45] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 05:03:45] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 05:03:45] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 05:03:45] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 05:32:33] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 05:32:33] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 05:33:08] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 05:33:08] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 05:33:46] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 05:33:46] autonomous-fixer: Detected 6 total issues
+[2026-07-07 05:33:46] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
+[2026-07-07 05:33:46] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 05:33:46] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
+[2026-07-07 05:33:46] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
+[2026-07-07 05:33:59] autonomous-fixer: Processing: Container prometheus is unhealthy (type=healthcheck_fail, severity=high)
+[2026-07-07 05:33:59] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 05:33:59] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for prometheus. Consider a different strategy.
+[2026-07-07 05:34:14] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 05:34:14] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 05:34:14] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 06:02:38] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 06:02:38] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 06:03:13] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 06:03:13] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 06:03:49] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 06:03:49] autonomous-fixer: Detected 5 total issues
+[2026-07-07 06:03:49] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 06:03:49] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 06:03:49] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 06:03:49] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 06:03:49] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 06:03:49] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 06:03:49] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 06:32:41] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 06:32:41] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 06:33:22] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 06:33:22] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 06:33:57] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 06:33:57] autonomous-fixer: Detected 7 total issues
+[2026-07-07 06:33:57] autonomous-fixer: Claude-fixable issues (severity >= medium): 6
+[2026-07-07 06:33:57] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 06:33:57] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 06:33:57] autonomous-fixer: Hourly limit reached (category=container): Container prometheus is unhealthy
+[2026-07-07 06:33:57] autonomous-fixer: Hourly limit reached (category=container): Container pihole is unhealthy
+[2026-07-07 06:33:57] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 06:33:57] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 06:33:57] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 06:33:57] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 07:02:34] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 07:02:34] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 07:03:07] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 07:03:07] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 07:03:37] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 07:03:37] autonomous-fixer: Detected 5 total issues
+[2026-07-07 07:03:37] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 07:03:37] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 07:03:37] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
+[2026-07-07 07:03:37] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
+[2026-07-07 07:03:52] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 07:03:52] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 07:03:52] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 07:32:35] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 07:32:35] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 07:33:08] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 07:33:08] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 07:33:40] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 07:33:40] autonomous-fixer: Detected 6 total issues
+[2026-07-07 07:33:40] autonomous-fixer: Claude-fixable issues (severity >= medium): 5
+[2026-07-07 07:33:40] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 07:33:40] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 07:33:40] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 07:33:40] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 07:33:40] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 07:33:40] autonomous-fixer: Processing: Container pihole is unhealthy (type=healthcheck_fail, severity=high)
+[2026-07-07 07:33:40] autonomous-fixer: Reflexion: 5 past reflection(s) found
+[2026-07-07 07:33:40] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 9/9 times for pihole. Consider a different strategy.
+[2026-07-07 08:02:32] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 08:02:32] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 08:03:13] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 08:03:13] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 08:03:41] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 08:03:41] autonomous-fixer: Detected 5 total issues
+[2026-07-07 08:03:41] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 08:03:41] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 08:03:41] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-07 08:03:41] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: chagulihome.duckdns.org not resolving
+[2026-07-07 08:03:41] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 08:03:41] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 08:03:41] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 08:32:31] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 08:32:31] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 08:33:08] autonomous-fixer: DNS checks: 2 resolution issue(s) detected
+[2026-07-07 08:33:08] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 08:33:35] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 08:33:35] autonomous-fixer: Detected 5 total issues
+[2026-07-07 08:33:35] autonomous-fixer: Claude-fixable issues (severity >= medium): 4
+[2026-07-07 08:33:35] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 08:33:35] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
+[2026-07-07 08:33:35] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
+[2026-07-07 08:33:36] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 08:33:36] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 08:33:36] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 09:00:17] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 09:00:17] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 09:00:18] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 09:00:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 09:00:18] autonomous-fixer: Detected 4 total issues
+[2026-07-07 09:00:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
+[2026-07-07 09:00:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 09:00:18] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 09:00:18] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 09:00:18] autonomous-fixer: Processing: Container prometheus is unhealthy (type=healthcheck_fail, severity=high)
+[2026-07-07 09:00:18] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 09:00:18] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for prometheus. Consider a different strategy.
+[2026-07-07 09:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 09:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 09:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 09:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 09:30:10] autonomous-fixer: Detected 4 total issues
+[2026-07-07 09:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 3
+[2026-07-07 09:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 09:30:10] autonomous-fixer: Hourly limit reached (category=container): Container prometheus is unhealthy
+[2026-07-07 09:30:10] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 09:30:10] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 09:30:10] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 10:00:20] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 10:00:20] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 10:00:21] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 10:00:22] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 10:00:22] autonomous-fixer: Detected 3 total issues
+[2026-07-07 10:00:22] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 10:00:22] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 10:00:22] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 10:00:22] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 10:00:22] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 10:30:14] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 10:30:14] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 10:30:16] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 10:30:16] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 10:30:16] autonomous-fixer: Detected 3 total issues
+[2026-07-07 10:30:16] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 10:30:16] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 10:30:16] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 10:30:16] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 10:30:16] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 11:00:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 11:00:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 11:00:16] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 11:00:16] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 11:00:16] autonomous-fixer: Detected 3 total issues
+[2026-07-07 11:00:16] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 11:00:16] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 11:00:16] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 11:00:16] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 11:00:16] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 11:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 11:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 11:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 11:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 11:30:10] autonomous-fixer: Detected 3 total issues
+[2026-07-07 11:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 11:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 11:30:10] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 11:30:10] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 11:30:10] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 12:00:28] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 12:00:28] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 12:00:29] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 12:00:30] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 12:00:30] autonomous-fixer: Detected 3 total issues
+[2026-07-07 12:00:30] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 12:00:30] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 12:00:30] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 12:00:30] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 12:00:30] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 12:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 12:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 12:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 12:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 12:30:10] autonomous-fixer: Detected 3 total issues
+[2026-07-07 12:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 12:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 12:30:10] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 12:30:10] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 12:30:10] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 13:00:29] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 13:00:29] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 13:00:31] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 13:00:31] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 13:00:31] autonomous-fixer: Detected 3 total issues
+[2026-07-07 13:00:31] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 13:00:31] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 13:00:31] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 13:00:31] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 13:00:31] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 13:30:10] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 13:30:10] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 13:30:11] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 13:30:13] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 13:30:13] autonomous-fixer: Detected 3 total issues
+[2026-07-07 13:30:13] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 13:30:13] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 13:30:13] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 13:30:13] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 13:30:13] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 14:00:22] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 14:00:22] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 14:00:23] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 14:00:23] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 14:00:23] autonomous-fixer: Detected 3 total issues
+[2026-07-07 14:00:23] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 14:00:23] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 14:00:23] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 14:00:23] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 14:00:23] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 14:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 14:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 14:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 14:30:11] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 14:30:11] autonomous-fixer: Detected 3 total issues
+[2026-07-07 14:30:11] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 14:30:11] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 14:30:11] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 14:30:11] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 14:30:11] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 15:00:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 15:00:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 15:00:17] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 15:00:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 15:00:17] autonomous-fixer: Detected 3 total issues
+[2026-07-07 15:00:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 15:00:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 15:00:17] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 15:00:17] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 15:00:17] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 15:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 15:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 15:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 15:30:11] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 15:30:11] autonomous-fixer: Detected 3 total issues
+[2026-07-07 15:30:11] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 15:30:11] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 15:30:11] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 15:30:11] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 15:30:11] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 16:00:16] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 16:00:16] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 16:00:17] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 16:00:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 16:00:17] autonomous-fixer: Detected 3 total issues
+[2026-07-07 16:00:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 16:00:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 16:00:17] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 16:00:17] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 16:00:17] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 16:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 16:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 16:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 16:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 16:30:10] autonomous-fixer: Detected 3 total issues
+[2026-07-07 16:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 16:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 16:30:10] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 16:30:10] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 16:30:10] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 17:00:13] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 17:00:13] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 17:00:15] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 17:00:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 17:00:15] autonomous-fixer: Detected 3 total issues
+[2026-07-07 17:00:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 17:00:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 17:00:15] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 17:00:15] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 17:00:15] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 17:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 17:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 17:30:11] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 17:30:11] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 17:30:11] autonomous-fixer: Detected 3 total issues
+[2026-07-07 17:30:11] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 17:30:11] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 17:30:11] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 17:30:11] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 17:30:11] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 18:00:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 18:00:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 18:00:16] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 18:00:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 18:00:17] autonomous-fixer: Detected 3 total issues
+[2026-07-07 18:00:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 18:00:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 18:00:17] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 18:00:17] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 18:00:17] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 18:30:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 18:30:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 18:30:17] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 18:30:18] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 18:30:18] autonomous-fixer: Detected 3 total issues
+[2026-07-07 18:30:18] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 18:30:18] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 18:30:18] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 18:30:18] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 18:30:18] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 19:00:18] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 19:00:18] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 19:00:20] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 19:00:21] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 19:00:21] autonomous-fixer: Detected 3 total issues
+[2026-07-07 19:00:21] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 19:00:21] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 19:00:21] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 19:00:21] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 19:00:21] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 19:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 19:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 19:30:10] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 19:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 19:30:10] autonomous-fixer: Detected 3 total issues
+[2026-07-07 19:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 19:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 19:30:10] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 19:30:10] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 19:30:10] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 20:00:17] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 20:00:17] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 20:00:18] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 20:00:19] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 20:00:19] autonomous-fixer: Detected 3 total issues
+[2026-07-07 20:00:19] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 20:00:19] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 20:00:19] autonomous-fixer: Processing: MCP service n8n-mcp (port 8098) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 20:00:19] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-07 20:00:19] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for n8n-mcp. Consider a different strategy.
+[2026-07-07 20:30:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 20:30:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 20:30:16] autonomous-fixer: MCP checks: 2 service(s) unreachable
+[2026-07-07 20:30:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 20:30:17] autonomous-fixer: Detected 3 total issues
+[2026-07-07 20:30:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-07 20:30:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 20:30:17] autonomous-fixer: Rate limited (category=security): MCP service n8n-mcp (port 8098) is unreachable
+[2026-07-07 20:30:17] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 20:30:17] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 21:00:21] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 21:00:21] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 21:00:22] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 21:00:23] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 21:00:23] autonomous-fixer: Detected 2 total issues
+[2026-07-07 21:00:23] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 21:00:23] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 21:00:23] autonomous-fixer: Processing: MCP service browser-use-mcp (port 8107) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 21:00:23] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue MCP service browser-use-mcp (port 8107) is unreachable --issue-type...
+[2026-07-07 21:02:23] autonomous-fixer: Result: delegate_timeout
+[2026-07-07 21:02:23] autonomous-fixer: Reflection recorded: fail
+[2026-07-07 21:30:10] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 21:30:10] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 21:30:12] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 21:30:12] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 21:30:12] autonomous-fixer: Detected 2 total issues
+[2026-07-07 21:30:12] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 21:30:12] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 21:30:12] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 21:30:12] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 22:00:14] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 22:00:14] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 22:00:15] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 22:00:15] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 22:00:15] autonomous-fixer: Detected 2 total issues
+[2026-07-07 22:00:15] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 22:00:15] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 22:00:15] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 22:00:15] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 22:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 22:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 22:30:10] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 22:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 22:30:10] autonomous-fixer: Detected 2 total issues
+[2026-07-07 22:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 22:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 22:30:10] autonomous-fixer: Processing: MCP service browser-use-mcp (port 8107) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-07 22:30:10] autonomous-fixer: Reflexion: 1 past reflection(s) found
+[2026-07-07 22:30:10] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue MCP service browser-use-mcp (port 8107) is unreachable --issue-type...
+[2026-07-07 22:32:10] autonomous-fixer: Result: delegate_timeout
+[2026-07-07 22:32:10] autonomous-fixer: Reflection recorded: fail
+[2026-07-07 23:00:17] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 23:00:17] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 23:00:18] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 23:00:19] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 23:00:19] autonomous-fixer: Detected 2 total issues
+[2026-07-07 23:00:19] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 23:00:19] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 23:00:19] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 23:00:19] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-07 23:30:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-07 23:30:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-07 23:30:10] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-07 23:30:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-07 23:30:10] autonomous-fixer: Detected 2 total issues
+[2026-07-07 23:30:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-07 23:30:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-07 23:30:10] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-07 23:30:10] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-08 00:00:15] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 00:00:15] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 00:00:17] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 00:00:17] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 00:00:17] autonomous-fixer: Detected 2 total issues
+[2026-07-08 00:00:17] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-08 00:00:17] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 00:00:17] autonomous-fixer: Processing: MCP service browser-use-mcp (port 8107) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-08 00:00:17] autonomous-fixer: Reflexion: 2 past reflection(s) found
+[2026-07-08 00:00:17] autonomous-fixer: Invoking delegate: /usr/bin/python3 /home/rohit/agentharness/scripts/auto_fix_delegate.py --issue MCP service browser-use-mcp (port 8107) is unreachable --issue-type...
+[2026-07-08 00:02:17] autonomous-fixer: Result: delegate_timeout
+[2026-07-08 00:02:17] autonomous-fixer: Reflection recorded: fail
+[2026-07-08 00:30:10] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 00:30:10] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 00:30:11] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 00:30:12] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 00:30:12] autonomous-fixer: Detected 2 total issues
+[2026-07-08 00:30:12] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-08 00:30:12] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 00:30:12] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-08 00:30:12] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-08 01:01:10] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 01:01:10] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 01:01:11] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 01:01:41] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 01:01:41] autonomous-fixer: Detected 2 total issues
+[2026-07-08 01:01:41] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-08 01:01:41] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 01:01:41] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-08 01:01:41] autonomous-fixer: All fixable issues are rate-limited — skipping
+[2026-07-08 01:31:09] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 01:31:09] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 01:31:11] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 01:31:30] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 01:31:30] autonomous-fixer: Detected 2 total issues
+[2026-07-08 01:31:30] autonomous-fixer: Claude-fixable issues (severity >= medium): 1
+[2026-07-08 01:31:30] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 01:31:30] autonomous-fixer: Processing: MCP service browser-use-mcp (port 8107) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-08 01:31:30] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-08 01:31:30] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for browser-use-mcp. Consider a different strategy.
+[2026-07-08 02:02:57] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 02:02:57] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 02:03:30] autonomous-fixer: DNS checks: 1 resolution issue(s) detected
+[2026-07-08 02:03:30] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 02:04:00] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 02:04:00] autonomous-fixer: Detected 3 total issues
+[2026-07-08 02:04:00] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-08 02:04:00] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 02:04:00] autonomous-fixer: Rate limited (category=security): MCP service browser-use-mcp (port 8107) is unreachable
+[2026-07-08 02:04:00] autonomous-fixer: Processing: DNS resolution failed: Pi-hole not resolving google.com (type=dns_resolution, severity=critical)
+[2026-07-08 02:04:00] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 29/29 times for unknown. Consider a different strategy.
+[2026-07-08 02:33:02] autonomous-fixer: === Autonomous fixer starting ===
+[2026-07-08 02:33:02] autonomous-fixer: Dry run: False, Min severity: medium
+[2026-07-08 02:33:35] autonomous-fixer: DNS checks: 1 resolution issue(s) detected
+[2026-07-08 02:33:35] autonomous-fixer: MCP checks: 1 service(s) unreachable
+[2026-07-08 02:34:10] autonomous-fixer: UX checks: 1 quality issue(s) detected
+[2026-07-08 02:34:10] autonomous-fixer: Detected 3 total issues
+[2026-07-08 02:34:10] autonomous-fixer: Claude-fixable issues (severity >= medium): 2
+[2026-07-08 02:34:10] autonomous-fixer: UX: Commitment tracker has 0 commitments — likely not intercepting promises
+[2026-07-08 02:34:10] autonomous-fixer: Hourly limit reached (category=network): DNS resolution failed: Pi-hole not resolving google.com
+[2026-07-08 02:34:10] autonomous-fixer: Processing: MCP service browser-use-mcp (port 8107) is unreachable (type=mcp_child_health, severity=high)
+[2026-07-08 02:34:10] autonomous-fixer: Reflexion: 3 past reflection(s) found
+[2026-07-08 02:34:10] autonomous-fixer: Reflexion SKIP: WARNING: This approach has failed 3/3 times for browser-use-mcp. Consider a different strategy.

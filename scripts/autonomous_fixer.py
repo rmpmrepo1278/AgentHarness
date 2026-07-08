@@ -218,6 +218,10 @@ def load_env() -> dict:
 
 
 def send_telegram(message: str):
+    # Filter noisy non-actionable messages
+    noise_patterns = ["Skipped fix", "Stagnation detected", "browser-use-mcp"]
+    if any(p in message for p in noise_patterns):
+        return
     env = load_env()
     token = env.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = env.get("TELEGRAM_HOME_CHANNEL", "")
@@ -1074,26 +1078,45 @@ def check_duckdns_sync() -> list[dict]:
     return issues
 
 
+def _discover_mcp_ports() -> dict:
+    """Discover MCP service ports from docker-compose.mcp.yml at runtime."""
+    import re, os
+    mcp_ports = {}
+    compose_path = os.path.expanduser("~/agentharness/docker-compose.mcp.yml")
+    try:
+        with open(compose_path) as f:
+            for line in f:
+                cm = re.search(r'container_name: (\S+)', line)
+                if cm:
+                    name = cm.group(1)
+                    # Only include services that have an MCP_PORT
+                    continue
+                pm = re.search(r'MCP_PORT=(\d+)', line)
+                if pm and name:
+                    mcp_ports[int(pm.group(1))] = name
+                    name = None
+        # mcp-gateway always on 8090 (not set via MCP_PORT env var)
+        mcp_ports[8090] = "mcp-gateway"
+    except (FileNotFoundError, OSError) as e:
+        import logging
+        logging.warning("Could not read docker-compose.mcp.yml: %s", e)
+        # Fallback to hardcoded defaults so fixer still works
+        mcp_ports = {
+            8090: "mcp-gateway", 8091: "hermes-memory-mcp",
+            8095: "docker-mcp", 8097: "file-mcp",
+            8099: "paperless-mcp", 8100: "git-mcp",
+            8102: "backup-mcp", 8103: "network-mcp",
+            8104: "rss-mcp", 8105: "doctor-mcp",
+            8106: "global-chat-mcp", 8108: "homelab-exec",
+            8120: "homelab-ops-mcp",
+        }
+    return mcp_ports
+
+
 def check_mcp_child_health() -> list[dict]:
     """Check individual MCP service ports."""
     issues = []
-    mcp_ports = {
-        8090: "mcp-gateway",
-        8091: "hermes-memory-mcp",
-        8095: "docker-mcp",
-        8097: "file-mcp",
-        8098: "n8n-mcp",
-        8099: "paperless-mcp",
-        8100: "git-mcp",
-        8102: "backup-mcp",
-        8103: "network-mcp",
-        8104: "rss-mcp",
-        8105: "doctor-mcp",
-        8106: "global-chat-mcp",
-        8107: "browser-use-mcp",
-        8108: "homelab-exec",
-        8120: "homelab-ops-mcp",
-    }
+    mcp_ports = _discover_mcp_ports()
     import socket
     for port, name in mcp_ports.items():
         try:

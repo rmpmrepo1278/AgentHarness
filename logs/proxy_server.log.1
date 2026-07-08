@@ -1,0 +1,93 @@
+INFO:     Started server process [907243]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO:     192.168.29.10:44504 - "GET /health HTTP/1.1" 200 OK
+2026-07-05 14:57:13,798 __main__ LLM Proxy initialized with providers: ['local', 'google-alt']
+2026-07-05 14:57:13,974 httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=dummy "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:13,974 core.providers.router Provider google-alt error: HTTP 400: {
+  "error": {
+    "code": 400,
+    "message": "API key not valid. Please pass a valid API key.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "API_KEY_INVALID",
+        "domain": "googleapis.com",
+        "metadata": {
+          "service": "generativelanguage.googleapis.com"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+        "locale": "en-US",
+        "message": "API key not valid. Please pass a valid API key."
+      }
+    ]
+  }
+}
+
+2026-07-05 14:57:13,984 httpx HTTP Request: GET http://localhost:11434/ "HTTP/1.1 200 OK"
+2026-07-05 14:57:13,996 httpx HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:13,996 core.providers.router Provider local error: Client error '400 Bad Request' for url 'http://localhost:11434/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+INFO:     192.168.29.10:40494 - "POST /v1/chat/completions HTTP/1.1" 503 Service Unavailable
+2026-07-05 14:57:14,603 httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=dummy "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:14,604 core.providers.router Provider google-alt error: HTTP 400: {
+  "error": {
+    "code": 400,
+    "message": "API key not valid. Please pass a valid API key.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "API_KEY_INVALID",
+        "domain": "googleapis.com",
+        "metadata": {
+          "service": "generativelanguage.googleapis.com"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+        "locale": "en-US",
+        "message": "API key not valid. Please pass a valid API key."
+      }
+    ]
+  }
+}
+
+2026-07-05 14:57:14,623 httpx HTTP Request: GET http://localhost:11434/ "HTTP/1.1 200 OK"
+2026-07-05 14:57:14,633 httpx HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:14,634 core.providers.router Provider local error: Client error '400 Bad Request' for url 'http://localhost:11434/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+INFO:     192.168.29.10:40498 - "POST /v1/chat/completions HTTP/1.1" 503 Service Unavailable
+2026-07-05 14:57:15,758 httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=dummy "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:15,759 core.providers.router Provider google-alt error: HTTP 400: {
+  "error": {
+    "code": 400,
+    "message": "API key not valid. Please pass a valid API key.",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "API_KEY_INVALID",
+        "domain": "googleapis.com",
+        "metadata": {
+          "service": "generativelanguage.googleapis.com"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+        "locale": "en-US",
+        "message": "API key not valid. Please pass a valid API key."
+      }
+    ]
+  }
+}
+
+2026-07-05 14:57:15,770 httpx HTTP Request: GET http://localhost:11434/ "HTTP/1.1 200 OK"
+2026-07-05 14:57:15,782 httpx HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-07-05 14:57:15,783 core.providers.router Provider local error: Client error '400 Bad Request' for url 'http://localhost:11434/v1/chat/completions'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+INFO:     192.168.29.10:40508 - "POST /v1/chat/completions HTTP/1.1" 503 Service Unavailable

@@ -26,23 +26,27 @@ class LlamaCppProvider(LLMProvider):
         self.timeout = timeout
 
     def complete(self, request: LLMRequest) -> LLMResponse:
-        """Send a completion request to the llama.cpp server."""
-        messages: List[dict] = []
+        """Send a completion request to the Ollama server."""
+        # Ollama uses /api/chat endpoint with slight format difference
+        messages = []
         if request.system_prompt:
             messages.append({"role": "system", "content": request.system_prompt})
         messages.append({"role": "user", "content": request.prompt})
 
         payload = {
-            "model": self.model,
+            "model": self.model or "llama3.2:3b",
             "messages": messages,
-            "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
+            "stream": False,
+            "options": {
+                "num_predict": request.max_tokens,
+                "temperature": request.temperature,
+            },
         }
 
         try:
             t0 = time.monotonic()
             resp = httpx.post(
-                f"{self.endpoint}/v1/chat/completions",
+                f"{self.endpoint}/api/chat",
                 json=payload,
                 timeout=self.timeout,
             )
@@ -50,15 +54,16 @@ class LlamaCppProvider(LLMProvider):
             resp.raise_for_status()
             data = resp.json()
 
-            text = data["choices"][0]["message"]["content"]
-            usage = data.get("usage", {})
+            text = data.get("message", {}).get("content", "")
+            # Ollama returns usage in eval_count (output tokens)
+            eval_count = data.get("eval_count", 0)
 
             return LLMResponse(
                 text=text,
                 provider=self.name,
-                model=self.model,
-                tokens_in=usage.get("prompt_tokens", 0),
-                tokens_out=usage.get("completion_tokens", 0),
+                model=data.get("model", self.model),
+                tokens_in=0,
+                tokens_out=eval_count,
                 latency_ms=latency,
                 success=True,
             )
@@ -72,21 +77,11 @@ class LlamaCppProvider(LLMProvider):
             )
 
     def is_available(self) -> bool:
-        """Check if the llama.cpp server is reachable."""
+        """Check if the Ollama server is reachable."""
+        # Ollama uses /api/tags endpoint
         try:
             resp = httpx.get(
-                f"{self.endpoint}/",
-                timeout=5,
-            )
-            if resp.status_code == 200:
-                return True
-        except Exception:
-            pass
-
-        # Fallback: try the models endpoint
-        try:
-            resp = httpx.get(
-                f"{self.endpoint}/v1/models",
+                f"{self.endpoint}/api/tags",
                 timeout=5,
             )
             return resp.status_code == 200

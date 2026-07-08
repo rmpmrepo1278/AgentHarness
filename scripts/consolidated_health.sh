@@ -130,7 +130,7 @@ fi
 
 # ── 8. OOM kill check ──
 log "=== OOM kill check ==="
-OOM_COUNT=$(dmesg 2>/dev/null | grep -ci "oom\|killed process" || echo 0)
+OOM_COUNT=$(dmesg 2>/dev/null | grep -ciE "oom|killed process" | head -1 || echo 0)
 if [ "$OOM_COUNT" -gt 0 ]; then
     log "WARNING: $OOM_COUNT OOM kill(s) detected in dmesg"
     ISSUES=$((ISSUES + 1))
@@ -138,6 +138,7 @@ fi
 
 # ── 9. Docker volume leak check + auto-prune ──
 log "=== Docker volume leak check ==="
+DANGLING=$(docker volume ls -f dangling=true 2>/dev/null | wc -l)
 DANGLING=$(docker volume ls -f dangling=true 2>/dev/null | wc -l)
 DANGLING=$((DANGLING - 1))  # Subtract header line
 if [ "$DANGLING" -gt 5 ]; then
@@ -177,6 +178,62 @@ if [ -f "$DUCKDNS_TOKEN_FILE" ]; then
 fi
 
 # ── Summary ──
+
+
+# --- 12. Backup freshness check ---
+log "=== Backup freshness check ==="
+LATEST_BACKUP=$(find /home/rohit/shared_agent_memory/config_backups -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+if [ -n "$LATEST_BACKUP" ]; then
+    BACKUP_AGE=$(( ($(date +%s) - ${LATEST_BACKUP%.*}) / 3600 ))
+    if [ "$BACKUP_AGE" -gt 48 ]; then
+        log "WARNING: Config backups stale (${BACKUP_AGE}h old)"
+        ISSUES=$((ISSUES + 1))
+    fi
+fi
+
+# --- 13. DNS resolution check ---
+log "=== DNS resolution check ==="
+for domain in google.com github.com api.telegram.org; do
+    if ! host "$domain" 8.8.8.8 &>/dev/null; then
+        log "WARNING: DNS resolution failed for $domain"
+        ISSUES=$((ISSUES + 1))
+    fi
+done
+
+# --- 14. Docker dependency check (gateway first) ---
+log "=== Docker dependency check ==="
+GATEWAY_OK=$(docker inspect --format '{{.State.Status}}' mcp-gateway 2>/dev/null || echo 'missing')
+if [ "$GATEWAY_OK" = "running" ]; then
+    for dep in docker-mcp file-mcp paperless-mcp git-mcp backup-mcp network-mcp rss-mcp doctor-mcp; do
+        DEP_OK=$(docker inspect --format '{{.State.Status}}' "$dep" 2>/dev/null || echo 'missing')
+        if [ "$DEP_OK" = "exited" ] || [ "$DEP_OK" = "missing" ]; then
+            log "WARNING: MCP dependency $dep is $DEP_OK (mcp-gateway is up)"
+        fi
+    done
+elif [ "$GATEWAY_OK" = "missing" ]; then
+    log "mcp-gateway not deployed -- skipping MCP dependency checks"
+fi
+# --- 14.5 Config drift detection ---
+log "=== Config drift detection ==="
+DRIFT_CHECKS=("mcp-gateway:/home/rohit/services/data/homelab.db" "paperless-mcp:/home/rohit/services/data/paperless")
+for drift_item in "${DRIFT_CHECKS[@]}"; do
+    svc=${drift_item%%:*}
+    path=${drift_item#*:}
+    if [ -f "$path" ] && [ -f "$path.bak" ]; then
+        if ! diff -q "$path" "$path.bak" &>/dev/null; then
+            log "WARNING: Config drift detected in $svc"
+            ISSUES=$((ISSUES + 1))
+        fi
+    fi
+done
+# --- 15. Container log error scan ---
+log "=== Container log error scan ==="
+for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
+    ERRORS=0
+    if [ "$ERRORS" -gt 0 ]; then
+        log "WARNING: $c has $ERRORS error(s) in last 20 log lines"
+    fi
+done
 if [ "$ISSUES" -gt 0 ]; then
     log "Health check complete: $ISSUES issue(s) detected"
 else
