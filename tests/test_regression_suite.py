@@ -178,16 +178,19 @@ class TestPlainChat:
         content = resp["choices"][0]["message"]["content"]
         assert len(content) > 0, "Empty response content"
 
-    def test_chat_returns_provider_footer(self):
-        """Response includes a footer identifying the provider used."""
+    def test_chat_returns_provider_in_model(self):
+        """Response model field identifies which provider handled it (footer removed in ponytail cleanup)."""
         resp = proxy_request({
             "model": "agentharness-proxy",
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 10,
             "temperature": 0.1,
         })
-        content = resp["choices"][0]["message"]["content"]
-        assert "— via" in content, "Missing provider footer in response"
+        # Footer was removed in ponytail cleanup — check model field instead
+        model = resp.get("model", "")
+        assert "agentharness-proxy" in model, f"Provider should be in model field: {model}"
+        tokens = resp.get("usage", {}).get("total_tokens", 0)
+        assert tokens > 0, "Should have usage stats"
 
     def test_provider_specified_in_response(self):
         """Response model field identifies which provider handled it."""

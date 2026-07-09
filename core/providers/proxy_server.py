@@ -28,6 +28,8 @@ from core.providers.pii_redact import (
     redact as redact_pii,
     is_enabled as pii_redact_enabled,
 )
+# Circuit breaker for provider resilience
+from core.providers.circuit_breaker import get_all_states, reset as reset_circuit_breaker
 
 
 def create_proxy_app(data_dir: str = "") -> object:
@@ -49,6 +51,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.budget import BudgetTracker
         from core.providers.router import Router
         from core.providers.llamacpp import LlamaCppProvider
+        from core.providers.rate_limit_tracker import RateLimitTracker
         from core.providers.groq import GroqProvider
         from core.providers.cerebras import CerebrasProvider
         from core.providers.freellmapi import FreeLLMAPIProvider
@@ -56,6 +59,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.openrouter import OpenRouterProvider
 
         bt = BudgetTracker(data_dir=data_dir)
+        rlt = RateLimitTracker(data_dir=data_dir)  # Rate limit tracker for cooldown checking
         providers = []
 
         # Local LLM (Ollama) — disaster recovery fallback
@@ -88,6 +92,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             providers.append(GroqProvider(model="llama-3.3-70b-versatile", daily_limit=12000))
         if os.environ.get("CEREBRAS_API_KEY"):
             providers.append(CerebrasProvider(model="gpt-oss-120b", daily_limit=50000))
+        if os.environ.get("SAMBANOVA_API_KEY"):
+            from core.providers.sambanova import SambaNovaProvider
+            providers.append(SambaNovaProvider(model="gpt-oss-120b", daily_limit=50000))
         if os.environ.get("GITHUB_API_KEY"):
             providers.append(OpenAICompatProvider(
                 name="github-models",
@@ -109,10 +116,11 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Routing — distribute load across all working providers
         # freellmapi first: auto-routes across 16+ providers internally
         # then round-robin: groq → cerebras → mistral → owl → openrouter → local
-        speed_order = ["freellmapi", "groq", "github-models", "cerebras", "mistral", "owl", "openrouter", "local"]
+        speed_order = ["freellmapi", "groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local"]
         router = Router(
             providers=providers,
             budget=bt,
+            rate_limit_tracker=rlt,  # Pass rate limit tracker for cooldown-aware retry
             routing={
                 "low": speed_order,
                 "medium": speed_order,
@@ -140,10 +148,10 @@ def create_proxy_app(data_dir: str = "") -> object:
         router = _get_router()
         rtp = router._providers_by_name
         providers_info = {}
+        cb_states = get_all_states()  # Circuit breaker states
         for name, p in rtp.items():
-            # ponytail: consecutive_failures is a module-level global dict;
-            # per-provider locks if this ever runs multi-process.
             fails = _failure_counts.get(name, 0)
+            cb = cb_states.get(name, {})
             providers_info[name] = {
                 "type": "local" if name == "local" else "cloud",
                 "healthy": p.is_available() if hasattr(p, "is_available") else True,
@@ -154,12 +162,18 @@ def create_proxy_app(data_dir: str = "") -> object:
                     "consecutive_failures": fails,
                     "healthy": fails == 0,
                 },
+                "circuit_breaker": {
+                    "state": cb.get("state", "CLOSED"),
+                    "failures": cb.get("failure_count", 0),
+                    "available": cb.get("available", True),
+                },
             }
         return JSONResponse({
             "timestamp": int(time.time()),
             "overall": "healthy",
             "providers": providers_info,
             "routing_order": router._routing.get("critical", []),
+            "circuit_states": cb_states,
         })
 
     @app.get("/v1/cache")
@@ -215,6 +229,13 @@ def create_proxy_app(data_dir: str = "") -> object:
             for p in router._providers_by_name.values():
                 if hasattr(p, "reset_cooldowns"):
                     p.reset_cooldowns()
+            return JSONResponse({"success": True})
+        if action == "reset_circuit_breaker":
+            provider_name = body.get("provider")
+            if provider_name:
+                reset_circuit_breaker(provider_name)
+            else:
+                reset_circuit_breaker()  # Reset all
             return JSONResponse({"success": True})
         return JSONResponse({"success": False, "error": f"unknown action {action}"}, status_code=400)
 

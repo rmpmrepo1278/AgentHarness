@@ -61,7 +61,29 @@ Reduces token consumption by 40-80% on web-heavy requests.
 | `TJ_PRESERVE_MATH` | `true` | Keep math as HTML |
 | `TJ_PRESERVE_SVG` | `true` | Keep SVG as HTML |
 
-### 3. Rate Limit Tracker (`core/providers/rate_limit_tracker.py`)
+### 3. Circuit Breaker (`core/providers/circuit_breaker.py`)
+
+Implements CLOSED → DEGRADED → OPEN → HALF_OPEN state machine for provider resilience.
+
+**Features:**
+- **State Machine**: CLOSED (normal) → DEGRADED (warning) → OPEN (suppressed) → HALF_OPEN (probing) → CLOSED
+- **Configurable thresholds**: OAuth providers (8 failures → open, 5 → degraded), API Key (12 failures → open, 7 → degraded)
+- **Exponential backoff escalation**: Repeated OPEN cycles increase reset timeout (max 16x)
+- **Transition history**: Last 100 transitions stored for diagnostics
+- **Per-provider state**: Isolated failure tracking per provider
+
+**Config (env vars):**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CB_OAUTH_THRESHOLD` | `8` | OAuth failures before OPEN |
+| `CB_OAUTH_DEGRADATION` | `5` | OAuth failures before DEGRADED |
+| `CB_OAUTH_RESET_MS` | `60000` | OAuth reset timeout (1 min) |
+| `CB_APIKEY_THRESHOLD` | `12` | API Key failures before OPEN |
+| `CB_APIKEY_DEGRADATION` | `7` | API Key failures before DEGRADED |
+| `CB_APIKEY_RESET_MS` | `30000` | API Key reset timeout (30 sec) |
+| `CB_COOLDOWN_MAX_WAIT_MS` | `5000` | Max wait for short cooldown retry |
+
+### 4. Rate Limit Tracker (`core/providers/rate_limit_tracker.py`)
 
 Per-provider, per-model rate limit state with failure scoring.
 
@@ -242,12 +264,13 @@ agentharness/
 │   ├── providers/
 │   │   ├── proxy_server.py      # Main proxy (FastAPI, port 8080)
 │   │   ├── token_juice.py       # HTML preprocessing
+│   │   ├── circuit_breaker.py   # Provider resilience state machine
 │   │   ├── rate_limit_tracker.py # Per-model rate limit state
 │   │   ├── router.py            # Smart LLM routing
 │   │   ├── budget.py            # Budget tracking
 │   │   ├── billing.py           # Cost tracking
 │   │   └── [provider].py        # Per-provider implementations
-│   ├── resilience/              # Circuit breaker, watchdog, self-test
+│   ├── resilience/              # Watchdog, self-test
 │   └── security/                # Sanitizer, audit, integrity
 ├── scripts/
 │   ├── context_harvester.py     # Background context accumulation
