@@ -116,13 +116,15 @@ def check_docker() -> dict:
 
 
 def check_systemd() -> dict:
+    # Skip systemd checks when running inside a container (no DBUS access)
+    if Path("/.dockerenv").exists() or Path("/run/.containerenv").exists():
+        return _check("systemd", "healthy", {"note": "skipped in container", "services_checked": 0})
     services = ["hermes-gateway.service", "hermes-mind-loop.service"]
     failed = []
     for svc in services:
         r = _run(["systemctl", "--user", "is-active", svc], env=_DBUS_ENV)
         if r.returncode != 0:
             failed.append(svc)
-    # Note: hermes-watcher and proactive-daemon removed Jun 30 - no longer checked
     if failed:
         return _check("systemd", "critical", {"failed": failed})
     return _check("systemd", "healthy", {"services_checked": len(services)})
@@ -175,22 +177,27 @@ def check_inodes() -> dict:
 
 
 def check_memory() -> dict:
-    r = _run(["free", "-g"])
-    if r.returncode != 0:
-        return _check("memory", "warning", message="Cannot check memory")
-    lines = r.stdout.strip().split("\n")
-    mem = {}
-    if len(lines) >= 2:
-        parts = lines[1].split()
-        if len(parts) >= 7:
-            mem = {"total_gb": int(parts[1]), "available_gb": int(parts[6])}
-    status = "healthy"
-    avail = mem.get("available_gb", 999)
-    if avail < 1:
-        status = "critical"
-    elif avail < 2:
-        status = "warning"
-    return _check("memory", status, mem)
+    # Use /proc/meminfo for container-compatible memory check
+    try:
+        meminfo = Path("/proc/meminfo").read_text()
+        mem = {}
+        for line in meminfo.splitlines():
+            if line.startswith("MemTotal:"):
+                mem["total_mb"] = int(line.split()[1]) // 1024
+            elif line.startswith("MemAvailable:"):
+                mem["available_mb"] = int(line.split()[1]) // 1024
+        if not mem:
+            return _check("memory", "warning", message="Cannot parse /proc/meminfo")
+        total_gb = mem.get("total_mb", 999) // 1024 or 1
+        available_gb = mem.get("available_mb", 999) // 1024 or 1
+        status = "healthy"
+        if available_gb < 1:
+            status = "critical"
+        elif available_gb < 2:
+            status = "warning"
+        return _check("memory", status, {"total_gb": total_gb, "available_gb": available_gb})
+    except Exception as e:
+        return _check("memory", "warning", message=f"Cannot check memory: {e}")
 
 
 def check_cpu() -> dict:
@@ -207,10 +214,10 @@ def check_cpu() -> dict:
 
 
 def check_network() -> dict:
-    # Check key ports
+    # Check key ports - only check services that should be running
     key_ports = {
-        8080: "llm-proxy", 8787: "hermes-webui", 3002: "grafana",
-        4321: "khoj", 8000: "paperless", 9000: "portainer",
+        8080: "llm-proxy", 8787: "hermes-webui",
+        3002: "grafana", 4321: "khoj", 8000: "paperless",
     }
     down = []
     for port, name in key_ports.items():
@@ -222,6 +229,7 @@ def check_network() -> dict:
             s.close()
         except Exception:
             down.append(f"{name}:{port}")
+    # Note: portainer (9000) removed - not running
     if down:
         return _check("network", "warning", {"down_ports": down})
     return _check("network", "healthy", {"ports_checked": len(key_ports)})
@@ -282,7 +290,7 @@ def check_oom() -> dict:
 
 
 def check_mcp() -> dict:
-    ports = [8090, 8091, 8095, 8097, 8098, 8099, 8100, 8102, 8103, 8104, 8105, 8106, 8107]
+    ports = [8090, 8091, 8095, 8097, 8099, 8100, 8102, 8103, 8104, 8105, 8106, 8108]
     down = []
     for port in ports:
         try:

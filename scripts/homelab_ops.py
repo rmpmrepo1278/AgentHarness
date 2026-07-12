@@ -693,12 +693,12 @@ def check_all_health() -> dict:
         report["ok"] = False
         report["issues"].append("LLM proxy (8080) unreachable")
 
-    # -- Local LLM (port 8081) --
-    rc_llm, out_llm, _ = _run("curl -sf -m 5 http://127.0.0.1:8081/health")
-    report["local_llm"] = {"reachable": rc_llm == 0, "response": out_llm[:500]}
+    # -- Local LLM (Ollama on port 11434) --
+    rc_llm, out_llm, _ = _run("curl -sf -m 5 http://127.0.0.1:11434/api/tags")
+    report["local_llm"] = {"reachable": rc_llm == 0, "endpoint": "11434"}
     if rc_llm != 0:
         report["ok"] = False
-        report["issues"].append("Local LLM (8081) unreachable")
+        report["issues"].append("Local LLM (11434) unreachable")
 
     # -- Disk usage --
     report["disk"] = check_disk()
