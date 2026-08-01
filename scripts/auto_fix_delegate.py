@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -919,6 +920,7 @@ def spawn_claude(prompt: str, timeout: int) -> dict:
             text=True,
             timeout=timeout,
             cwd=str(Path.home()),
+            start_new_session=True,
             env={**os.environ, "CLAUDE_PROJECT_DIR": str(Path.home())},
         )
 
@@ -948,6 +950,10 @@ def spawn_claude(prompt: str, timeout: int) -> dict:
 
     except subprocess.TimeoutExpired:
         log(f"Claude session {sid} timed out after {timeout}s")
+        try:
+            os.killpg(os.getpgid(result.pid), signal.SIGKILL)
+        except (ProcessLookupError, AttributeError):
+            pass
         return {
             "status": "timeout",
             "session_id": sid,

@@ -1324,19 +1324,23 @@ def detect_issues() -> list[dict]:
                 try:
                     inspect_result = subprocess.run(
                         ["docker", "inspect", "--format",
-                         "{{.State.Health.Status}}|{{.State.StartedAt}}|{{.State.FailingStreak}}",
+                         "{{.State.Health.Status}}|{{.State.StartedAt}}|{{.State.Health.FailingStreak}}",
                          name],
                         capture_output=True, text=True, timeout=10,
                     )
                     if inspect_result.returncode == 0:
                         parts = inspect_result.stdout.strip().split("|", 2)
-                        health = parts[0] if len(parts) > 0 else ""
+                        health = (parts[0] if len(parts) > 0 else "").replace("<no value>", "none")
                         started_at = parts[1] if len(parts) > 1 else ""
                         failing_streak = parts[2] if len(parts) > 2 else "0"
+                        try:
+                            streak = int(failing_streak)
+                        except (ValueError, TypeError):
+                            streak = 0
                         # If healthy, running >1h, and no failing streak → skip
                         is_stable = (
-                            health in ("healthy", "none", "")
-                            and int(failing_streak or 0) == 0
+                            health in ("healthy", "none")
+                            and streak == 0
                             and started_at
                         )
                         if is_stable:
@@ -1540,7 +1544,8 @@ def invoke_delegate(issue: dict, dry_run: bool = False) -> dict:
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,  # 2 min max for the delegate to start + pre-flight
+            timeout=960,  # match delegate --timeout 900 + buffer; delegate handles claude
+            start_new_session=True,  # own process group so we can kill claude grandchildren
         )
         if result.returncode in (0, 1):  # 0=completed, 1=failed but ran
             try:
@@ -1550,6 +1555,11 @@ def invoke_delegate(issue: dict, dry_run: bool = False) -> dict:
         else:
             return {"status": "delegate_error", "error": result.stderr[:500]}
     except subprocess.TimeoutExpired:
+        # Kill the entire process group so the delegate's claude child is not orphaned
+        try:
+            os.killpg(os.getpgid(result.pid), signal.SIGKILL)
+        except (ProcessLookupError, AttributeError):
+            pass
         return {"status": "delegate_timeout"}
     except Exception as e:
         return {"status": "delegate_exception", "error": str(e)}
