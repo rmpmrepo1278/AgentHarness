@@ -14,11 +14,10 @@ def test_llamacpp_complete_success():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "choices": [{"message": {"content": "Hello from llama.cpp"}}],
-        "usage": {
-            "prompt_tokens": 12,
-            "completion_tokens": 8,
-        },
+        "message": {"content": "Hello from llama.cpp"},
+        "model": "llama3",
+        "prompt_eval_count": 12,
+        "eval_count": 8,
     }
     mock_response.raise_for_status = MagicMock()
 

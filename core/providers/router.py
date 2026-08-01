@@ -1,6 +1,7 @@
 """Smart LLM router — routes requests by complexity, budget, and availability."""
 
 from __future__ import annotations
+import os
 
 import logging
 import re
@@ -13,6 +14,14 @@ from core.providers.base import (
     LLMRequest,
     LLMResponse,
 )
+
+# Providers that support tool calling (OpenAI-compatible with tools parameter)
+TOOL_CAPABLE_PROVIDERS = {
+    "cerebras", "sambanova", "github-models", "openrouter-tools",
+    "deepseek", "cloudflare",
+    "owl-2", "openrouter-2", "mistral-2",
+    "owl-3", "openrouter-3", "mistral-3", "cohere",
+}
 from core.providers.budget import BudgetTracker
 from core.providers.circuit_breaker import (
     is_available as cb_is_available,
@@ -71,18 +80,39 @@ class Router:
         self._max_retries = max_retries
         self._rate_limit_tracker = rate_limit_tracker  # Used for cooldown-aware retry
 
+        # Build tool-capable routing order (prefer providers that support tools)
+        self._tool_routing = [p.name for p in providers if p.name in TOOL_CAPABLE_PROVIDERS]
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def route(self, request: LLMRequest) -> LLMResponse:
+    def route(self, request: LLMRequest, forced_provider: str = None) -> LLMResponse:
         """Pick the best provider and return a response."""
+
+        # Forced provider override (from model routing)
+        if forced_provider is not None:
+            provider = self._providers_by_name.get(forced_provider)
+            if provider is not None:
+                resp = self._try_provider(provider, request)
+                if resp is not None:
+                    return resp
 
         # Policy override: if request.tool_name matches a policy, force that provider.
         forced = self._match_policy(request)
         if forced is not None:
             provider = self._providers_by_name.get(forced)
             if provider is not None:
+                resp = self._try_provider(provider, request)
+                if resp is not None:
+                    return resp
+
+        # If tools requested, prefer tool-capable providers first
+        if request.tools:
+            for name in self._tool_routing:
+                provider = self._providers_by_name.get(name)
+                if provider is None:
+                    continue
                 resp = self._try_provider(provider, request)
                 if resp is not None:
                     return resp
@@ -108,8 +138,11 @@ class Router:
     def _try_provider(self, provider: LLMProvider, request: LLMRequest) -> Optional[LLMResponse]:
         """Attempt a single provider. Return LLMResponse on success, None to skip."""
 
-        # 1. Skip if not enabled.
+        # 1. Skip if not enabled or not available.
         if not getattr(provider, "enabled", True):
+            return None
+        if not provider.is_available():
+            logger.debug("Provider %s unavailable, skipping", provider.name)
             return None
 
         # 2. Circuit breaker check — skip if OPEN (but DEGRADED/HALF_OPEN can probe).
@@ -164,8 +197,8 @@ class Router:
             # Rate-limited — record failure and check for cooldown retry.
             logger.warning("Provider %s returned 429, skipping", provider.name)
             record_failure(provider.name, auth_category)
-            # Check if we should wait for cooldown (OmniRoute-style).
-            retry_info = _check_cooldown_retry(provider.name, auth_category)
+            # Check if we should wait for cooldown.
+            retry_info = self._check_cooldown_retry(provider.name, auth_category)
             if retry_info and retry_info.get("should_wait"):
                 logger.info(
                     "Provider %s in short cooldown (%.1fs) — could wait if retry allowed",
@@ -189,7 +222,6 @@ class Router:
     def _check_cooldown_retry(self, provider: str, auth_category: str) -> Optional[dict]:
         """
         Check if provider is in short cooldown we could wait for.
-        Mirror of OmniRoute's CooldownAwareRetry decision.
         Returns {wait_ms, should_wait} or None if no wait.
         """
         # Get rate limit tracker for cooldown info
@@ -199,7 +231,7 @@ class Router:
 
         remaining_ms = tracker.get_cooldown_remaining(provider)
 
-        # Configure retry thresholds (mirror OmniRoute: maxWaitMs=5000, maxAttempts=2)
+        # Configure retry thresholds (maxWaitMs=5000, maxAttempts=2)
         max_wait_ms = int(os.environ.get("CB_COOLDOWN_MAX_WAIT_MS", "5000"))
         if remaining_ms > 0 and remaining_ms <= max_wait_ms:
             return {"wait_ms": remaining_ms, "should_wait": True}

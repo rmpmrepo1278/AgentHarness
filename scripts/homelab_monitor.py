@@ -53,12 +53,6 @@ SERVICE_CONFIG_CHECKS = {
         "min_apps": 10,
         "backup_path": CONFIG_BACKUP_DIR / "mcp-gateway_state.json.bak",
     },
-    "paperless-mcp": {
-        "container_path": "/data/paperless_config.json",
-        "schema_key": "connections",
-        "min_apps": 1,
-        "backup_path": CONFIG_BACKUP_DIR / "paperless_mcp_config.json.bak",
-    }
 }
 
 # Disk cleanup threshold: auto-clean if any partition exceeds this %

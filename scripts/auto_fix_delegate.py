@@ -378,7 +378,7 @@ ISSUE_TEMPLATES = {
         "keywords": ["mcp", "mcp_child", "mcp_health", "mcp gateway", "8090", "8091"],
         "priority": "high",
         "investigation_steps": [
-            "Check all MCP ports: for port in 8090 8091 8095 8097 8099 8100 8102 8103 8104 8105 8106 8108 8120; do echo -n \"Port $port: \"; echo > /dev/tcp/127.0.0.1/$port 2>/dev/null && echo UP || echo DOWN; done",
+            "Check all MCP ports: for port in 8090 8091 8095 8097 8100 8102 8103 8104 8105 8106 8108; do echo -n \"Port $port: \"; echo > /dev/tcp/127.0.0.1/$port 2>/dev/null && echo UP || echo DOWN; done",
             "Check MCP gateway logs: docker logs --tail 50 mcp-gateway",
             "Check individual MCP container logs for the unreachable service",
             "Check if autoheal is restarting MCP containers in a loop",

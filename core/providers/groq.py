@@ -39,6 +39,19 @@ class GroqProvider(LLMProvider):
             "max_tokens": request.max_tokens,
             "temperature": request.temperature
         }
+        # Pass through tools if provided
+        if request.tools:
+            payload["tools"] = request.tools
+            tool_choice = getattr(request, "tool_name", None)
+            if tool_choice:
+                if tool_choice == "auto":
+                    payload["tool_choice"] = "auto"
+                elif tool_choice == "required":
+                    payload["tool_choice"] = "required"
+                else:
+                    payload["tool_choice"] = tool_choice
+            else:
+                payload["tool_choice"] = "auto"
         t0 = time.monotonic()
         try:
             resp = httpx.post(url, json=payload, headers=headers, timeout=self.timeout)
@@ -50,9 +63,17 @@ class GroqProvider(LLMProvider):
         if resp.status_code != 200:
             return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=resp.text)
         data = resp.json()
+        message = data.get("choices", [{}])[0].get("message", {}) or {}
+        choice = message.get("content") or ""
+        tool_calls = message.get("tool_calls")
         usage = data.get("usage", {})
+        # If tool_calls present, encode them in text for routing
+        if tool_calls:
+            import json
+            choice = json.dumps({"tool_calls": tool_calls}, ensure_ascii=False)
+        self._usage_today += 1
         return LLMResponse(
-            text=data["choices"][0]["message"]["content"],
+            text=choice,
             provider=self.name,
             model=self.model,
             tokens_in=usage.get("prompt_tokens", 0),

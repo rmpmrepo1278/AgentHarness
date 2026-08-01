@@ -1,0 +1,261 @@
+# Merged MCP Services - Consolidated from 12 containers to 5
+# infrastructure-services: backup, doctor, file (ports 8102, 8105, 8097)
+# data-management: git, paperless, rss (ports 8100, 8099, 8104)
+# system-monitoring: docker, homelab-ops, network, gateway (ports 8103, 8106, 8103, 8090)
+# communication: global-chat (port 8104)
+# hermes-memory: separate (port 8091)
+# homelab-exec: separate (port 8108)
+
+services:
+  # ============================================================
+  # Group 1: Infrastructure Services
+  # ============================================================
+  infrastructure-services:
+    build: ./merged-mcp/infrastructure-services
+    container_name: infrastructure-services
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8102
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - DOCKER_HOST=tcp://127.0.0.1:2375
+    network_mode: host
+    restart: always
+    volumes:
+      - ./merged-mcp/infrastructure-services/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - ./merged-mcp/infrastructure-services/infrastructure:/app/infrastructure:ro
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /mnt/usb/backups:/backups
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /root/.npm
+
+  # ============================================================
+  # Group 2: Data Management Services
+  # ============================================================
+  data-management:
+    build: ./merged-mcp/data-management
+    container_name: data-management
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8100
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - GITEA_URL=http://127.0.0.1:3001
+      - PAPERLESS_URL=http://127.0.0.1:8000
+      - PAPERLESS_TOKEN=${PAPERLESS_TOKEN}
+      - CONSUME_DIR=/consume
+      - FEEDS_FILE=/data/rss_feeds.json
+    network_mode: host
+    restart: always
+    volumes:
+      - ./merged-mcp/data-management/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - ./merged-mcp/data-management/data_management:/app/data_management:ro
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/openclaw/data/paperless/consume:/consume:rw
+      - /mnt/usb:/mnt/usb:ro
+      - /home/rohit/openclaw/data:/home/rohit/openclaw/data:ro
+    memswap_limit: 512M
+
+  # ============================================================
+  # Group 3: System Monitoring Services
+  # ============================================================
+  system-monitoring:
+    build: ./merged-mcp/system-monitoring
+    container_name: system-monitoring
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8103
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - DOCKER_HOST=tcp://127.0.0.1:2375
+      - DOCTOR_BASE_URL=http://127.0.0.1:8080/doctor
+      - HOST_IP=192.168.29.10
+      - HEALTH_DATA_DIR=/home/rohit/agentharness/data
+    network_mode: host
+    restart: always
+    volumes:
+      - ./merged-mcp/system-monitoring/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - ./merged-mcp/system-monitoring/system_monitoring:/app/system_monitoring:ro
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /home/rohit/agentharness/data:/home/rohit/agentharness/data:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
+
+  # ============================================================
+  # Group 4: Communication Services (unchanged)
+  # ============================================================
+  global-chat-mcp:
+    build: ./global-chat-mcp
+    container_name: global-chat-mcp
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8104
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+    network_mode: host
+    restart: always
+    volumes:
+      - ./global-chat-mcp/mcp_base:/mcp-base:ro
+    memswap_limit: 512M
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /root/.npm
+
+  # ============================================================
+  # Gateway (unchanged - core service)
+  # ============================================================
+  mcp-gateway:
+    build: ./mcp-gateway
+    container_name: mcp-gateway
+    labels:
+      - autoheal=true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - GATEWAY_PORT=8090
+      - HEALTH_CHECK_INTERVAL=60
+      - CHAGULI_ALERTS_DIR=/data/alerts
+      - GATEWAY_STATE_FILE=/data/gateway_state.json
+      - GATEWAY_LOG_FILE=/data/gateway.log
+      - DOCKER_HOST=tcp://127.0.0.1:2375
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/data:/data
+      - ./templates/docker:/templates/repo:ro
+      - ~/mcp-gateway/templates:/templates/local
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
+
+  # ============================================================
+  # Other unchanged services
+  # ============================================================
+  hermes-memory-mcp:
+    build: ./hermes-memory-mcp
+    container_name: hermes-memory-mcp
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8091
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - HERMES_HOME=/hermes
+      - SHARED_MEMORY_DIR=/shared-memory
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/.hermes:/hermes:rw
+      - /home/rohit/shared_agent_memory:/shared-memory:rw
+    memswap_limit: 512M
+
+  homelab-exec:
+    build: ./homelab-exec
+    container_name: homelab-exec
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8108
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - DOCKER_HOST=tcp://127.0.0.1:2375
+      - HOME=/home/rohit
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /home/rohit/agentharness/scripts:/scripts:ro
+      - /home/rohit/.hermes/scripts:/scripts-hm:ro
+      - /home/rohit/.hermes/lib:/home/rohit/.hermes/lib:ro
+      - /home/rohit/.hermes:/home/rohit/.hermes:rw
+      - /mnt/usb:/mnt/usb:ro
+      - /tmp/homelab-exec-logs:/home/rohit/.hermes/logs
+      - /run/systemd:/run/systemd:ro
+      - /run/user/1000:/run/user/1000:ro
+      - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
+      - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
+      - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
+    oom_score_adj: -250
+    memswap_limit: 512M
+
+volumes:
+  rss-data: {}
+  mcp-stacks: {}

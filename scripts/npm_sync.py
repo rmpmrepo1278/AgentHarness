@@ -4,7 +4,7 @@ from datetime import datetime
 
 NPM_DB = "/var/lib/docker/volumes/npm_npm-data/_data/database.sqlite"
 CERT_HOME, CERT_DUCKDNS, USER_ID = 6, 2, 1
-SKIP = {'autoheal','watchtower','docker-socket-proxy','docker-mcp','backup-mcp','file-mcp','git-mcp','network-mcp','doctor-mcp','rss-mcp','global-chat-mcp','homelab-exec','homelab-ops-mcp','mcp-gateway','paperless-mcp','hermes-memory-mcp','bookstack-db','linkwarden-db','paperless-db','immich_database','redis'}
+SKIP = {'autoheal','watchtower','docker-socket-proxy','docker-mcp','backup-mcp','file-mcp','git-mcp','network-mcp','doctor-mcp','rss-mcp','global-chat-mcp','homelab-exec','mcp-gateway','hermes-memory-mcp','bookstack-db','linkwarden-db','paperless-db','immich_database','redis'}
 OVERRIDES = {
     'calibre-web': 'books',
     'immich_server': 'immich',
@@ -12,8 +12,6 @@ OVERRIDES = {
     'nginx-proxy-manager': 'npm-admin',
     'pihole': 'pihole',
     'healthchecks': 'healthchecks',
-    
-    'freellmapi': 'free-llm',
     'agent-status-api': 'agent-status',
 }
 WS = {'homeassistant','hermes-webui-hermes-webui-1'}

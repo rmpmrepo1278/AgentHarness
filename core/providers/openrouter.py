@@ -26,6 +26,10 @@ class OpenRouterProvider(OpenAICompatProvider):
 
     async def _refresh_free_models(self):
         """Fetch free models from OpenRouter API."""
+        # Skip free model refresh for openrouter-tools (it needs gpt-4o-mini for tool support)
+        if self.name == "openrouter-tools":
+            logger.info("Skipping free model refresh for openrouter-tools (requires gpt-4o-mini for tool support)")
+            return
         if time.time() - self._last_refresh < 3600:
             return
         
@@ -50,13 +54,25 @@ class OpenRouterProvider(OpenAICompatProvider):
             logger.error(f"Failed to refresh free models: {e}")
 
     async def complete_async(self, request: LLMRequest) -> LLMResponse:
-        await self._refresh_free_models()
+        with open("/tmp/openrouter_entry.log", "a") as f:
+            f.write(f"ENTRY complete_async: model={self.model!r}, name={self.name!r}\n")
+        # Skip cost protection entirely for openrouter-tools (it needs gpt-4o-mini for tool support)
+        if self.name != "openrouter-tools":
+            await self._refresh_free_models()
         
-        # SAFETY NET: Force free models only.
+                # SAFETY NET: Force free models only.
         # If the requested model is NOT in the free list, switch to the first available free model.
-        if self._free_models and self.model not in self._free_models:
+        # EXCEPTION: The openrouter-tools provider is specifically configured for tool use with gpt-4o-mini.
+        # Never switch this provider to a free model, as free models on OpenRouter (Novita) do not support tools properly.
+        # Check by model name since openrouter-tools is the only provider using gpt-4o-mini
+        is_tool_model = self.model == "openai/gpt-4o-mini"
+        with open("/tmp/openrouter_debug.log", "a") as f:
+            f.write(f"DEBUG_OPENROUTER: name={self.name!r}, model={self.model!r}, is_tool_model={is_tool_model}, free_models={self._free_models[:3] if self._free_models else None}, model_in_free={self.model in self._free_models if self._free_models else None}\n")
+        if self._free_models and self.model not in self._free_models and not is_tool_model:
             logger.warning(f"COST PROTECTION: Requested model {self.model} is not free! Switching to {self._free_models[0]}")
             self.model = self._free_models[0]
+        elif is_tool_model and self._free_models and self.model not in self._free_models:
+            logger.warning(f"COST PROTECTION: Keeping paid model {self.model} for tool-capable model (configured for tool use).")
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -76,6 +92,15 @@ class OpenRouterProvider(OpenAICompatProvider):
             "temperature": request.temperature,
         }
 
+        # Pass through tools if provided
+        if request.tools:
+            payload["tools"] = request.tools
+            # tool_choice from request.tool_name or default to "auto"
+            if request.tool_name:
+                payload["tool_choice"] = request.tool_name if request.tool_name != "auto" else "auto"
+            else:
+                payload["tool_choice"] = "auto"
+
         t0 = time.monotonic()
         try:
             async with httpx.AsyncClient() as client:
@@ -92,9 +117,16 @@ class OpenRouterProvider(OpenAICompatProvider):
                     return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=f"HTTP {resp.status_code}: {resp.text}")
                 
                 data = resp.json()
-                choice = data["choices"][0]["message"]["content"]
+                message = data["choices"][0].get("message", {}) or {}
+                choice = message.get("content") or ""
+                tool_calls = message.get("tool_calls")
                 usage = data.get("usage", {})
                 self._usage_today += 1
+                
+                # If tool_calls present, encode them in text for routing
+                if tool_calls:
+                    import json
+                    choice = json.dumps({"tool_calls": tool_calls}, ensure_ascii=False)
                 
                 return LLMResponse(text=choice, provider=self.name, model=self.model, tokens_in=usage.get("prompt_tokens", 0), tokens_out=usage.get("completion_tokens", 0), latency_ms=latency)
         except Exception as e:

@@ -9,8 +9,8 @@ import httpx
 from core.providers.base import BudgetStatus, LLMProvider, LLMRequest, LLMResponse
 
 
-class LlamaCppProvider(LLMProvider):
-    """LLM provider for llama.cpp server (OpenAI-compatible endpoint)."""
+class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
+    """Ollama adapter — llama.cpp-compatible OpenAI endpoint using Ollama as the local inference engine."""
 
     def __init__(
         self,
@@ -55,14 +55,15 @@ class LlamaCppProvider(LLMProvider):
             data = resp.json()
 
             text = data.get("message", {}).get("content", "")
-            # Ollama returns usage in eval_count (output tokens)
+            # Ollama returns usage in prompt_eval_count (input) and eval_count (output)
+            prompt_eval_count = data.get("prompt_eval_count", 0)
             eval_count = data.get("eval_count", 0)
 
             return LLMResponse(
                 text=text,
                 provider=self.name,
                 model=data.get("model", self.model),
-                tokens_in=0,
+                tokens_in=prompt_eval_count,
                 tokens_out=eval_count,
                 latency_ms=latency,
                 success=True,

@@ -1,15 +1,16 @@
-"""Base classes and data types for LLM providers."""
+"""Core provider abstractions and data types."""
+
 from __future__ import annotations
 
-import enum
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from enum import Enum
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 
-class Complexity(enum.Enum):
-    """Task complexity levels for routing decisions."""
+class Complexity(Enum):
+    """Request complexity tiers used for routing."""
 
     LOW = "low"
     MEDIUM = "medium"
@@ -18,13 +19,16 @@ class Complexity(enum.Enum):
 
 
 @dataclass
-class BudgetStatus:
-    """Tracks remaining budget/quota for an LLM provider."""
+class LLMRequest:
+    """Request to an LLM provider."""
 
-    known_remaining: Optional[int] = None
-    estimated_remaining: Optional[int] = None
-    reset_at: Optional[datetime] = None
-    cost_model: str = "free"
+    prompt: str
+    max_tokens: int = 1024
+    temperature: float = 0.7
+    complexity: Complexity = Complexity.MEDIUM
+    system_prompt: Optional[str] = None
+    tool_name: Optional[str] = None
+    tools: Optional[list[dict[str, Any]]] = None
 
 
 @dataclass
@@ -45,31 +49,14 @@ class LLMResponse:
         return self.tokens_in + self.tokens_out
 
 
-def _llm_response_error(provider: str, message: str) -> LLMResponse:
-    """Factory for error responses."""
-    return LLMResponse(
-        text="",
-        provider=provider,
-        model="",
-        success=False,
-        error=message,
-    )
-
-
-# Attach as a class-level callable that doesn't shadow the instance 'error' field.
-LLMResponse.error = staticmethod(_llm_response_error)  # type: ignore[attr-defined]
-
-
 @dataclass
-class LLMRequest:
-    """Request to an LLM provider."""
+class BudgetStatus:
+    """Budget/quota status for a provider."""
 
-    prompt: str
-    max_tokens: int = 1024
-    temperature: float = 0.7
-    complexity: Complexity = Complexity.MEDIUM
-    system_prompt: Optional[str] = None
-    tool_name: Optional[str] = None
+    known_remaining: Optional[int] = None
+    estimated_remaining: Optional[int] = None
+    reset_at: Optional[datetime] = None
+    cost_model: str = "free"
 
 
 class LLMProvider(ABC):
@@ -92,6 +79,19 @@ class LLMProvider(ABC):
     def budget_status(self) -> BudgetStatus:
         """Return current budget/quota status."""
 
-    def capabilities(self) -> List[str]:
-        """Return list of provider capabilities."""
-        return []
+    def enabled(self) -> bool:
+        """Whether the provider is enabled. Can be toggled at runtime."""
+        return getattr(self, "_enabled", True)
+def _llm_response_error(provider: str, message: str) -> LLMResponse:
+    """Factory for error responses."""
+    return LLMResponse(
+        text="",
+        provider=provider,
+        model="",
+        success=False,
+        error=message,
+    )
+
+
+# Attach as a class-level callable that doesn't shadow the instance 'error' field.
+LLMResponse.error = staticmethod(_llm_response_error)  # type: ignore[attr-defined]

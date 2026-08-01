@@ -1,0 +1,7 @@
+version: '3'
+services:
+  codebase-memory-mcp:
+    build: .
+    ports:
+      - 9749:9749
+    command: codebase-memory-mcp

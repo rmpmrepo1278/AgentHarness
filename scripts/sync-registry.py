@@ -49,9 +49,8 @@ def check_compose_vs_fixer():
         issues.append("Cannot read docker-compose.mcp.yml for MCP port discovery")
     # Check all expected services exist
     expected = {"mcp-gateway", "hermes-memory-mcp", "docker-mcp", "file-mcp",
-                "paperless-mcp", "git-mcp", "backup-mcp", "network-mcp",
                 "rss-mcp", "doctor-mcp", "global-chat-mcp", "homelab-exec",
-                "homelab-ops-mcp"}
+}
     found = set(mcp.values())
     missing = expected - found
     extra = found - expected

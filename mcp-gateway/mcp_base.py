@@ -5,6 +5,7 @@ for direct Claude Code connections."""
 from __future__ import annotations
 import json
 import os
+import socket
 import time
 import signal
 import threading
@@ -34,30 +35,24 @@ class MCPServer:
         self._gateway_url = os.environ.get("GATEWAY_URL", "http://127.0.0.1:8096")
         self._container_name = os.environ.get("HOSTNAME", name)
         self._stop_event = threading.Event()
-        # Simple API key auth (optional — set MCP_API_KEY env var to enable)
         self._api_key = os.environ.get("MCP_API_KEY", "")
 
     def register_handler(self, tool_name: str, handler: callable):
-        """Register a handler function for a tool."""
         self._tool_handlers[tool_name] = handler
 
     def _check_auth(self, handler: BaseHTTPRequestHandler) -> bool:
-        """Check API key authentication. Returns True if allowed."""
         if not self._api_key:
-            return True  # No auth configured
+            return True
         auth = handler.headers.get("Authorization", "")
         if auth.startswith("Bearer "):
             return auth[7:] == self._api_key
-        # Also check X-API-Key header
         return handler.headers.get("X-API-Key", "") == self._api_key
 
     def _register_with_gateway(self):
-        """Register with gateway, retrying with exponential backoff."""
         delays = [10, 20, 40, 60]
         attempt = 0
         while not self._stop_event.is_set():
             try:
-                # With host networking, use 127.0.0.1 instead of container hostname
                 address = os.environ.get("MCP_ADDRESS", f"http://127.0.0.1:{self.port}")
                 resp = requests.post(
                     f"{self._gateway_url}/register",
@@ -81,7 +76,6 @@ class MCPServer:
         return False
 
     def _deregister(self):
-        """Gracefully deregister from gateway."""
         try:
             requests.post(
                 f"{self._gateway_url}/deregister",
@@ -92,8 +86,7 @@ class MCPServer:
         except requests.RequestException:
             pass
 
-    def _handle_jsonrpc(self, body: dict) -> dict | None:
-        """Handle a JSON-RPC 2.0 request. None = no response (notification)."""
+    def _handle_jsonrpc(self, body: dict):
         method = body.get("method", "")
         params = body.get("params", {})
         req_id = body.get("id", 1)
@@ -110,7 +103,6 @@ class MCPServer:
             }
 
         if method.startswith("notifications/"):
-            # Client notification — no response needed
             return None
 
         if method == "tools/list":
@@ -132,7 +124,6 @@ class MCPServer:
                 }
             try:
                 result = handler(arguments)
-                # MCP expects tool results wrapped in content array
                 return {
                     "jsonrpc": "2.0",
                     "id": req_id,
@@ -158,8 +149,7 @@ class MCPServer:
             "error": {"code": -32601, "message": f"Method not found: {method}"},
         }
 
-    def start(self):
-        """Start the MCP server: register with gateway, serve JSON-RPC + health + SSE."""
+    def start(self, register_signals: bool = True):
         mcp = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -172,7 +162,6 @@ class MCPServer:
                 self.wfile.write(body)
 
             def do_GET(self):
-                # Auth check
                 if not mcp._check_auth(self):
                     self._send_json(401, {"error": "Unauthorized"})
                     return
@@ -186,7 +175,6 @@ class MCPServer:
                     })
                     return
 
-                # MCP Streamable HTTP: GET with Accept: text/event-stream opens SSE
                 if self.path in ("/mcp", "/"):
                     accept = self.headers.get("Accept", "")
                     if "text/event-stream" in accept:
@@ -197,7 +185,6 @@ class MCPServer:
                         self.send_header("Cache-Control", "no-cache")
                         self.send_header("Connection", "keep-alive")
                         self.end_headers()
-                        # Keep connection alive with periodic pings
                         try:
                             while not mcp._stop_event.is_set():
                                 mcp._stop_event.wait(30)
@@ -213,7 +200,6 @@ class MCPServer:
                 self.end_headers()
 
             def do_POST(self):
-                # Auth check
                 if not mcp._check_auth(self):
                     self._send_json(401, {"error": "Unauthorized"})
                     return
@@ -229,7 +215,6 @@ class MCPServer:
 
                 result = mcp._handle_jsonrpc(req)
 
-                # Notifications get 204 No Content
                 if result is None:
                     self.send_response(204)
                     self.end_headers()
@@ -249,9 +234,16 @@ class MCPServer:
             self._stop_event.set()
             raise SystemExit(0)
 
-        signal.signal(signal.SIGTERM, shutdown_handler)
-        signal.signal(signal.SIGINT, shutdown_handler)
+        if register_signals and threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGTERM, shutdown_handler)
+            signal.signal(signal.SIGINT, shutdown_handler)
 
-        server = HTTPServer(("0.0.0.0", self.port), Handler)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", self.port))
+        sock.listen(5)
+
+        server = HTTPServer(("0.0.0.0", self.port), Handler, bind_and_activate=False)
+        server.socket = sock
         log.info("MCP server '%s' listening on :%d", self.name, self.port)
         server.serve_forever()

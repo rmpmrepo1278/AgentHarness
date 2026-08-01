@@ -6,8 +6,6 @@ Implements CLOSED → DEGRADED → OPEN → HALF_OPEN states with:
 - Exponential backoff escalation on repeated open cycles
 - Transition history for diagnostics
 - Per-provider state with decay-based recovery
-
-Based on OmniRoute's circuitBreaker.ts pattern.
 """
 
 from __future__ import annotations

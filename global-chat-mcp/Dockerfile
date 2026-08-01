@@ -1,17 +1,26 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    nodejs \
+    npm \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @global-chat/mcp-server 2>&1 | tail -3
+
+COPY mcp_base /mcp-base
+
+RUN pip install --no-cache-dir requests
 
 WORKDIR /app
 
-# Install Node.js for npx
-RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+ENV MCP_BASE_DIR=/mcp-base \
+    PYTHONPATH=/app:/mcp-base \
+    PYTHONUNBUFFERED=1 \
+    HOME=/tmp
 
-# Install dependencies for the bridge
-RUN pip install --no-cache-dir requests
+COPY . .
 
-# Copy the bridge script
-COPY server.py .
-
-# Assume mcp_base.py is mounted from the gateway
-ENV MCP_BASE_DIR=/mcp-base
-
-CMD ["python", "server.py"]
+CMD ["python3", "server.py"]

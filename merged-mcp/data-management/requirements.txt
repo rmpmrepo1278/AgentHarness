@@ -1,0 +1,4 @@
+requests>=2.31.0
+feedparser>=6.0.10
+xmltodict>=0.13.0
+mcp-base @ file:///mcp_base

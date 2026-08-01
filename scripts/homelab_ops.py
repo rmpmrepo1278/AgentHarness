@@ -329,7 +329,6 @@ def check_service_dependencies(name: str) -> dict:
         "docker-mcp": ["mcp-gateway"],
         "file-mcp": ["mcp-gateway"],
         "n8n-mcp": ["mcp-gateway"],
-        "paperless-mcp": ["mcp-gateway"],
         "git-mcp": ["mcp-gateway"],
         "media-mcp": ["mcp-gateway"],
         "backup-mcp": ["mcp-gateway"],

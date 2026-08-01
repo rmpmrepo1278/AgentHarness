@@ -141,7 +141,7 @@ CRITICAL_SCRIPTS = {
     "autonomous_fixer": AG_HOME / "scripts" / "autonomous_fixer.py",
     "consolidated_health": AG_HOME / "scripts" / "consolidated_health.sh",
     "docker_ghost_check": AG_HOME / "scripts" / "docker_ghost_check.sh",
-    "proactive_quality_monitor": HERMES_HOME / "scripts" / "proactive_quality_monitor.py",
+    
     "unified_cost_guard": HERMES_HOME / "scripts" / "unified_cost_guard.py",
     "cos_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "cos_briefing.py",
     "evening_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "evening_briefing.py",
@@ -1104,11 +1104,10 @@ def _discover_mcp_ports() -> dict:
         mcp_ports = {
             8090: "mcp-gateway", 8091: "hermes-memory-mcp",
             8095: "docker-mcp", 8097: "file-mcp",
-            8099: "paperless-mcp", 8100: "git-mcp",
+            8100: "git-mcp",
             8102: "backup-mcp", 8103: "network-mcp",
             8104: "rss-mcp", 8105: "doctor-mcp",
             8106: "global-chat-mcp", 8108: "homelab-exec",
-            8120: "homelab-ops-mcp",
         }
     return mcp_ports
 

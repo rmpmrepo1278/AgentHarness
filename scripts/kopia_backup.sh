@@ -1,44 +1,30 @@
-#!/usr/bin/env bash
-# kopia_backup.sh — Run Kopia backups for DB and volumes
-# Replaces the old backup_all.sh (tar-based) with deduplicated, encrypted Kopia snapshots
+#!/bin/bash
+# Kopia snapshot wrapper using kopia CLI
 set -euo pipefail
 
-LOG="/home/rohit/agentharness/logs/backup_service.log"
-KOPIA="/usr/local/bin/kopia"
-RETENTION_DB="14d:4w:12m"
-RETENTION_VOL="7d:4w"
+LOG=/home/rohit/agentharness/logs/kopia_backup.log
+KOPIA=/usr/local/bin/kopia
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
+echo "[$(date)] Starting kopia snapshots..." >> "$LOG"
 
-log "=== Kopia backup starting ==="
+# Snapshot compose files
+echo "[$(date)] Snapshotting compose files..." >> "$LOG"
+$KOPIA snapshot create /home/rohit/services --tags compose,config 2>> "$LOG" || echo "[$(date)] Compose snapshot failed" >> "$LOG"
 
-# ── 1. DB snapshot (SQLite DBs, configs, scripts) ──
-log "Snapshotting DB repo..."
-$KOPIA snapshot create \
-    /home/rohit/.hermes/claudemem.db \
-    /home/rohit/.hermes/decisions.db \
-    /home/rohit/.hermes/goals.db \
-    /home/rohit/.hermes/state.db \
-    /home/rohit/.hermes/config.yaml \
-    /home/rohit/.hermes/topic_routes.json \
-    /home/rohit/agentharness/data/ \
-    /home/rohit/.claude/ \
-    --description "daily-db-$(date +%Y%m%d)" \
-    2>&1 | tee -a "$LOG" || log "WARN: DB snapshot had errors"
+# Snapshot hermes config
+echo "[$(date)] Snapshotting hermes config..." >> "$LOG"
+$KOPIA snapshot create /home/rohit/.hermes --tags hermes,config 2>> "$LOG" || echo "[$(date)] Hermes config snapshot failed" >> "$LOG"
 
-# ── 2. Volumes snapshot (Docker volume data) ──
-log "Snapshotting volumes repo..."
-$KOPIA snapshot create \
-    /var/lib/docker/volumes/ \
-    --description "daily-vol-$(date +%Y%m%d)" \
-    2>&1 | tee -a "$LOG" || log "WARN: Volume snapshot had errors"
+# Snapshot agentharness configs
+echo "[$(date)] Snapshotting agentharness configs..." >> "$LOG"
+$KOPIA snapshot create /home/rohit/agentharness --tags agentharness,config --exclude-dir=venv --exclude-dir=.cache --exclude-dir=__pycache__ 2>> "$LOG" || echo "[$(date)] Agentharness snapshot failed" >> "$LOG"
 
-# ── 3. Maintenance (garbage collection) ──
-log "Running maintenance..."
-$KOPIA maintenance run --full 2>&1 | tee -a "$LOG" || log "WARN: Maintenance had errors"
+# Snapshot homepage config
+echo "[$(date)] Snapshotting homepage config..." >> "$LOG"
+$KOPIA snapshot create /home/rohit/services/homepage --tags homepage 2>> "$LOG" || echo "[$(date)] Homepage snapshot failed" >> "$LOG"
 
-# ── 4. Verify ──
-log "Verifying latest snapshot..."
-$KOPIA snapshot list -l 2>&1 | tail -5 | tee -a "$LOG"
+# Cleanup old snapshots (keep last 30 days)
+echo "[$(date)] Cleaning old snapshots..." >> "$LOG"
+$KOPIA snapshot prune --keep-last 30d 2>> "$LOG" || true
 
-log "=== Kopia backup complete ==="
+echo "[$(date)] Kopia snapshots complete" >> "$LOG"

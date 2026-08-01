@@ -16,7 +16,7 @@ from core.providers.base import BudgetStatus, LLMProvider, LLMRequest, LLMRespon
 
 
 class OpenAICompatProvider(LLMProvider):
-    """OpenAI-compatible chat completions provider."""
+    """OpenAI-compatible chat completions provider with tool support."""
 
     def __init__(
         self,
@@ -50,7 +50,7 @@ class OpenAICompatProvider(LLMProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        messages: list[dict[str, str]] = []
+        messages: list[dict[str, Any]] = []
         if request.system_prompt:
             messages.append({"role": "system", "content": request.system_prompt})
         messages.append({"role": "user", "content": request.prompt})
@@ -61,6 +61,11 @@ class OpenAICompatProvider(LLMProvider):
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
         }
+
+        # Pass through tools if provided
+        if request.tools:
+            payload["tools"] = request.tools
+            payload["tool_choice"] = "auto"
 
         t0 = time.monotonic()
         try:
@@ -86,12 +91,16 @@ class OpenAICompatProvider(LLMProvider):
             )
 
         data = resp.json()
-        # ponytail: free-tier providers (e.g. SambaNova) sometimes return 200
-        # with a message that has no `content` (tool-call-only or empty).
-        # Treat that as a failure so the router falls through instead of
-        # raising KeyError and taking down the whole request.
         message = data.get("choices", [{}])[0].get("message", {}) or {}
         choice = message.get("content") or ""
+        
+        # Handle tool calls in response
+        tool_calls = message.get("tool_calls")
+        if tool_calls:
+            # Include tool calls in the response text for routing
+            import json
+            choice = json.dumps({"tool_calls": tool_calls}, ensure_ascii=False)
+
         usage = data.get("usage", {})
         self._usage_today += 1
 

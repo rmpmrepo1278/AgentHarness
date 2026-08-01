@@ -1,7 +1,7 @@
 """LLM Proxy Server — OpenAI-compatible API that routes through AgentHarness.
 
 Sits on port 8080 and routes requests to the best available provider
-(freellmapi, Groq, Cerebras, OpenRouter, local Ollama).
+(Groq, Cerebras, OpenRouter, local Ollama).
 
 Chaguli and any other client just calls http://localhost:8080/v1/chat/completions
 and gets routed automatically.
@@ -54,7 +54,6 @@ def create_proxy_app(data_dir: str = "") -> object:
         from core.providers.rate_limit_tracker import RateLimitTracker
         from core.providers.groq import GroqProvider
         from core.providers.cerebras import CerebrasProvider
-        from core.providers.freellmapi import FreeLLMAPIProvider
         from core.providers.openai_compat import OpenAICompatProvider
         from core.providers.openrouter import OpenRouterProvider
 
@@ -88,6 +87,12 @@ def create_proxy_app(data_dir: str = "") -> object:
                 name="mistral",
                 daily_limit=1000000
             ))
+            # DeepSeek V4 Flash (free on OpenRouter)
+            providers.append(OpenRouterProvider(
+                model="deepseek/deepseek-v4-flash:free",
+                name="deepseek-v4-flash",
+                daily_limit=50000
+            ))
         if os.environ.get("GROQ_API_KEY"):
             providers.append(GroqProvider(model="llama-3.3-70b-versatile", daily_limit=12000))
         if os.environ.get("CEREBRAS_API_KEY"):
@@ -103,20 +108,21 @@ def create_proxy_app(data_dir: str = "") -> object:
                 model="gpt-4o",
                 daily_limit=150,
             ))
-        if os.environ.get("FREELLMAPI_KEY"):
-            providers.append(FreeLLMAPIProvider(
-                name="freellmapi",
-                model=os.environ.get("FREELLMAPI_MODEL", "auto"),
-                daily_limit=int(os.environ.get("FREELLMAPI_DAILY_LIMIT", "100000")),
-            ))
-
+        # Local BigMoeOnEdge server (Qwen3-30B-A3B, MoE streaming)
+        providers.append(OpenAICompatProvider(
+            name="local-bmoe",
+            endpoint="http://127.0.0.1:11435/v1/chat/completions",
+            api_key="",
+            model="gpt-oss-20b",
+            timeout=300.0,
+            daily_limit=99999,
+        ))
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
         # Routing — distribute load across all working providers
-        # freellmapi first: auto-routes across 16+ providers internally
-        # then round-robin: groq → cerebras → mistral → owl → openrouter → local
-        speed_order = ["freellmapi", "groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local"]
+        # round-robin: groq → cerebras → mistral → owl → openrouter → local
+        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local-bmoe", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -136,6 +142,11 @@ def create_proxy_app(data_dir: str = "") -> object:
     def health():
         return JSONResponse({"status": "ok", "type": "agentharness_proxy"})
 
+    @app.get("/api/hello")
+    @app.head("/api/hello")
+    def api_hello():
+        return JSONResponse({"ok": True, "version": "2.1.0", "model": "agentharness-proxy"})
+
     @app.get("/v1/models")
     def models():
         return JSONResponse({
@@ -152,12 +163,14 @@ def create_proxy_app(data_dir: str = "") -> object:
         for name, p in rtp.items():
             fails = _failure_counts.get(name, 0)
             cb = cb_states.get(name, {})
+            endpoint = getattr(p, "endpoint", "") or ""
+            is_local = name == "local" or name.startswith("local") or "127.0.0.1" in endpoint or "localhost" in endpoint
             providers_info[name] = {
-                "type": "local" if name == "local" else "cloud",
+                "type": "local" if is_local else "cloud",
                 "healthy": p.is_available() if hasattr(p, "is_available") else True,
                 "model": getattr(p, "model", "unknown"),
                 "has_api_key": bool(getattr(p, "api_key", "")),
-                "enabled": getattr(p, "enabled", True),
+                "enabled": p.enabled() if callable(getattr(p, "enabled", None)) else getattr(p, "enabled", True),
                 "health_probe": {
                     "consecutive_failures": fails,
                     "healthy": fails == 0,
@@ -278,6 +291,21 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         router = _get_router()
 
+        # Model routing: map model names to specific providers
+        # For tool calls, prefer providers that support tools natively
+        tool_model_routing = {
+            "llama3.2:3b": "local",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+        }
+        # For non-tool requests, use the standard routing
+        standard_model_routing = {
+            "llama3.2:3b": "local",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+        }
+        has_tools = bool(body.get("tools"))
+        model_routing = tool_model_routing if has_tools else standard_model_routing
+        routed_provider = model_routing.get(body.get("model", ""), None)
+
         # PII redaction - intercept before reaching cloud providers
         pii_result = None
         if pii_redact_enabled():
@@ -302,7 +330,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         start = time.monotonic()
         import asyncio
         loop = asyncio.get_event_loop()
-        response = router.route(llm_request)
+        response = router.route(llm_request, forced_provider=routed_provider)
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         if not response.success:
@@ -349,9 +377,240 @@ def create_proxy_app(data_dir: str = "") -> object:
                 "latency_ms": elapsed_ms,
             },
         }
-        if pii_result:
-            resp_data["pii_redacted"] = pii_result
         return JSONResponse(resp_data)
+
+    @app.post("/v1/messages")
+    async def anthropic_messages(request: Request):
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": {"message": "Invalid JSON"}}, status_code=400)
+
+        requested_model = body.get("model", "claude-sonnet-4-20250514")
+        system = body.get("system", "")
+        messages = body.get("messages", [])
+        max_tokens = body.get("max_tokens", 1024)
+        temperature = body.get("temperature", 0.7)
+        stream = body.get("stream", False)
+        tools = body.get("tools", [])
+
+        if isinstance(system, list):
+            texts = [b.get("text", "") for b in system if b.get("type") == "text"]
+            system = " ".join(texts)
+
+        prompt_parts = []
+        for msg in messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                texts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                content = "\n".join(texts)
+            if role == "user":
+                prompt_parts.append("User: " + str(content))
+            elif role == "assistant":
+                prompt_parts.append("Assistant: " + str(content))
+
+        prompt = "\n".join(prompt_parts) if prompt_parts else ""
+        if not prompt:
+            return JSONResponse({"error": {"message": "No user message"}}, status_code=400)
+
+        from core.providers.base import Complexity, LLMRequest
+        token_estimate = len(prompt.split())
+        if token_estimate < 20:
+            complexity = Complexity.LOW
+        elif token_estimate < 100:
+            complexity = Complexity.MEDIUM
+        else:
+            complexity = Complexity.HIGH
+
+        has_tools = len(tools) > 0
+        local_first = has_tools and token_estimate < 2000 and len(tools) <= 6
+
+        resp_text = ""
+        tokens_in = 0
+        tokens_out = 0
+        tool_calls = None
+        provider_used = "none"
+
+        # Try local Ollama first for tool calls
+        if local_first:
+            try:
+                import httpx
+                local_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
+                or_messages = []
+                if system:
+                    or_messages.append({"role": "system", "content": system})
+                for msg in messages:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    if isinstance(content, list):
+                        texts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                        content = "\n".join(texts)
+                    if role in ("user", "assistant"):
+                        or_messages.append({"role": role, "content": content})
+                
+                local_payload = {
+                    "model": "llama3.2:3b",
+                    "messages": or_messages,
+                    "tools": tools,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                async with httpx.AsyncClient(timeout=60) as client:
+                    local_resp = await client.post(
+                        f"{local_url}/v1/chat/completions",
+                        json=local_payload,
+                    )
+                    if local_resp.status_code == 200:
+                        local_data = local_resp.json()
+                        choice = local_data["choices"][0]
+                        msg = choice.get("message", {})
+                        resp_text = msg.get("content", "") or ""
+                        tool_calls = msg.get("tool_calls")
+                        local_usage = local_data.get("usage", {})
+                        tokens_in = local_usage.get("prompt_tokens", 0)
+                        tokens_out = local_usage.get("completion_tokens", 0)
+                        provider_used = "local"
+            except Exception:
+                pass
+
+        # Fallback to OpenRouter
+        if not resp_text and not tool_calls:
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if openrouter_key:
+                import httpx
+                or_messages = []
+                if system:
+                    or_messages.append({"role": "system", "content": system})
+                for msg in messages:
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")
+                    if isinstance(content, list):
+                        texts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                        content = "\n".join(texts)
+                    if role in ("user", "assistant"):
+                        or_messages.append({"role": role, "content": content})
+                
+                or_payload = {
+                    "model": "inclusionai/ling-3.0-flash:free",
+                    "messages": or_messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                if tools:
+                    or_payload["tools"] = tools
+                
+                or_headers = {
+                    "Authorization": f"Bearer {openrouter_key}",
+                    "Content-Type": "application/json",
+                    "X-Title": "AgentHarness",
+                }
+                try:
+                    async with httpx.AsyncClient(timeout=120) as client:
+                        or_resp = await client.post(
+                            "https://openrouter.ai/api/v1/chat/completions",
+                            json=or_payload,
+                            headers=or_headers,
+                        )
+                        if or_resp.status_code == 200:
+                            or_data = or_resp.json()
+                            choice = or_data["choices"][0]
+                            msg = choice.get("message", {})
+                            resp_text = msg.get("content", "") or ""
+                            tool_calls = msg.get("tool_calls")
+                            or_usage = or_data.get("usage", {})
+                            tokens_in = or_usage.get("prompt_tokens", 0)
+                            tokens_out = or_usage.get("completion_tokens", 0)
+                            provider_used = "openrouter"
+                except Exception:
+                    pass
+
+        msg_id = "msg_ah_" + str(int(time.time()))
+        content_blocks = []
+        
+        if resp_text:
+            content_blocks.append({"type": "text", "text": resp_text})
+        
+        if tool_calls:
+            for tc in tool_calls:
+                func = tc.get("function", {})
+                content_blocks.append({
+                    "type": "tool_use",
+                    "id": tc.get("id", "call_" + str(int(time.time()))),
+                    "name": func.get("name", ""),
+                    "input": json.loads(func.get("arguments", "{}"))
+                })
+
+        if stream:
+            from starlette.responses import StreamingResponse
+
+            def iter_anthropic():
+                yield "event: message_start\ndata: " + json.dumps({
+                    "type": "message_start", 
+                    "message": {
+                        "id": msg_id, "type": "message", "role": "assistant", 
+                        "content": [], "model": requested_model, 
+                        "stop_reason": None, "stop_sequence": None,
+                        "usage": {"input_tokens": tokens_in, "output_tokens": 0}
+                    }
+                }) + "\n\n"
+
+                if content_blocks:
+                    for i, block in enumerate(content_blocks):
+                        if block["type"] == "tool_use":
+                            yield "event: content_block_start\ndata: " + json.dumps({
+                                "type": "content_block_start", 
+                                "index": i, 
+                                "content_block": {"type": "tool_use", "id": block["id"], "name": block["name"], "input": {}}
+                            }) + "\n\n"
+                            
+                            yield "event: content_block_delta\ndata: " + json.dumps({
+                                "type": "content_block_delta", 
+                                "index": i, 
+                                "delta": {"type": "input_json_delta", "partial_json": json.dumps(block["input"])}
+                            }) + "\n\n"
+                            
+                            yield "event: content_block_stop\ndata: " + json.dumps({"type": "content_block_stop", "index": i}) + "\n\n"
+                        else:
+                            yield "event: content_block_start\ndata: " + json.dumps({
+                                "type": "content_block_start", 
+                                "index": i, 
+                                "content_block": {"type": "text", "text": ""}
+                            }) + "\n\n"
+                            
+                            text = block["text"]
+                            for j in range(0, len(text), 20):
+                                chunk = text[j:j+20]
+                                yield "event: content_block_delta\ndata: " + json.dumps({
+                                    "type": "content_block_delta", 
+                                    "index": i, 
+                                    "delta": {"type": "text_delta", "text": chunk}
+                                }) + "\n\n"
+                            
+                            yield "event: content_block_stop\ndata: " + json.dumps({"type": "content_block_stop", "index": i}) + "\n\n"
+
+                stop_reason = "tool_use" if tool_calls else "end_turn"
+                yield "event: message_delta\ndata: " + json.dumps({
+                    "type": "message_delta", 
+                    "delta": {"stop_reason": stop_reason, "stop_sequence": None}, 
+                    "usage": {"output_tokens": tokens_out}
+                }) + "\n\n"
+                yield "event: message_stop\ndata: " + json.dumps({"type": "message_stop"}) + "\n\n"
+
+            return StreamingResponse(iter_anthropic(), media_type="text/event-stream")
+
+        resp_data = {
+            "id": msg_id,
+            "type": "message",
+            "role": "assistant",
+            "content": content_blocks,
+            "model": requested_model,
+            "stop_reason": "tool_use" if tool_calls else "end_turn",
+            "stop_sequence": None,
+            "usage": {"input_tokens": tokens_in, "output_tokens": tokens_out},
+        }
+        return JSONResponse(resp_data)
+
 
     return app
 

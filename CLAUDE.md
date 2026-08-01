@@ -1,4 +1,46 @@
+
+# IMPORTANT: This homelab prefers Telegram-first operation.
+# All ops tasks (deploy, fix, status, optimize) have MCP tools accessible via Hermes Telegram bot.
+# Do NOT use opencode/SSH unless the MCP tool fails. Always prefer Telegram workflow.
+
 # CLAUDE.md — AgentHarness Development Guide
+
+## Code Review Graph (Pre-Task Analysis)
+
+**Always query the code graph BEFORE making changes:**
+
+| Before... | Query... | Why... |
+|-----------|----------|--------|
+| Modifying a function/class | `code-review-graph query callers_of <name>` | Know who you'll break |
+| Deleting a file | `code-review-graph query dependents_of_file <file>` | Verify no one depends on it |
+| Adding new code | `code-review-graph search "<topic>"` (semantic) | Reuse existing patterns, avoid duplication |
+| Refactoring | `code-review-graph architecture` | See community boundaries |
+| Before commit | `code-review-graph dead-code` | Remove truly unused code |
+
+**Quick commands:**
+
+```bash
+# In repo root (auto-detected by git)
+code-review-graph status          # Graph health (nodes, edges, last build)
+code-review-graph dead-code       # 88 dead items found in agentharness
+code-review-graph query callers_of <func>  # Who calls this?
+code-review-graph query callees_of <func>  # What does this call?
+code-review-graph search "proxy server"     # Semantic search
+code-review-graph impact --files <files>    # Impact analysis (space-separated)
+code-review-graph architecture           # Module structure (11 communities)
+```
+
+**Bridge endpoints (from any tool/mcp):**
+- `http://127.0.0.1:9199/code-graph/status`
+- `http://127.0.0.1:9199/code-graph/dead-code`
+- `http://127.0.0.1:9199/code-graph/query` (POST: `{"type":"callers_of","target":"..."})
+- `http://127.0.0.1:9199/code-graph/search` (POST: `{"q":"..."})
+- `http://127.0.0.1:9199/code-graph/impact` (POST: `{"files":"..."}`)
+- `http://127.0.0.1:9199/code-graph/architecture`
+
+**Rule:** If `impact` or `callers_of` returns significant results, list them before proceeding.
+
+##
 
 ## First Run (Every Session)
 
@@ -28,11 +70,13 @@ After ANY code change:
 
 ## Architecture
 
-### LLM Proxy (port 8080)
+### AgentHarness LLM Proxy (port 8080)
 - `core/providers/proxy_server.py` — FastAPI server
 - Request flow: TokenJuice → Response cache → Rate limit filter → Provider cascade
-- 7 cloud providers + local fallback, free-first ordering
+- Direct free-tier providers + local fallback, free-first ordering
 - Per-model rate limit tracking with persistent state (`data/rate_limit_state.json`)
+- Model routing: `deepseek/deepseek-v4-flash` is force-routed to the `deepseek-v4-flash` provider (OpenRouter `:free`). If OpenRouter returns 429 (free-tier daily cap), the router falls through to the next provider. Check `/v1/status` for remaining daily quota.
+- `/v1/status` reports `type: local` for providers with localhost/127.0.0.1 endpoints (e.g. `local`, `local-bmoe`) and `cloud` otherwise.
 
 ### TokenJuice (`core/providers/token_juice.py`)
 - HTML→markdown conversion in ProcessPoolExecutor (asyncio-safe)
@@ -80,10 +124,10 @@ After ANY code change:
 To add a new LLM provider:
 
 1. Add provider class in `core/providers/[name].py`
-2. Add to `_get_router()` in `proxy_server.py`
-3. Add routing entries in `_load_proxy_config()` defaults
-4. Add to CostGuard `models.json` (free or paid)
-5. Add env var to `data/.env`
+2. Register it in `create_proxy_app()` in `proxy_server.py` (append to `providers`, keyed on the right env var)
+3. Add its name to the `speed_order` list in `create_proxy_app()` and, if it supports tool calls, to `TOOL_CAPABLE_PROVIDERS` in `core/providers/router.py`
+4. If it should be force-routable by model name, add an entry to `tool_model_routing`/`standard_model_routing` in the `/v1/chat/completions` handler (e.g. `deepseek/deepseek-v4-flash` → `deepseek-v4-flash`)
+5. Add env var to `data/.env` (symlink to `~/.secrets/master.env`)
 6. Add to `tests/test_regression_suite.py` (provider loaded test)
 7. Run `make test`
 8. Update `docs/ARCHITECTURE.md` and `docs/HOMELAB_MAP.md`
@@ -107,16 +151,13 @@ tail -f data/logs/proxy.log
 cat data/rate_limit_state.json | python3 -m json.tool
 
 # TokenJuice stats
-curl -s http://localhost:8080/v1/token-juice | python3 -m json.tool
+curl -s http://localhost:8080/v1/cache | python3 -m json.tool
 
 # Rate limit stats
-curl -s http://localhost:8080/v1/rate-limits | python3 -m json.tool
+cat data/rate_limit_state.json | python3 -m json.tool
 
 # Response cache
 curl -s http://localhost:8080/v1/cache | python3 -m json.tool
-
-# Budget/cost
-curl -s http://localhost:8080/v1/usage | python3 -m json.text
 
 # Check which providers are in cooldown
 curl -s http://localhost:8080/v1/status | python3 -c "

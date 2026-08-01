@@ -15,6 +15,7 @@ venv/
 models
 *.gguf
 *.log
+*.log.*
 *.lock
 .context/
 reports/
@@ -25,3 +26,6 @@ Thumbs.db
 start_proxy.sh
 litellm_config.yaml
 *.bak
+
+# Compiled MCP binaries
+codebase-memory-mcp/codebase-memory-mcp
