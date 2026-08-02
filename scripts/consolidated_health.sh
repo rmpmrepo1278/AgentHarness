@@ -115,7 +115,7 @@ fi
 
 # ── 7. Zombie process check ──
 log "=== Zombie process check ==="
-ZOMBIE_COUNT=$(ps -eo stat,pid 2>/dev/null | grep -c '^Z' || echo 0)
+ZOMBIE_COUNT=$(ps -eo stat,pid 2>/dev/null | grep -c '^Z' || true)
 if [ "$ZOMBIE_COUNT" -gt 50 ]; then
     log "CRITICAL: $ZOMBIE_COUNT zombie processes"
     # Signal zombie parents to reap children
@@ -130,7 +130,7 @@ fi
 
 # ── 8. OOM kill check ──
 log "=== OOM kill check ==="
-OOM_COUNT=$(dmesg 2>/dev/null | grep -ciE "oom|killed process" | head -1 || echo 0)
+OOM_COUNT=$(dmesg 2>/dev/null | grep -ciE "oom|killed process" | head -1 || true)
 if [ "$OOM_COUNT" -gt 0 ]; then
     log "WARNING: $OOM_COUNT OOM kill(s) detected in dmesg"
     ISSUES=$((ISSUES + 1))
@@ -180,15 +180,26 @@ fi
 # ── Summary ──
 
 
-# --- 12. Backup freshness check ---
+# --- 12. Backup freshness check (kopia, replaces dead config_backups tarball dir) ---
 log "=== Backup freshness check ==="
-LATEST_BACKUP=$(find /home/rohit/shared_agent_memory/config_backups -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+LATEST_BACKUP=$(sudo kopia snapshot list --all 2>/dev/null | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}' | sort | tail -1)
 if [ -n "$LATEST_BACKUP" ]; then
-    BACKUP_AGE=$(( ($(date +%s) - ${LATEST_BACKUP%.*}) / 3600 ))
-    if [ "$BACKUP_AGE" -gt 48 ]; then
-        log "WARNING: Config backups stale (${BACKUP_AGE}h old)"
+    BACKUP_EPOCH=$(date -d "$LATEST_BACKUP" +%s 2>/dev/null || echo 0)
+    if [ "$BACKUP_EPOCH" -gt 0 ]; then
+        BACKUP_AGE=$(( ($(date +%s) - BACKUP_EPOCH) / 3600 ))
+        if [ "$BACKUP_AGE" -gt 48 ]; then
+            log "WARNING: Kopia backups stale (${BACKUP_AGE}h old; last ${LATEST_BACKUP})"
+            ISSUES=$((ISSUES + 1))
+        else
+            log "Kopia backups fresh (last ${LATEST_BACKUP})"
+        fi
+    else
+        log "WARNING: Could not parse kopia snapshot time (${LATEST_BACKUP})"
         ISSUES=$((ISSUES + 1))
     fi
+else
+    log "WARNING: No kopia snapshots found"
+    ISSUES=$((ISSUES + 1))
 fi
 
 # --- 13. DNS resolution check ---
