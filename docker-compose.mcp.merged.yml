@@ -256,6 +256,37 @@ services:
     oom_score_adj: -250
     memswap_limit: 512M
 
+  # ============================================================
+  # Knowledge Graph Service
+  # ============================================================
+  graphify-mcp:
+    build: ./merged-mcp/graphify-mcp
+    container_name: graphify-mcp
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+          pids: 500
+        reservations:
+          memory: 128M
+    environment:
+      - MCP_PORT=8110
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - GRAPHIFY_GRAPH_PATH=/data/graphify-out/graph.json
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/.graphify:/home/rohit/.graphify:rw
+      - /home/rohit/.hermes/scripts/graphify-out:/data/graphify-out:rw
+    memswap_limit: 512M
+    read_only: false
+
 volumes:
   rss-data: {}
   mcp-stacks: {}
