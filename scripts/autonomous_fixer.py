@@ -1922,6 +1922,25 @@ def main():
         except Exception as e:
             log(f"Capsule record failed: {e}")
 
+        # Decision ledger
+        try:
+            sys.path.insert(0, str(HERMES_HOME / "scripts"))
+            from decision_ledger import record as _ledger_record
+            _ledger_record(
+                actor="autonomous_fixer",
+                action=f"fix_{issue.get('type', 'unknown')}",
+                rationale=issue.get("issue", "")[:160] or f"autonomous fix for {issue.get('type', 'unknown')}",
+                predicted_outcome="success",
+                target=(
+                    issue.get("container") or issue.get("service") or issue.get("domain")
+                    or issue.get("mount") or "unknown"
+                ),
+                params={"fix_status": fix_status, "severity": issue.get("severity", "")},
+                triggered_by="detected_issue",
+            )
+        except Exception as e:
+            log(f"Ledger record failed: {e}")
+
     # ── 6. Save state ──
     state = load_state()
     state["last_run"] = datetime.now().isoformat()
