@@ -287,6 +287,44 @@ services:
     memswap_limit: 512M
     read_only: false
 
+  # ============================================================
+  # code-review-graph Bridge (SSE -> JSON-RPC)
+  # ============================================================
+  code-review-bridge:
+    build: ./merged-mcp/code-review-bridge
+    container_name: code-review-bridge
+    labels:
+      - autoheal=true
+    depends_on:
+      - mcp-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+          pids: 50
+        reservations:
+          memory: 64M
+    environment:
+      - MCP_PORT=8096
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - CRG_MCP_PORT=8095
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/.local/bin:/home/rohit/.local/bin:ro
+      - /home/rohit/.local/share/pipx/venvs/code-review-graph:/home/rohit/.local/share/pipx/venvs/code-review-graph:ro
+      - /home/rohit/.local/lib/python3.13/site-packages:/home/rohit/.local/lib/python3.13/site-packages:ro
+      - /home/rohit/.graphify:/home/rohit/.graphify:rw
+      - /home/rohit/.config/opencode:/home/rohit/.config/opencode:ro
+      - /home/rohit/.claude:/home/rohit/.claude:ro
+      - /home/rohit/.hermes:/home/rohit/.hermes:ro
+      - /home/rohit:/home/rohit:ro
+      - /home/rohit/.code-review-graph:/data/code-review-graph:rw
+    memswap_limit: 128M
+    read_only: false
+
 volumes:
   rss-data: {}
   mcp-stacks: {}
