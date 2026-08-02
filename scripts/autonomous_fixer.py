@@ -1278,10 +1278,10 @@ def check_ux_quality() -> list[dict]:
 
     # 2. Commitment tracker not working — 0 commitments despite being active
     try:
-        ct_file = HERMES_HOME / "state" / "commitments_active.json"
+        ct_file = HERMES_HOME / "data" / "commitments.json"
         if ct_file.exists():
             ct = json.loads(ct_file.read_text())
-            if ct.get("stats", {}).get("total_made", -1) == 0:
+            if len(ct.get("active", [])) == 0 and ct.get("stats", {}).get("total_made", 0) == 0:
                 # Running for days but never tracked a commitment
                 issues.append({
                     "issue": "Commitment tracker has 0 commitments — likely not intercepting promises",
