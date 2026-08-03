@@ -228,3 +228,20 @@ When adding/modifying cron jobs:
 3. Test manually first: `bash /path/to/script.sh`
 4. Check log output after next cycle
 5. Document in `docs/HOMELAB_MAP.md`
+
+## Homelab Pipeline Graph Wiring
+
+All homelab pipeline scripts auto-query CRG/graphify for graph-aware decisions:
+
+| Script | Auto-Query |
+|---|---|
+| `homelab_evaluator.py` | CRG blast-radius per candidate; high-impact → `wait` |
+| `homelab_deployer.py` | CRG blast-radius before deploy; high-impact → flagged |
+| `homelab_discoverer.py` | CRG architecture for MCP discoveries |
+| `homelab_optimizer.py` | CRG impact in resource suggestions |
+| `homelab_troubleshooter.py` | CRG dependency query for failed containers |
+| `homelab_reporter.py` | CRG graph stats in Code Graph section |
+
+Shared helper: `homelab_graph.py` in `~/.hermes/scripts/`.
+
+Rule: Pipeline scripts handle graph queries automatically. Only use Telegram/CLI graph commands for ad-hoc analysis outside the pipeline.

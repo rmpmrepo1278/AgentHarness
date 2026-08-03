@@ -255,3 +255,20 @@ qwen3-30b-a3b remains the best TPS option at 7.0 tok/s. MTP and EAGLE-3 do not i
 - Ollama: Running on port 11434
 - llama.cpp: Built with Vulkan support
 - DeepSeek V4 Flash: Added as free OpenRouter endpoint
+
+## Homelab Pipeline Graph Wiring
+
+All homelab pipeline scripts in `~/.hermes/scripts/` now auto-query CRG/graphify:
+
+| Script | Graph Integration |
+|---|---|
+| `homelab_evaluator.py` | CRG blast-radius check per candidate; high-impact candidates downgraded to `wait` |
+| `homelab_deployer.py` | CRG blast-radius check before deploy; high-impact deploys flagged for review |
+| `homelab_discoverer.py` | CRG architecture fetched for MCP discoveries; graph stats in run output |
+| `homelab_optimizer.py` | CRG impact analysis in resource limit suggestions; graph stats printed |
+| `homelab_troubleshooter.py` | CRG dependency query for failed containers; graph dependents in diagnosis |
+| `homelab_reporter.py` | CRG graph stats (nodes/edges/files) in Code Graph report section |
+
+Shared helper: `homelab_graph.py` — wraps CRG + graphify CLI into Python functions returning structured dicts.
+
+Rule: Pipeline scripts auto-query the graph before decisions. No manual graph query needed for routine homelab operations.
