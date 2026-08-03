@@ -28,6 +28,31 @@ Removed: llama-bench@.service, llama-server-ik binary, duplicate qwen3:30b-a3b m
 ## Key Finding
 llama3.2:3b is the primary model. The 30B MoE model was unsustainable on this hardware (34GB RAM with ~30GB consumed by other services). Only ~6GB available for models, making the 2GB dense 3.2B model the best fit. After reboot: 22GB RAM available, 11GB used by system services. Memory is healthy.
 
+## Graph Tools (Code Review Graph + Graphify)
+
+Both tools are installed and accessible:
+
+| Tool | Access | Purpose |
+|------|--------|---------|
+| **code-review-graph** (CRG) | `/graph`, `/code-graph/*` via Telegram; CLI `code-review-graph` | AST graph, blast-radius, community detection, semantic search |
+| **graphify** | `/graphify`, `/graphify-path`, `/graphify-explain` via Telegram; CLI `graphify` | Lightweight AST search, node paths, explanations |
+
+**Via Telegram (preferred):**
+- `/graph` — CRG status (nodes, edges, files, last build)
+- `/graphify path <node-a> <node-b>` — shortest path between two symbols
+- `/graphify explain <name>` — plain-language explanation of a node
+- `/graphify diagnose` — multi-graph edge collapse risk report
+
+**Via CLI (when on homelab directly):**
+- `code-review-graph query callers_of <name>` — who calls this?
+- `code-review-graph search "<topic>"` — semantic search
+- `code-review-graph architecture` — module structure
+- `graphify path <a> <b>` — AST shortest path
+- `graphify explain <name>` — node explanation
+
+**Rule:** Always query the code graph before making changes. Prefer Telegram commands when working remotely; use CLI when on homelab directly.
+
+
 ## Cleanup Performed (2026-07-31)
 - Removed 40GB+ of old model files (Qwen3-30B, Llama-3.2-8X3B-MOE, Gemma4-26B MTP, EAGLE-3 draft, llama-3.2-1b)
 - Removed /home/rohit/llama.cpp-build (442MB), /home/rohit/BigMoeOnEdge (633MB), /home/rohit/loopany-platform (637MB)

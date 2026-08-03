@@ -40,6 +40,26 @@ code-review-graph architecture           # Module structure (11 communities)
 
 **Rule:** If `impact` or `callers_of` returns significant results, list them before proceeding.
 
+## Telegram-First Graph Workflow
+
+When working remotely via Telegram, use the Hermes bot for all graph queries instead of SSH:
+
+| Telegram command | What it does |
+|-----------------|--------------|
+| `/graph` | CRG status (nodes, edges, files, last build) |
+| `/graphify path <a> <b>` | Shortest AST path between two symbols |
+| `/graphify explain <name>` | Plain-language explanation of a node |
+| `/graphify diagnose` | Multi-graph edge collapse risk report |
+| `/code-graph query callers_of <func>` | Who calls this function? |
+| `/code-graph query callees_of <func>` | What does this call? |
+| `/code-graph search "<topic>"` | Semantic search across the graph |
+| `/code-graph impact --files <files>` | Blast-radius analysis |
+| `/code-graph architecture` | Module structure and communities |
+| `/code-graph dead-code` | Dead code report |
+
+**Rule:** If working via Telegram, prefer `/graphify` for quick lookups (faster, lighter) and `/code-graph` for deep analysis. Use CLI only when on homelab directly.
+
+
 ##
 
 ## First Run (Every Session)
