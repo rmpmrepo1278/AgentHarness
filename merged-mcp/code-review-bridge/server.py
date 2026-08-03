@@ -66,7 +66,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def _call_tool(self, tool_name, arguments):
         """Call code-review-graph CLI using container Python."""
         tool_name = tool_name.replace("_", "-")
-        cmd = ["/usr/local/bin/code-review-graph", tool_name, "--data-dir", "/data/code-review-graph"]
+        cmd = ["/usr/local/bin/code-review-graph", tool_name]
         
         if tool_name == "query":
             subcmd = arguments.get("subcommand", "callers_of")
@@ -119,6 +119,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def _json_error(self, code, message):
         self._json_response(code, {"error": message})
     
+    def do_GET(self):
+        if self.path == "/health":
+            self._json_response(200, {"status": "ok"})
+        else:
+            self._json_error(404, "Not found")
+
     def log_message(self, format, *args):
         log.info("%s - %s", self.address_string(), format % args)
 

@@ -321,7 +321,7 @@ services:
       - /home/rohit/.claude:/home/rohit/.claude:ro
       - /home/rohit/.hermes:/home/rohit/.hermes:ro
       - /home/rohit:/home/rohit:ro
-      - /home/rohit/.code-review-graph:/data/code-review-graph:rw
+      - /home/rohit/.code-review-graph:/home/rohit/.code-review-graph:rw
     memswap_limit: 128M
     read_only: false
 
