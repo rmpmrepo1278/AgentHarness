@@ -46,6 +46,7 @@ TIMEOUT_SECS = float(os.environ.get("TJ_TIMEOUT_SECS", "5"))
 PRESERVE_TABLES = os.environ.get("TJ_PRESERVE_TABLES", "true").lower() == "true"
 PRESERVE_MATH = os.environ.get("TJ_PRESERVE_MATH", "true").lower() == "true"
 PRESERVE_SVG = os.environ.get("TJ_PRESERVE_SVG", "true").lower() == "true"
+POOL_WORKERS = int(os.environ.get("TJ_POOL_WORKERS", os.cpu_count() or 2))
 ENABLED = os.environ.get("TJ_ENABLED", "true").lower() == "true"
 
 # ── Observability Counters ─────────────────────────────────────────────────

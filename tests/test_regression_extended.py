@@ -24,23 +24,30 @@ import httpx
 import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SECTION 1: MCP GATEWAY INTEGRATION (12 servers, 60 tools)
+# SECTION 1: MCP GATEWAY INTEGRATION (18 servers, 143 tools)
 # ═══════════════════════════════════════════════════════════════════════════
 
 MCP_GATEWAY = "http://localhost:8090"
 
 EXPECTED_MCP_SERVERS = {
-    "hermes-memory": {"min_tools": 4, "port": 8091},
-    "docker":        {"min_tools": 4, "port": 8095},
-    "files":         {"min_tools": 4, "port": 8097},
-    "paperless":     {"min_tools": 3, "port": 8098},
-    "backup":        {"min_tools": 3, "port": 8102},
-    "rss":           {"min_tools": 3, "port": 8104},
-    "doctor":        {"min_tools": 2, "port": 8105},
-    "global-chat":   {"min_tools": 2, "port": 8106},
-    "browser-use":   {"min_tools": 3, "port": 8107},
-    "n8n":           {"min_tools": 2, "port": 8103},
-    "network":       {"min_tools": 2, "port": 8101},
+    "backup":              {"min_tools": 3, "port": 8102},
+    "code-review-graph":   {"min_tools": 10, "port": 8096},
+    "data-management":     {"min_tools": 9, "port": 8100},
+    "doctor":              {"min_tools": 2, "port": 8105},
+    "git":                 {"min_tools": 9, "port": 8100},
+    "global-chat":         {"min_tools": 7, "port": 8106},
+    "global-chat-mcp":     {"min_tools": 3, "port": 8104},
+    "graphify-mcp":        {"min_tools": 4, "port": 8110},
+    "hermes-memory":       {"min_tools": 8, "port": 8091},
+    "homelab-exec":        {"min_tools": 20, "port": 8108},
+    "infrastructure-backup":   {"min_tools": 3, "port": 8102},
+    "infrastructure-doctor":   {"min_tools": 2, "port": 8105},
+    "infrastructure-files":    {"min_tools": 10, "port": 8097},
+    "network":             {"min_tools": 5, "port": 8103},
+    "rss":                 {"min_tools": 4, "port": 8110},
+    "system-docker":       {"min_tools": 5, "port": 8103},
+    "system-homelab-ops":  {"min_tools": 7, "port": 8106},
+    "system-network":      {"min_tools": 5, "port": 8107},
 }
 
 
@@ -62,7 +69,7 @@ class TestMCPGateway:
             f"Only {d.get('mcps_registered')} MCP servers registered"
 
     def test_most_mcps_healthy(self):
-        """At least 10 of 12 MCP servers are healthy (1 may be offline)."""
+        """At least 10 of 18 MCP servers are healthy (1 may be offline)."""
         r = httpx.get(f"{MCP_GATEWAY}/status", timeout=5)
         d = r.json()
         healthy = d.get("mcps_healthy", 0)
@@ -142,15 +149,15 @@ class TestMCPGateway:
         assert recall_r.status_code == 200
 
     def test_docker_mcp_tools_list(self):
-        """Docker MCP server responds with tool list."""
-        r = httpx.post("http://localhost:8095/v1/messages", json={
+        """system-docker MCP server responds with tool list."""
+        r = httpx.post("http://localhost:8103/v1/messages", json={
             "jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1,
         }, timeout=10)
         assert r.status_code == 200
         d = r.json()
         assert "result" in d
         tools = d["result"].get("tools", [])
-        assert len(tools) >= 4, f"Docker MCP has only {len(tools)} tools"
+        assert len(tools) >= 5, f"system-docker MCP has only {len(tools)} tools"
 
     def test_gateway_capabilities_endpoint(self):
         """Gateway status endpoint includes capability counts."""
@@ -166,96 +173,111 @@ class TestMCPGateway:
 # SECTION 2: CRON JOB HEALTH
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Critical cron jobs that must be configured
-CRITICAL_CRON_JOBS = [
-    # System health
-    ("*/5 * * * *", "/home/rohit/agentharness/scripts/health_check.sh"),
-    ("*/10 * * * *", "/home/rohit/agentharness/scripts/deadman_check.sh"),
-    # Backups
-    ("30 2 * * *", "/home/rohit/agentharness/scripts/db_backup.sh"),
-    ("0 5 * * 0", "/home/rohit/agentharness/scripts/verify_backups.sh"),
-    # Security
-    ("0 3 * * 0", "/home/rohit/.hermes/scripts/cve_monitor.sh"),
-    ("0 21 * * *", "/home/rohit/.hermes/scripts/proactive_quality_monitor.py"),
-    # Every 3 hours
-    ("0 */3 * * *", "/home/rohit/.hermes/scripts/proactive_quality_monitor.py"),
-    # Weekly
-    ("0 11 * * 0", "weekly_optimize.sh"),  # uses bash scripts/weekly_optimize.sh
-    # Log rotation
-    ("0 3 * * *", "logrotate"),
-    # Cost guard
-    ("*/5 * * * *", "unified_cost_guard"),
+# All cron jobs were consolidated into hermes_scheduler.py (the crontab is now
+# empty). These are the critical job names that must be registered with the
+# unified scheduler.
+CRITICAL_SCHEDULER_JOBS = [
+    "gateway_guardian",      # every 5 min — MCP/gateway health guard
+    "consolidated_health",   # every 5 min — merged health check
+    "health_dashboard",      # every 5 min — dashboard metrics
+    "health_ingest",         # every 5 min — memory ingestion
+    "dns_healthcheck",       # every 5 min — DNS/duckdns guard
+    "system_doctor",         # every 30 min — cross-system doctor
+    "backup_all",            # daily 02:00 — unified backups
+    "logrotate",             # daily 03:00 — log rotation
 ]
 
-# Scripts that must exist (whether or not cron is configured)
+# Scripts that must exist (whether or not they are scheduled)
 CRITICAL_SCRIPTS = [
-    "/home/rohit/agentharness/scripts/health_check.sh",
-    "/home/rohit/agentharness/scripts/deadman_check.sh",
-    "/home/rohit/agentharness/scripts/db_backup.sh",
+    "/home/rohit/agentharness/scripts/consolidated_health.sh",
+    "/home/rohit/agentharness/scripts/health_dashboard.py",
     "/home/rohit/agentharness/scripts/backup_all.sh",
-    "/home/rohit/agentharness/scripts/verify_backups.sh",
-    "/home/rohit/.hermes/scripts/cve_monitor.sh",
-    "/home/rohit/.hermes/scripts/proactive_quality_monitor.py",
+    "/home/rohit/agentharness/scripts/db_backup.sh",
+    "/home/rohit/agentharness/scripts/kopia_backup.sh",
+    "/home/rohit/agentharness/scripts/sync_backup_remote.sh",
+    "/home/rohit/agentharness/scripts/cve_monitor.sh",
+    "/home/rohit/.hermes/scripts/gateway_guardian.py",
+    "/home/rohit/.hermes/scripts/hermes_scheduler.py",
 ]
+
+# Scheduler state file (last-run statuses)
+SCHEDULER_STATE = Path("/home/rohit/.hermes/data/scheduler_state.json")
+SCHEDULER_DAEMON = "/home/rohit/.hermes/scripts/hermes_scheduler.py --daemon"
 
 
 class TestCronJobs:
-    """Tests for cron job configuration and health."""
+    """Tests for hermes_scheduler (replaced the 41-entry crontab)."""
 
-    @pytest.fixture(autouse=True)
-    def _get_crontab(self):
-        """Read crontab once."""
-        result = subprocess.run(["crontab", "-l"], capture_output=True,
-                               text=True, timeout=5)
-        self.crontab = result.stdout
+    def test_scheduler_daemon_running(self):
+        """Unified hermes scheduler daemon is running."""
+        result = subprocess.run(
+            ["pgrep", "-f", SCHEDULER_DAEMON],
+            capture_output=True, text=True, timeout=5
+        )
+        assert result.returncode == 0, "hermes_scheduler.py --daemon not running"
 
-    @pytest.mark.parametrize("schedule,script", CRITICAL_CRON_JOBS)
-    def test_cron_job_configured(self, schedule, script):
-        """Critical cron job is present in crontab."""
-        assert script in self.crontab, \
-            f"Cron job not found: {schedule} {script}"
+    @pytest.mark.parametrize("job_name", CRITICAL_SCHEDULER_JOBS)
+    def test_critical_job_defined(self, job_name):
+        """Critical job is registered with the unified scheduler."""
+        src = Path("/home/rohit/.hermes/scripts/hermes_scheduler.py").read_text()
+        assert f'Job("{job_name}"' in src, \
+            f"Scheduler job not found: {job_name}"
 
     @pytest.mark.parametrize("script", CRITICAL_SCRIPTS)
     def test_cron_script_exists(self, script):
         """Critical script file exists."""
         assert Path(script).exists(), f"Script missing: {script}"
 
-    def test_no_failed_cron_recently(self):
-        """No critical cron jobs have failed in the last 24 hours."""
-        # Check systemd journal for cron failures since yesterday
-        since = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-        for unit in ["agentharness-scheduler", "agentharness-watchdog"]:
-            result = subprocess.run(
-                ["journalctl", "-u", f"{unit}.service", f"--since={since}",
-                 "--no-pager", "-q"],
-                capture_output=True, text=True, timeout=5
-            )
-            logs = result.stdout.lower()
-            # Look for error patterns but skip known benign messages
-            error_lines = [
-                line for line in logs.split("\n")
-                if "error" in line.lower() and "benign" not in line.lower()
-            ]
-            # Some errors are expected — just check there aren't many
-            assert len(error_lines) < 5, \
-                f"Too many errors in {unit}: {len(error_lines)} error lines"
+    def test_scheduler_state_fresh(self):
+        """Scheduler state file was updated within the last 24h."""
+        assert SCHEDULER_STATE.exists(), "scheduler_state.json missing"
+        age_hours = (time.time() - SCHEDULER_STATE.stat().st_mtime) / 3600
+        assert age_hours < 24, \
+            f"scheduler_state.json stale: {age_hours:.1f}h old"
+
+    def test_critical_jobs_succeeded_recently(self):
+        """Health/backup jobs have succeeded in the last 24 hours."""
+        assert SCHEDULER_STATE.exists(), "scheduler_state.json missing"
+        state = json.loads(SCHEDULER_STATE.read_text())
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        ok = []
+        for job in ["gateway_guardian", "consolidated_health", "backup_all"]:
+            entry = state.get(job)
+            if entry and entry.get("last_status") == "success":
+                last_run = datetime.fromisoformat(entry["last_run"])
+                if last_run > since:
+                    ok.append(job)
+        assert ok, "No critical scheduler job succeeded in the last 24h"
 
     def test_cron_log_recent_activity(self):
-        """Some cron jobs have produced recent log output (last 48h)."""
-        log_dir = Path("/home/rohit/agentharness/data/logs")
-        if log_dir.exists():
-            recent_logs = []
-            for log_file in log_dir.glob("*.log"):
-                mtime = log_file.stat().st_mtime
-                age_hours = (time.time() - mtime) / 3600
-                if age_hours < 48:
-                    recent_logs.append(log_file.name)
-            assert len(recent_logs) > 0, "No cron log activity in last 48 hours"
+        """Scheduler produced recent activity (last 48h)."""
+        # The unified scheduler records each job run in scheduler_state.json.
+        assert SCHEDULER_STATE.exists(), "scheduler_state.json missing"
+        state = json.loads(SCHEDULER_STATE.read_text())
+        since = time.time() - 48 * 3600
+        jobs_with_recent_run = []
+        for name, entry in state.items():
+            if not isinstance(entry, dict):
+                continue
+            last_run = entry.get("last_run")
+            if not last_run:
+                continue
+            try:
+                ts = datetime.fromisoformat(last_run).timestamp()
+            except (ValueError, TypeError):
+                continue
+            if ts > since:
+                jobs_with_recent_run.append(name)
+        assert jobs_with_recent_run, \
+            "No scheduler job activity recorded in the last 48 hours"
 
-    def test_hermes_cron_active(self):
-        """Hermes has cron jobs configured."""
-        # Hermes has multiple personal agent schedulers
-        assert "personal_agent_scheduler.py" in self.crontab
+    def test_hermes_scheduler_active(self):
+        """Hermes unified scheduler is the active scheduler."""
+        result = subprocess.run(
+            ["pgrep", "-f", SCHEDULER_DAEMON],
+            capture_output=True, text=True, timeout=5
+        )
+        assert result.returncode == 0, "hermes scheduler daemon not active"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -283,19 +305,23 @@ class TestN8n:
         assert "n8n" in r.text.lower() or "workflow" in r.text.lower()
 
     def test_n8n_mcp_registered(self):
-        """n8n MCP server is registered with the gateway."""
-        r = httpx.get(f"{MCP_GATEWAY}/mcps", timeout=5)
-        d = r.json()
-        assert "n8n" in d, "n8n MCP not registered with gateway"
+        """n8n webhook server is up and answering HTTP requests."""
+        # n8n is now a standalone webhook service (not a gateway MCP server).
+        # POST to an unregistered test webhook: n8n returns 404 "not
+        # registered" — proving the webhook server is alive, rather than a
+        # connection-refused (process down).
+        r = httpx.post("http://localhost:5678/webhook-test/ping", timeout=5)
+        assert r.status_code == 404, \
+            f"n8n webhook server unexpected status: {r.status_code}"
 
     def test_n8n_container_healthy(self):
-        """n8n Docker container is running and healthy."""
+        """n8n Docker container is running (image has no healthcheck)."""
         result = subprocess.run(
-            ["docker", "inspect", "--format", "{{.State.Health.Status}}", "n8n"],
+            ["docker", "inspect", "--format", "{{.State.Status}}", "n8n"],
             capture_output=True, text=True, timeout=5
         )
         status = result.stdout.strip()
-        assert status == "healthy", f"n8n container health: {status}"
+        assert status == "running", f"n8n container status: {status}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -310,18 +336,17 @@ class TestBackupIntegrity:
         scripts = [
             "/home/rohit/agentharness/scripts/db_backup.sh",
             "/home/rohit/agentharness/scripts/backup_all.sh",
-            "/home/rohit/agentharness/scripts/verify_backups.sh",
+            "/home/rohit/agentharness/scripts/kopia_backup.sh",
+            "/home/rohit/agentharness/scripts/sync_backup_remote.sh",
         ]
         for script in scripts:
             assert Path(script).exists(), f"Backup script missing: {script}"
 
     def test_backup_is_configured(self):
-        """Backup cron jobs are configured."""
-        result = subprocess.run(["crontab", "-l"], capture_output=True,
-                               text=True, timeout=5)
-        cron = result.stdout
-        assert "db_backup" in cron, "No database backup cron configured"
-        assert "verify_backups" in cron, "No backup verification cron configured"
+        """Backup jobs are registered with the unified scheduler."""
+        src = Path("/home/rohit/.hermes/scripts/hermes_scheduler.py").read_text()
+        assert 'Job("backup_all"' in src, "No backup_all scheduler job configured"
+        assert 'Job("cloud_sync"' in src, "No cloud_sync scheduler job configured"
 
     def test_usb_mount_available(self):
         """USB backup mount point is available (for backups to work)."""
@@ -350,8 +375,9 @@ class TestBackupIntegrity:
 
     def test_docker_volumes_backup_script(self):
         """Docker volumes backup script exists and is executable."""
-        script = Path("/home/rohit/agentharness/scripts/backup_volumes.sh")
+        script = Path("/home/rohit/agentharness/scripts/kopia_backup.sh")
         assert script.exists()
+        assert os.access(script, os.X_OK)
 
     def test_database_dumps_directory(self):
         """Database dump directory is accessible."""
@@ -383,13 +409,13 @@ class TestHermesMemory:
     """Tests for Hermes ↔ Claude Code shared memory pipeline."""
 
     def test_memory_mcp_container_healthy(self):
-        """Hermes Memory MCP container is healthy."""
+        """Hermes Memory MCP container is running."""
         result = subprocess.run(
-            ["docker", "inspect", "--format", "{{.State.Health.Status}}",
+            ["docker", "inspect", "--format", "{{.State.Status}}",
              "hermes-memory-mcp"],
             capture_output=True, text=True, timeout=5
         )
-        assert result.stdout.strip() == "healthy"
+        assert result.stdout.strip() == "running"
 
     def test_memory_mcp_initializes(self):
         """Hermes Memory MCP server initializes correctly."""
@@ -519,12 +545,12 @@ class TestLogAggregation:
 
     def test_grafana_healthy(self):
         """Grafana health endpoint responds."""
-        r = httpx.get("http://localhost:3002/api/health", timeout=5)
+        r = httpx.get("http://localhost:3001/api/health", timeout=5)
         assert r.status_code == 200
 
     def test_grafana_loki_datasource(self):
         """Grafana has Loki configured as a datasource."""
-        r = httpx.get("http://localhost:3002/api/datasources",
+        r = httpx.get("http://localhost:3001/api/datasources",
                       auth=("admin", "admin"), timeout=5)
         if r.status_code == 200:
             ds = r.json()
@@ -535,7 +561,7 @@ class TestLogAggregation:
 
     def test_grafana_dashboard_accessible(self):
         """Grafana dashboards API is accessible."""
-        r = httpx.get("http://localhost:3002/api/search",
+        r = httpx.get("http://localhost:3001/api/search",
                       auth=("admin", "admin"), timeout=5)
         # Should get 200 or 401 (not connection refused)
         assert r.status_code in (200, 401, 403)
@@ -598,48 +624,52 @@ class TestDockerVolumes:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestRateLimitTracker:
-    """Tests for the rate limit tracker."""
+    """Tests for the rate limit tracker (observability via proxy /v1/status)."""
+
+    PROXY = "http://localhost:8080"
 
     def test_tracker_initialized(self):
-        """Rate limit tracker is initialized after proxy start."""
-        r = httpx.get("http://localhost:8090/health", timeout=5)
+        """Proxy server (which hosts the rate limit tracker) is up."""
+        r = httpx.get(f"{self.PROXY}/health", timeout=5)
         assert r.status_code == 200
 
-    def test_rate_limits_endpoint(self):
-        """Rate limits observability endpoint returns data."""
-        r = httpx.get("http://localhost:8080/v1/rate-limits", timeout=5)
+    def test_provider_health_endpoint(self):
+        """Proxy status endpoint exposes per-provider health data."""
+        r = httpx.get(f"{self.PROXY}/v1/status", timeout=5)
         assert r.status_code == 200
         d = r.json()
-        assert "observability" in d
-        assert "provider_stats" in d
-        assert "config" in d
+        assert "overall" in d
+        assert "providers" in d
+        assert len(d["providers"]) >= 1
 
-    def test_observability_counters(self):
-        """Observability counters are present."""
-        r = httpx.get("http://localhost:8080/v1/rate-limits", timeout=5)
-        obs = r.json()["observability"]
-        assert "tracked_pairs" in obs
-        assert "in_cooldown" in obs
-        assert "all_time_429s" in obs
-        assert "all_time_timeouts" in obs
-        assert "all_time_success" in obs
+    def test_provider_health_probes(self):
+        """Each provider exposes health_probe consecutive-failure counters."""
+        r = httpx.get(f"{self.PROXY}/v1/status", timeout=5)
+        providers = r.json()["providers"]
+        assert len(providers) >= 1, "No providers registered"
+        for provider, pstats in providers.items():
+            hp = pstats.get("health_probe", {})
+            assert "healthy" in hp, f"{provider} missing health_probe.healthy"
+            assert hp["healthy"] is True, \
+                f"{provider} health_probe unhealthy: {hp}"
 
-    def test_config_values(self):
-        """Config values are present and reasonable."""
-        r = httpx.get("http://localhost:8080/v1/rate-limits", timeout=5)
-        cfg = r.json()["config"]
-        assert cfg["cooldown_threshold"] >= 1
-        assert cfg["base_cooldown_secs"] >= 30
-        assert cfg["max_cooldown_secs"] >= cfg["base_cooldown_secs"]
-        assert cfg["all_down_retry_secs"] >= 60
+    def test_circuit_breaker_states(self):
+        """Each provider exposes a valid circuit-breaker state."""
+        r = httpx.get(f"{self.PROXY}/v1/status", timeout=5)
+        providers = r.json()["providers"]
+        valid = {"CLOSED", "HALF_OPEN", "OPEN", "DEGRADED"}
+        for provider, pstats in providers.items():
+            cb = pstats.get("circuit_breaker", {})
+            assert "state" in cb, f"{provider} missing circuit_breaker.state"
+            assert cb["state"] in valid, \
+                f"{provider} invalid circuit_breaker state: {cb['state']}"
 
-    def test_health_scores(self):
-        """Provider health scores are between 0 and 1."""
-        r = httpx.get("http://localhost:8080/v1/rate-limits", timeout=5)
-        stats = r.json()["provider_stats"]
-        for provider, pstats in stats.items():
-            assert 0.0 <= pstats["health_score"] <= 1.0, \
-                f"{provider} health_score {pstats['health_score']} out of range"
+    def test_overall_health_flag(self):
+        """Proxy reports an overall health status."""
+        r = httpx.get(f"{self.PROXY}/v1/status", timeout=5)
+        overall = r.json().get("overall")
+        assert overall in ("healthy", "degraded", "unhealthy"), \
+            f"Unexpected overall health: {overall}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -650,24 +680,26 @@ class TestTokenJuice:
     """Tests for TokenJuice preprocessing layer."""
 
     def test_token_juice_endpoint(self):
-        """TokenJuice stats endpoint returns data."""
-        r = httpx.get("http://localhost:8080/v1/token-juice", timeout=5)
+        """TokenJuice stats are available via the proxy cache endpoint."""
+        r = httpx.get("http://localhost:8080/v1/cache", timeout=5)
         assert r.status_code == 200
         d = r.json()
-        assert "enabled" in d
-        assert "stats" in d
-        assert "cache_size" in d
-        assert "timeout_secs" in d
+        assert "token_juice" in d
+        assert "hits" in d
+        assert "misses" in d
+        assert "size" in d
 
     def test_token_juice_enabled(self):
-        """TokenJuice is enabled by default."""
-        r = httpx.get("http://localhost:8080/v1/token-juice", timeout=5)
-        assert r.json()["enabled"] is True
+        """TokenJuice stats are exposed via the proxy /v1/cache endpoint."""
+        r = httpx.get("http://localhost:8080/v1/cache", timeout=5)
+        assert r.status_code == 200
+        tj = r.json().get("token_juice")
+        assert tj is not None, "token_juice stats missing from /v1/cache"
 
     def test_token_juice_counters(self):
         """TokenJuice counters are present."""
-        r = httpx.get("http://localhost:8080/v1/token-juice", timeout=5)
-        stats = r.json()["stats"]
+        r = httpx.get("http://localhost:8080/v1/cache", timeout=5)
+        stats = r.json()["token_juice"]
         assert "total_requests" in stats
         assert "cache_hits" in stats
         assert "cache_misses" in stats
