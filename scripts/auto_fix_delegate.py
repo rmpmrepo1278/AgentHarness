@@ -221,7 +221,7 @@ ISSUE_TEMPLATES = {
         "fix_permissions": [
             "edit run_agent.py to fix retry logic",
             "edit agent/error_classifier.py to classify the error correctly",
-            "systemctl restart agentharness-llm-proxy",
+            "systemctl --user restart proxy-server",
             "restart gateway",
         ],
         "verify_template": "curl -s localhost:8080/health && grep -c 'API call failed' <log_file>",
@@ -473,13 +473,13 @@ def auto_rollback(commit_hash: str, issue: str) -> dict:
             )
             rollback_result["actions"].append("docker compose up -d (MCP stack)")
         # Restart LLM proxy if it was affected
-        proxy_svc = Path("/etc/systemd/system/agentharness-llm-proxy.service")
+        proxy_svc = Path("/home/rohit/.config/systemd/user/proxy-server.service")
         if proxy_svc.exists():
             subprocess.run(
-                ["sudo", "systemctl", "restart", "agentharness-llm-proxy"],
+                ["systemctl", "--user", "restart", "proxy-server"],
                 capture_output=True, text=True, timeout=30,
             )
-            rollback_result["actions"].append("restart agentharness-llm-proxy")
+            rollback_result["actions"].append("restart proxy-server")
         rollback_result["status"] = "rolled_back"
         log(f"ROLLBACK completed for: {issue[:80]}")
     except Exception as e:

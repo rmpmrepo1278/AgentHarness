@@ -27,7 +27,7 @@ fi
 
 # 2. Start LLM Proxy via Systemd
 log "Starting LLM proxy via systemd..."
-systemctl start agentharness-llm-proxy 2>/dev/null || log "Failed to start agentharness-llm-proxy"
+systemctl start proxy-server 2>/dev/null || log "Failed to start proxy-server"
 
 sleep 5
 if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
