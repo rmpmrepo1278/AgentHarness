@@ -932,7 +932,16 @@ def spawn_claude(prompt: str, timeout: int) -> dict:
             except json.JSONDecodeError:
                 summary = result.stdout[:2000] if result.stdout else "(no output)"
 
+            # Empty / no-op sessions are NOT successes — never report COMPLETED.
             log(f"Claude session {sid} completed successfully")
+            if not summary or not str(summary).strip():
+                return {
+                    "status": "failed",
+                    "session_id": sid,
+                    "summary": "",
+                    "raw_output": result.stdout[:5000],
+                    "error": "Delegate returned an empty result (no action performed)",
+                }
             return {
                 "status": "completed",
                 "session_id": sid,
@@ -972,8 +981,22 @@ def spawn_claude(prompt: str, timeout: int) -> dict:
 # Post-fix health check
 # ---------------------------------------------------------------------------
 
-def post_fix_health_check(issue_type: str, verify_template: str) -> dict:
+def post_fix_health_check(issue_type: str, verify_template: str, issue: str = "") -> dict:
     """Run a targeted health check after the fix. Returns {passed, output}."""
+    # For container-level issues, verify the specific container is actually up.
+    # A bare `docker ps` exit code is NOT a valid health signal — it passes even
+    # when the target container is still down.
+    if issue_type in ("service_down", "dependency_failure", "restart_loop", "healthcheck_fail"):
+        name = _extract_container_name(issue)
+        if name:
+            cmd = (
+                "docker ps --filter name=^/{name}$ --format '{{.Names}}: {{.Status}}'".format(name=name)
+            )
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+            output = result.stdout.strip()
+            passed = bool(output) and "Up" in output and "Restarting" not in output
+            return {"passed": passed, "output": output or f"container '{name}' not running"}
+
     # Build a simple check based on issue type
     checks = {
         "restart_loop": "docker ps --filter 'status=restarting' --format '{{.Names}}'",
@@ -1007,6 +1030,23 @@ def post_fix_health_check(issue_type: str, verify_template: str) -> dict:
         return {"passed": passed, "output": output}
     except Exception as e:
         return {"passed": False, "output": str(e)}
+
+
+def _extract_container_name(issue: str) -> str:
+    """Extract a container name from an issue string like 'Container mentedb has exited'."""
+    if not issue:
+        return ""
+    text = issue.strip()
+    # Patterns: "Container X has exited", "X has exited", "Container X ...", "X down"
+    for prefix in ("Container ", "container "):
+        if text.startswith(prefix):
+            rest = text[len(prefix):]
+            return rest.split()[0] if rest.split() else ""
+    for marker in (" has exited", " is down", " has failed", " is restarting"):
+        if marker in text:
+            name = text.split(marker)[0].strip()
+            return name.split()[0] if name.split() else ""
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -1217,7 +1257,7 @@ def main():
         cc_result["commit_hash"] = commit_hash
 
         # ── 9. Post-fix health check ──
-        health = post_fix_health_check(actual_type, template.get("verify_template", ""))
+        health = post_fix_health_check(actual_type, template.get("verify_template", ""), issue)
         cc_result["health_check"] = health
         log(f"Post-fix health check: {'PASS' if health.get('passed') else 'FAIL'} — {health.get('output', '')[:100]}")
 
