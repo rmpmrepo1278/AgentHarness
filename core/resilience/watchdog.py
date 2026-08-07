@@ -12,6 +12,8 @@ import logging
 import os
 import time
 from datetime import datetime, timezone
+
+from core.common import fs_checks
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -74,16 +76,7 @@ def check_heartbeat(
     }
 
 
-def _pid_alive(pid: int) -> bool:
-    """Check whether a process with the given PID exists (signal 0 trick)."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        # Process exists but we don't have permission to signal it.
-        return True
+_pid_alive = fs_checks.pid_alive
 
 
 def recover_stale_lock(lock_file: Path | str) -> bool:

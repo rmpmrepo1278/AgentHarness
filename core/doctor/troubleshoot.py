@@ -6,7 +6,6 @@ for each one.  No LLM involved — pure deterministic rule matching.
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import shutil
@@ -15,6 +14,9 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+from core.common import fs_checks
 
 
 @dataclass
@@ -60,13 +62,7 @@ class Troubleshooter:
             return {}
 
     def _pid_alive(self, pid: int) -> bool:
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            return True
-        return True
+        return fs_checks.pid_alive(pid)
 
     # ------------------------------------------------------------------
     # Individual issue detectors
@@ -126,13 +122,23 @@ class Troubleshooter:
                     ),
                 ],
             )
-        # Check writability
-        import tempfile
         try:
-            fd, tmp = tempfile.mkstemp(dir=path, prefix=".troubleshoot_")
-            os.close(fd)
-            os.unlink(tmp)
-        except OSError:
+            fs_checks.check_dir_writable(path)
+        except NotADirectoryError:
+            return Issue(
+                name=f"{label}_not_writable",
+                severity="critical",
+                description=f"The {label} directory does not exist: {path}",
+                root_cause="Directory was never created, or was deleted.",
+                fix_steps=[
+                    FixStep(
+                        description=f"Create the {label} directory",
+                        command=f"mkdir -p {path}",
+                        verify=f"ls -la {path}",
+                    ),
+                ],
+            )
+        except PermissionError:
             return Issue(
                 name=f"{label}_not_writable",
                 severity="critical",
@@ -219,18 +225,7 @@ class Troubleshooter:
         return None
 
     def _check_stale_locks(self) -> Optional[Issue]:
-        lock_files = glob.glob(os.path.join(self._data_dir, "*.lock"))
-        stale: List[str] = []
-        for lock_path in lock_files:
-            try:
-                with open(lock_path, "r") as fh:
-                    content = fh.read().strip()
-                pid = int(content)
-            except (ValueError, OSError):
-                stale.append(lock_path)
-                continue
-            if not self._pid_alive(pid):
-                stale.append(lock_path)
+        stale = fs_checks.find_stale_locks(self._data_dir)
         if stale:
             stale_list = " ".join(stale)
             return Issue(

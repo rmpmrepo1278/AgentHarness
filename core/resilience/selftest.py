@@ -4,13 +4,13 @@ Run on every boot / scheduler start to catch configuration problems early.
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import subprocess
 import sys
-import tempfile
 from typing import Any, Callable, Dict, List, Optional
+
+from core.common import fs_checks
 
 
 def _check(
@@ -32,18 +32,6 @@ def _check(
         return result
 
 
-def _pid_alive(pid: int) -> bool:
-    """Return True if *pid* is a running process."""
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        # Process exists but we can't signal it — still alive.
-        return True
-    return True
-
-
 # ------------------------------------------------------------------
 # Individual checks
 # ------------------------------------------------------------------
@@ -57,15 +45,10 @@ def _check_state_file(data_dir: str) -> None:
 
 
 def _check_dir_writable(label: str, path: str) -> None:
-    if not os.path.isdir(path):
-        raise NotADirectoryError(f"{label}: directory does not exist: {path}")
-    # Attempt to create and remove a temp file.
     try:
-        fd, tmp = tempfile.mkstemp(dir=path, prefix=".selftest_")
-        os.close(fd)
-        os.unlink(tmp)
-    except OSError as exc:
-        raise PermissionError(f"{label}: not writable: {exc}") from exc
+        fs_checks.check_dir_writable(path)
+    except (NotADirectoryError, PermissionError) as exc:
+        raise type(exc)(f"{label}: {exc}") from exc
 
 
 def _check_python_version() -> None:
@@ -86,19 +69,7 @@ def _check_docker() -> None:
 
 
 def _check_stale_locks(data_dir: str) -> None:
-    lock_files = glob.glob(os.path.join(data_dir, "*.lock"))
-    stale: List[str] = []
-    for lock_path in lock_files:
-        try:
-            with open(lock_path, "r") as fh:
-                content = fh.read().strip()
-            pid = int(content)
-        except (ValueError, OSError):
-            # Can't read / parse — treat as stale.
-            stale.append(lock_path)
-            continue
-        if not _pid_alive(pid):
-            stale.append(lock_path)
+    stale = fs_checks.find_stale_locks(data_dir)
     if stale:
         raise RuntimeError(f"Stale lock files: {stale}")
 
