@@ -37,8 +37,6 @@ logger = logging.getLogger(__name__)
 _failure_counts: Dict[str, int] = {}
 
 
-def get_failure_counts() -> Dict[str, int]:
-    return dict(_failure_counts)
 
 # Default routing order: complexity -> list of provider names in priority order.
 _DEFAULT_ROUTING: Dict[str, List[str]] = {

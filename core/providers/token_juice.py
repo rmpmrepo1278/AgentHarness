@@ -417,6 +417,3 @@ async def juice_body(body: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
-def get_juice_stats(body: dict[str, Any]) -> dict:
-    """Get token savings stats from a juiced request."""
-    return body.get("_token_juice", {"tokens_saved": 0, "applied": False, "elapsed_ms": 0})

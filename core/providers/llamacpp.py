@@ -93,6 +93,3 @@ class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
         """Local inference is always free and unlimited."""
         return BudgetStatus(cost_model="free", estimated_remaining=None)
 
-    def capabilities(self) -> List[str]:
-        """Return provider capabilities."""
-        return ["chat", "local", "offline"]

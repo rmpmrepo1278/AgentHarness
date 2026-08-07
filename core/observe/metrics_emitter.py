@@ -58,15 +58,5 @@ def emit_harness(data_dir: str | Path, name: str, success: bool,
          exit_code=exit_code, duration=duration)
 
 
-def emit_runbook(data_dir: str | Path, name: str, result: str,
-                 fix_applied: bool = False, steps_executed: int = 0) -> None:
-    """Emit a doctor runbook execution result."""
-    emit(data_dir, "runbook", runbook=name, result=result,
-         fix_applied=fix_applied, steps_executed=steps_executed)
 
 
-def emit_resource(data_dir: str | Path, cpu: float = 0, mem_used_mb: float = 0,
-                  mem_total_mb: float = 0, disk_pct: float = 0, usb_mounted: bool = True) -> None:
-    """Emit a resource usage snapshot."""
-    emit(data_dir, "resource", cpu=cpu, mem_used_mb=mem_used_mb,
-         mem_total_mb=mem_total_mb, disk_pct=disk_pct, usb_mounted=usb_mounted)

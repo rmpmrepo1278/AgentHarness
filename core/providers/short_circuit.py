@@ -214,36 +214,3 @@ def _handle_system_only(body: dict) -> dict | None:
 
 # ── Main entry point ────────────────────────────────────────────────────────
 
-def try_short_circuit(body: dict) -> dict | None:
-    """
-    Try to short-circuit the request. Returns a local response dict
-    if the request can be handled locally, or None if normal routing
-    should proceed.
-    """
-    # Check cache first
-    cached = _cached_or_none(body)
-    if cached is not None:
-        log.info("Short-circuit: cache hit")
-        cached["cached"] = True
-        return cached
-
-    # Try each handler in order
-    handlers = [
-        _handle_system_only,
-        _handle_count_tokens,
-        _handle_title_generation,
-        _handle_quota_check,
-    ]
-
-    for handler in handlers:
-        try:
-            result = handler(body)
-            if result is not None:
-                log.info(f"Short-circuit: {result.get('id', 'unknown')}")
-                _cache_response(body, result)
-                return result
-        except Exception as e:
-            log.warning(f"Short-circuit handler {handler.__name__} failed: {e}")
-            continue
-
-    return None

@@ -136,19 +136,7 @@ class BudgetTracker:
         """Return the RPM limit for *provider* (0 = unlimited)."""
         return self._rpm_limits.get(provider, 0)
 
-    def is_rpm_exhausted(self, provider: str) -> bool:
-        """Return True if *provider* has hit its RPM limit for the current minute."""
-        limit = self.get_rpm_limit(provider)
-        if limit == 0:
-            return False
-        return self.get_rpm(provider) >= limit
 
-    def should_deprioritize_rpm(self, provider: str) -> bool:
-        """Return True if *provider* is at or above 80 % of its RPM limit."""
-        limit = self.get_rpm_limit(provider)
-        if limit == 0:
-            return False
-        return self.get_rpm(provider) >= limit * _DEPRIORITIZE_THRESHOLD
 
     def get_usage(self, provider: str) -> Dict:
         """Return usage dict for *provider* (requests, tokens_in, tokens_out, errors)."""
@@ -168,25 +156,6 @@ class BudgetTracker:
         self._data = {"date": _today(), "providers": {}, "rpm": {}}
         self._save()
 
-    def get_rpm_report(self, provider: str | None = None) -> List[Tuple[str, int, int, str]]:
-        """Return RPM status lines: list of (provider, current_rpm, limit, status)."""
-        results = []
-        providers = [provider] if provider else list(self._data.get("providers", {}).keys())
-        for pname in providers:
-            if pname not in self._data.get("providers", {}):
-                continue
-            rpm = self.get_rpm(pname)
-            limit = self.get_rpm_limit(pname)
-            if limit == 0:
-                status = "unlimited"
-            elif rpm >= limit:
-                status = "EXHAUSTED"
-            elif rpm >= limit * _DEPRIORITIZE_THRESHOLD:
-                status = "near_limit"
-            else:
-                status = "ok"
-            results.append((pname, rpm, limit, status))
-        return results
 
     def daily_report(self) -> str:
         """Return a human-readable summary of today's usage."""

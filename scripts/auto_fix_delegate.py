@@ -446,47 +446,6 @@ ISSUE_TEMPLATES = {
 # Auto-rollback
 # ---------------------------------------------------------------------------
 
-def auto_rollback(commit_hash: str, issue: str) -> dict:
-    """Automatically rollback to the pre-fix git snapshot when post-fix verification fails."""
-    rollback_result = {"status": "no_snapshot", "actions": []}
-    if not commit_hash or commit_hash == "none":
-        return rollback_result
-    # Determine which git repo to rollback
-    git_dir = AG_HOME  # Default to agentharness
-    if not (git_dir / ".git").exists():
-        git_dir = Path.home() / ".hermes" / "hermes-agent"
-    if not (git_dir / ".git").exists():
-        git_dir = Path.home()
-    try:
-        # Restore files from the pre-fix snapshot
-        subprocess.run(
-            ["git", "-C", str(git_dir), "checkout", commit_hash, "--", "."],
-            capture_output=True, text=True, timeout=60,
-        )
-        rollback_result["actions"].append(f"git checkout {commit_hash} in {git_dir.name}")
-        # Restart MCP stack to apply rolled-back config
-        mcp_compose = AG_HOME / "docker-compose.mcp.yml"
-        if mcp_compose.exists():
-            subprocess.run(
-                ["docker", "compose", "-f", str(mcp_compose), "up", "-d", "--remove-orphans"],
-                capture_output=True, text=True, timeout=120,
-            )
-            rollback_result["actions"].append("docker compose up -d (MCP stack)")
-        # Restart LLM proxy if it was affected
-        proxy_svc = Path("/home/rohit/.config/systemd/user/proxy-server.service")
-        if proxy_svc.exists():
-            subprocess.run(
-                ["systemctl", "--user", "restart", "proxy-server"],
-                capture_output=True, text=True, timeout=30,
-            )
-            rollback_result["actions"].append("restart proxy-server")
-        rollback_result["status"] = "rolled_back"
-        log(f"ROLLBACK completed for: {issue[:80]}")
-    except Exception as e:
-        rollback_result["status"] = "rollback_failed"
-        rollback_result["error"] = str(e)
-        log(f"ROLLBACK FAILED: {e}")
-    return rollback_result
 
 
 # ---------------------------------------------------------------------------

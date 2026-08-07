@@ -264,17 +264,6 @@ def docker_ps() -> list[dict]:
         return []
 
 
-def docker_inspect_health(name: str) -> dict:
-    try:
-        result = subprocess.run(
-            ["docker", "inspect", "--format", "{{json .State.Health}}", name],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return json.loads(result.stdout)
-    except Exception:
-        pass
-    return {}
 
 
 def get_failed_services() -> list[str]:
@@ -359,29 +348,6 @@ def get_recent_restart_count(name: str) -> int:
     return 0
 
 
-def count_recent_sessions(minutes: int = 30) -> int:
-    """Count how many auto-fix sessions ran in the last N minutes."""
-    if not SESSION_LOG.exists():
-        return 0
-    count = 0
-    cutoff = time.time() - (minutes * 60)
-    try:
-        for line in SESSION_LOG.read_text().splitlines():
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-                ts_str = record.get("timestamp", "")
-                if ts_str:
-                    from datetime import datetime
-                    ts = datetime.fromisoformat(ts_str).timestamp()
-                    if ts > cutoff:
-                        count += 1
-            except Exception:
-                pass
-    except Exception:
-        pass
-    return count
 
 
 # ---------------------------------------------------------------------------

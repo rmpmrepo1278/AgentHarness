@@ -111,11 +111,3 @@ def recover_stale_lock(lock_file: Path | str) -> bool:
     return True
 
 
-def recover_all_stale_locks(data_dir: Path | str) -> List[str]:
-    """Glob *.lock under data_dir, recover each, return list of recovered file names."""
-    data_dir = Path(data_dir)
-    recovered: List[str] = []
-    for lock_file in sorted(data_dir.glob("*.lock")):
-        if recover_stale_lock(lock_file):
-            recovered.append(lock_file.name)
-    return recovered

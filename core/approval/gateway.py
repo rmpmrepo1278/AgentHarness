@@ -214,11 +214,3 @@ class ApprovalGateway:
                 continue
         return expired_ids
 
-    def mark_stale(self, proposal_id: str, reason: str = "") -> Proposal:
-        """Mark a proposal as stale (preconditions changed)."""
-        proposal = self._load(proposal_id)
-        proposal.status = "stale"
-        proposal.rejection_reason = reason or "Preconditions changed since creation"
-        self._save(proposal)
-        log.info("Marked proposal %s as stale: %s", proposal_id, reason)
-        return proposal

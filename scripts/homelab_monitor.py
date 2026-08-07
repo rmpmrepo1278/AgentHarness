@@ -259,17 +259,6 @@ def auto_fix_config_drift(drift_issues: list) -> list:
     return results
 
 
-def update_config_backup(name: str):
-    """Save current container config as the known-good backup."""
-    cfg = SERVICE_CONFIG_CHECKS.get(name)
-    if not cfg:
-        return
-    CONFIG_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    rc, _, err = ops._run(f"docker cp {name}:{cfg['container_path']} {cfg['backup_path']}")
-    if rc == 0:
-        ops._log(f"monitor: updated config backup for {name}")
-    else:
-        ops._log(f"monitor: failed to update backup for {name}: {err}")
 
 
 # ---------------------------------------------------------------------------
