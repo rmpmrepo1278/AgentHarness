@@ -143,13 +143,11 @@ CRITICAL_SCRIPTS = {
     "docker_ghost_check": AG_HOME / "scripts" / "docker_ghost_check.sh",
     
     "unified_cost_guard": HERMES_HOME / "scripts" / "unified_cost_guard.py",
-    "cos_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "cos_briefing.py",
-    "evening_briefing": HERMES_HOME / "hermes-agent" / "scripts" / "evening_briefing.py",
-    "weekly_review": HERMES_HOME / "hermes-agent" / "scripts" / "weekly_review.py",
-    "document_auto_ingest": HERMES_HOME / "hermes-agent" / "scripts" / "document_auto_ingest.py",
-    "document_intel": HERMES_HOME / "hermes-agent" / "scripts" / "document_intel.py",
+    # Removed in fbdaeda11 consolidation (scripts deleted upstream; entries
+    # dropped from CRITICAL_SCRIPTS to stop missing-script alerts):
+    #   cos_briefing, evening_briefing, weekly_review, document_auto_ingest,
+    #   document_intel, email_action_loop
     # Removed in ponytail cleanup (Jun 16): cross_domain_correlator, predictive_engine
-    "email_action_loop": HERMES_HOME / "hermes-agent" / "scripts" / "email_action_loop.py",
     "morning_pipeline": HERMES_HOME / "cron" / "morning_pipeline.sh",
     "morning_prep": HERMES_HOME / "cron" / "morning_prep.sh",
 }
