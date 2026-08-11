@@ -25,6 +25,9 @@ echo "[$(date)] Backing up configs..." >> "$LOG"
 echo "[$(date)] Running DB backups..." >> "$LOG"
 /home/rohit/agentharness/scripts/db_backup.sh 2>&1 >> "$LOG" || echo "[$(date)] db_backup.sh failed (non-critical)" >> "$LOG"
 
+# 2b. Consolidate all Hermes stores into unified_memory.db
+/usr/bin/python3 /home/rohit/.hermes/scripts/hermes_consolidate.py >> "$LOG" 2>&1 || echo "[$(date)] Consolidation failed (non-critical)" >> "$LOG"
+
 # 3. Kopia snapshots (compose, configs, volumes)
 echo "[$(date)] Running kopia snapshots..." >> "$LOG"
 /home/rohit/agentharness/scripts/kopia_backup.sh 2>&1 >> "$LOG" || echo "[$(date)] kopia_backup.sh failed (non-critical)" >> "$LOG"
@@ -32,6 +35,8 @@ echo "[$(date)] Running kopia snapshots..." >> "$LOG"
 # 4. Remote sync to Google Drive
 echo "[$(date)] Syncing to remote..." >> "$LOG"
 /home/rohit/agentharness/scripts/sync_backup_remote.sh 2>&1 >> "$LOG" || echo "[$(date)] Remote sync failed (non-critical)" >> "$LOG"
+# 4b. Encrypted off-site brain mirror (memory/configs, never touches GDrive readable)
+/home/rohit/agentharness/scripts/sync_brain_remote.sh 2>&1 >> "$LOG" || echo "[$(date)] Brain sync failed (non-critical)" >> "$LOG"
 
 # 5. Cleanup old tarballs (keep 30 days)
 find "$BACKUP_DIR" -name "*.tar.gz" -mtime +7 -delete 2>/dev/null || true

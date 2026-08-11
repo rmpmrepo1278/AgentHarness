@@ -38,6 +38,7 @@ DB_CLAUDEMEM = str(HERMES_HOME / "claudemem.db")
 DB_ENTITIES = str(HERMES_HOME / "entities.db")
 DB_SHARED_FACTS = str(SHARED_MEMORY_DIR / "shared_facts.db")
 DB_STATE = str(HERMES_HOME / "state.db")
+DB_UNIFIED = str(HERMES_HOME / "data" / "unified_memory.db")  # consolidated store
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -247,14 +248,27 @@ def handle_save(args: dict) -> dict:
             (obs_id, f"cc-{obs_id[:8]}", now, source, content, importance, category),
         )
         conn.commit()
-        return {
-            "status": "saved",
-            "id": obs_id,
-            "importance": importance,
-            "category": category,
-        }
     finally:
         conn.close()
+
+    # Dual-write into consolidated unified_memory.db (best-effort, never blocks save)
+    try:
+        uc = _connect(DB_UNIFIED)
+        uc.execute(
+            "INSERT INTO observations (id, session_id, timestamp, source, content, importance, category) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (obs_id, f"cc-{obs_id[:8]}", now, source, content, importance, category),
+        )
+        uc.commit()
+        uc.close()
+    except Exception as e:
+        log.warning("unified dual-write failed: %s", e)
+
+    return {
+        "status": "saved",
+        "id": obs_id,
+        "importance": importance,
+        "category": category,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -423,65 +437,46 @@ TOOL_ENTITIES = {
 
 
 def handle_entities(args: dict) -> dict:
+    """Read from the consolidated unified_memory.db (entities.db was 0 bytes)."""
     name = args.get("name", "").strip()
     entity_type = args.get("entity_type", "").strip()
     include_obs = args.get("include_observations", True)
     limit = min(int(args.get("limit", 10)), 50)
 
-    conn = _connect(DB_ENTITIES)
+    conn = _connect(DB_UNIFIED)
     try:
         conditions = []
-        params: list[Any] = []
-
+        params = []
         if name:
-            conditions.append("(name LIKE ? OR slug LIKE ? OR LOWER(name) LIKE ?)")
-            params.extend([f"%{name}%", f"%{name}%", f"%{name.lower()}%"])
+            conditions.append("name LIKE ?")
+            params.append(f"%{name}%")
         if entity_type:
             conditions.append("type = ?")
             params.append(entity_type)
-
         where = " AND ".join(conditions) if conditions else "1=1"
         params.append(limit)
 
         rows = conn.execute(
-            f"""SELECT id, name, type, slug, mention_count, data, created_at, updated_at
-                FROM entities
-                WHERE {where}
-                ORDER BY mention_count DESC, updated_at DESC
-                LIMIT ?""",
+            "SELECT id, name, type, summary, created_at, updated_at "
+            "FROM entities WHERE " + where + " ORDER BY updated_at DESC LIMIT ?",
             params,
         ).fetchall()
 
         entities = _rows_to_dicts(rows)
-
         if include_obs and entities:
             for ent in entities:
-                obs_rows = conn.execute(
-                    """SELECT content, source, timestamp
-                       FROM observations
-                       WHERE entity_id = ?
-                       ORDER BY timestamp DESC
-                       LIMIT 5""",
-                    (ent["id"],),
-                ).fetchall()
-                ent["observations"] = _rows_to_dicts(obs_rows)
-
-                rel_rows = conn.execute(
-                    """SELECT e2.name as related_name, e2.type as related_type, r.relationship_type
-                       FROM relationships r
-                       JOIN entities e2 ON e2.id = r.target_id
-                       WHERE r.source_id = ?
-                       LIMIT 10""",
-                    (ent["id"],),
-                ).fetchall()
-                ent["relationships"] = _rows_to_dicts(rel_rows)
-
+                ent["observations"] = _rows_to_dicts(
+                    conn.execute(
+                        "SELECT predicate, object, valid_at, confidence, source "
+                        "FROM facts WHERE subject_id = ? AND invalid_at IS NULL "
+                        "ORDER BY valid_at DESC LIMIT 20",
+                        (ent["id"],),
+                    ).fetchall()
+                )
         return {"entities": entities, "count": len(entities)}
     finally:
         conn.close()
 
-
-# ---------------------------------------------------------------------------
 # Tool: hermes_shared_facts — Read cross-agent shared facts
 # ---------------------------------------------------------------------------
 
@@ -520,41 +515,31 @@ TOOL_SHARED_FACTS = {
 
 
 def handle_shared_facts(args: dict) -> dict:
+    """Read shared facts from unified_memory.db (old shared_facts.db path did not exist)."""
     query = args.get("query", "").strip()
-    category = args.get("category", "").strip()
     min_confidence = float(args.get("min_confidence", 0.7))
     limit = min(int(args.get("limit", 20)), 100)
 
-    conn = _connect(DB_SHARED_FACTS)
+    conn = _connect(DB_UNIFIED)
     try:
         conditions = ["confidence >= ?"]
-        params: list[Any] = [min_confidence]
-
+        params = [min_confidence]
         if query:
-            conditions.append("(fact LIKE ? OR rowid IN (SELECT rowid FROM shared_facts_fts WHERE shared_facts_fts MATCH ?))")
-            params.extend([f"%{query}%", query])
-        if category:
-            conditions.append("category = ?")
-            params.append(category)
-
+            ql = query.lower()
+            conditions.append("(LOWER(object) LIKE ? OR LOWER(subject_id) LIKE ?)")
+            params.append(f"%{ql}%")
+            params.append(f"%{ql}%")
         where = " AND ".join(conditions)
         params.append(limit)
-
         rows = conn.execute(
-            f"""SELECT id, fact, category, confidence, source, created_at, updated_at
-                FROM shared_facts
-                WHERE {where}
-                ORDER BY confidence DESC, updated_at DESC
-                LIMIT ?""",
+            "SELECT subject_id, predicate, object, valid_at, source, confidence "
+            "FROM facts WHERE " + where + " ORDER BY confidence DESC, valid_at DESC LIMIT ?",
             params,
         ).fetchall()
-
         return {"facts": _rows_to_dicts(rows), "count": len(rows)}
     finally:
         conn.close()
 
-
-# ---------------------------------------------------------------------------
 # Tool: hermes_add_shared_fact — Add a cross-agent shared fact
 # ---------------------------------------------------------------------------
 

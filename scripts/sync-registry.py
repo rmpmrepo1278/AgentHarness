@@ -11,7 +11,7 @@ Usage:
 import os, sys, re, json, yaml
 
 REGISTRY_PATH = os.path.expanduser("~/services/service-registry.yml")
-COMPOSE_MCP = os.path.expanduser("~/agentharness/docker-compose.mcp.yml")
+COMPOSE_MCP = os.path.expanduser("~/agentharness/docker-compose.mcp.merged.yml")  # canonical running MCP stack
 FIXER_PATH = os.path.expanduser("~/agentharness/scripts/autonomous_fixer.py")
 DELEGATE_PATH = os.path.expanduser("~/agentharness/scripts/auto_fix_delegate.py")
 HEALTH_SH = os.path.expanduser("~/agentharness/scripts/consolidated_health.sh")
@@ -22,7 +22,7 @@ def load_registry():
         return yaml.safe_load(f)
 
 def discover_compose_mcp():
-    """Parse docker-compose.mcp.yml for MCP_PORT assignments."""
+    """Parse docker-compose.mcp.merged.yml for MCP_PORT (and CRG_MCP_PORT) assignments."""
     mcp = {}
     try:
         with open(COMPOSE_MCP) as f:
@@ -31,13 +31,15 @@ def discover_compose_mcp():
                 cm = re.search(r'container_name: (\S+)', line)
                 if cm:
                     name = cm.group(1)
-                pm = re.search(r'MCP_PORT=(\d+)', line)
-                if pm and name:
-                    mcp[int(pm.group(1))] = name
-                    name = None
-        mcp[8090] = "mcp-gateway"
+                # capture every MCP-style port for the current container
+                for var in ("MCP_PORT", "CRG_MCP_PORT"):
+                    pm = re.search(var + r'=(\d+)', line)
+                    if pm and name:
+                        mcp[int(pm.group(1))] = name
+                # reset name once we've left the env block (next container_name line re-sets it)
     except FileNotFoundError:
         pass
+    mcp[8090] = "mcp-gateway"  # mcp-gateway uses GATEWAY_PORT, hardcode its well-known MCP entry
     return mcp
 
 def check_compose_vs_fixer():
@@ -48,9 +50,9 @@ def check_compose_vs_fixer():
     if not mcp:
         issues.append("Cannot read docker-compose.mcp.yml for MCP port discovery")
     # Check all expected services exist
-    expected = {"mcp-gateway", "hermes-memory-mcp", "docker-mcp", "file-mcp",
-                "rss-mcp", "doctor-mcp", "global-chat-mcp", "homelab-exec",
-}
+    expected = {"mcp-gateway", "hermes-memory-mcp", "global-chat-mcp", "homelab-exec",
+                "graphify-mcp", "code-review-bridge", "infrastructure-services",
+                "data-management", "system-monitoring", "synapse-mcp"}
     found = set(mcp.values())
     missing = expected - found
     extra = found - expected

@@ -24,8 +24,9 @@ reports/
 .DS_Store
 Thumbs.db
 start_proxy.sh
-litellm_config.yaml
 *.bak
 
 # Compiled MCP binaries
 codebase-memory-mcp/codebase-memory-mcp
+# Added by code-review-graph
+.code-review-graph/

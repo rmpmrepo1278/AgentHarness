@@ -1,6 +1,7 @@
 """llama.cpp provider — local LLM inference via OpenAI-compatible API."""
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, List
 
@@ -34,7 +35,7 @@ class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
         messages.append({"role": "user", "content": request.prompt})
 
         payload = {
-            "model": self.model or "llama3.2:3b",
+            "model": self.model or os.environ.get("LOCAL_CHAT_MODEL", "qwen2.5:7b"),
             "messages": messages,
             "stream": False,
             "options": {

@@ -32,6 +32,17 @@ from core.providers.pii_redact import (
 from core.providers.circuit_breaker import get_all_states, reset as reset_circuit_breaker
 
 
+def _tool_args(arguments) -> dict:
+    if isinstance(arguments, dict):
+        return arguments
+    if isinstance(arguments, str):
+        try:
+            return json.loads(arguments)
+        except (ValueError, TypeError):
+            return {}
+    return {}
+
+
 def create_proxy_app(data_dir: str = "") -> object:
     """Create the LLM proxy FastAPI app."""
     if not HAS_FASTAPI:
@@ -295,11 +306,15 @@ def create_proxy_app(data_dir: str = "") -> object:
         # For tool calls, prefer providers that support tools natively
         tool_model_routing = {
             "llama3.2:3b": "local",
+            "gemma4:12b": "local",
+            "qwen2.5:7b": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
         }
         # For non-tool requests, use the standard routing
         standard_model_routing = {
             "llama3.2:3b": "local",
+            "gemma4:12b": "local",
+            "qwen2.5:7b": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
         }
         has_tools = bool(body.get("tools"))
@@ -450,24 +465,25 @@ def create_proxy_app(data_dir: str = "") -> object:
                         or_messages.append({"role": role, "content": content})
                 
                 local_payload = {
-                    "model": "llama3.2:3b",
+                    "model": os.environ.get("LOCAL_TOOL_MODEL", "gemma4:12b"),
                     "messages": or_messages,
                     "tools": tools,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
+                    "stream": False,
+                    "think": False,
+                    "temperature": 0,
+                    "options": {"num_ctx": 8192, "num_predict": max_tokens},
                 }
                 async with httpx.AsyncClient(timeout=60) as client:
                     local_resp = await client.post(
-                        f"{local_url}/v1/chat/completions",
+                        f"{local_url}/api/chat",
                         json=local_payload,
                     )
                     if local_resp.status_code == 200:
                         local_data = local_resp.json()
-                        choice = local_data["choices"][0]
-                        msg = choice.get("message", {})
+                        msg = local_data.get("message", {})
                         resp_text = msg.get("content", "") or ""
                         tool_calls = msg.get("tool_calls")
-                        local_usage = local_data.get("usage", {})
+                        local_usage = local_data.get("usage", {}) or {}
                         tokens_in = local_usage.get("prompt_tokens", 0)
                         tokens_out = local_usage.get("completion_tokens", 0)
                         provider_used = "local"
@@ -538,7 +554,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                     "type": "tool_use",
                     "id": tc.get("id", "call_" + str(int(time.time()))),
                     "name": func.get("name", ""),
-                    "input": json.loads(func.get("arguments", "{}"))
+                    "input": _tool_args(func.get("arguments", "{}"))
                 })
 
         if stream:

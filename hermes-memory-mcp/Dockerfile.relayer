@@ -1,0 +1,4 @@
+FROM agentharness-hermes-memory-mcp:latest
+WORKDIR /app
+COPY server.py /app/server.py
+CMD ["python3", "server.py"]

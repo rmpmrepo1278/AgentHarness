@@ -379,14 +379,14 @@ ISSUE_TEMPLATES = {
         "keywords": ["mcp", "mcp_child", "mcp_health", "mcp gateway", "8090", "8091"],
         "priority": "high",
         "investigation_steps": [
-            "Check all MCP ports: for port in 8090 8091 8095 8097 8100 8102 8103 8104 8105 8106 8108; do echo -n \"Port $port: \"; echo > /dev/tcp/127.0.0.1/$port 2>/dev/null && echo UP || echo DOWN; done",
+             "Check all MCP ports: for port in 8090 8091 8095 8096 8100 8102 8103 8104 8108 8109 8110; do echo -n \"Port $port: \"; echo > /dev/tcp/127.0.0.1/$port 2>/dev/null && echo UP || echo DOWN; done",
             "Check MCP gateway logs: docker logs --tail 50 mcp-gateway",
             "Check individual MCP container logs for the unreachable service",
             "Check if autoheal is restarting MCP containers in a loop",
         ],
         "fix_permissions": [
             "docker restart <mcp-container>",
-            "docker compose -f /home/rohit/agentharness/docker-compose.mcp.yml restart",
+             "docker compose -f /home/rohit/agentharness/docker-compose.mcp.merged.yml restart",
             "edit MCP healthcheck config",
         ],
         "verify_template": "docker ps --filter 'name=mcp' --format '{{.Names}}: {{.Status}}'",
@@ -992,7 +992,7 @@ def post_fix_health_check(issue_type: str, verify_template: str, issue: str = ""
 
 
 def _extract_container_name(issue: str) -> str:
-    """Extract a container name from an issue string like 'Container mentedb has exited'."""
+    """Extract a container name from an issue string like 'Container synapse-mcp has exited'."""
     if not issue:
         return ""
     text = issue.strip()
