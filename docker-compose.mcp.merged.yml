@@ -7,14 +7,15 @@
 # homelab-exec: separate (port 8108)
 
 services:
+  infrastructure-services:
   # ============================================================
   # Group 1: Infrastructure Services
   # ============================================================
-  infrastructure-services:
     build: ./merged-mcp/infrastructure-services
     container_name: infrastructure-services
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -51,6 +52,7 @@ services:
     container_name: data-management
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -89,6 +91,7 @@ services:
     container_name: system-monitoring
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -127,6 +130,7 @@ services:
     container_name: global-chat-mcp
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -159,6 +163,7 @@ services:
     container_name: mcp-gateway
     labels:
       - autoheal=true
+      - homelab.managed=true
     deploy:
       resources:
         limits:
@@ -192,6 +197,7 @@ services:
     container_name: hermes-memory-mcp
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -221,6 +227,7 @@ services:
     container_name: homelab-exec
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -264,6 +271,7 @@ services:
     container_name: graphify-mcp
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -287,6 +295,57 @@ services:
     memswap_limit: 512M
     read_only: false
 
+  # ------------------------------------------------------------
+  # Synapse — local-first personal memory OS (Danialsamadi/synapse)
+  # Runs the CLI on a shared SQLite DB so OpenCode's synapse-recall plugin
+  # + Hermes can persist/retrieve long-term memory across sessions.
+  # No HTTP server: OpenCode invokes
+  #   `pnpm --dir packages/cli start query "<text>"`
+  # (start script = `node --import tsx src/cli.ts`) directly.
+  # Deps + node_modules are pre-installed on the host bind mount
+  # (services/synapse) so the container merely stays up.
+  # ------------------------------------------------------------
+  synapse-mcp:
+    image: node:20
+    container_name: synapse-mcp
+    labels:
+      - autoheal=true
+      - homelab.managed=true
+    depends_on:
+      - mcp-gateway
+    environment:
+      - MCP_PORT=8109
+      - GATEWAY_URL=http://127.0.0.1:8090
+      - MCP_BASE_DIR=/mcp-base
+      - SYNAPSE_DB=/synapse-data/synapse.db
+      - SYNAPSE_EMBED_PROVIDER=local
+      - HOME=/synapse
+    network_mode: host
+    restart: always
+    volumes:
+      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+      - /home/rohit/.hermes:/hermes:rw
+      - /home/rohit/services/synapse:/synapse:rw
+      - synapse_data:/synapse-data
+    working_dir: /synapse/packages/cli
+    command: sh -c "corepack enable 2>/dev/null; exec sleep infinity"
+    healthcheck:
+      test: ["CMD-SHELL", "node --import tsx src/cli.ts list >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+          pids: 500
+        reservations:
+          memory: 256M
+    memswap_limit: 1G
+
+
   # ============================================================
   # code-review-graph Bridge (SSE -> JSON-RPC)
   # ============================================================
@@ -295,6 +354,7 @@ services:
     container_name: code-review-bridge
     labels:
       - autoheal=true
+      - homelab.managed=true
     depends_on:
       - mcp-gateway
     deploy:
@@ -328,3 +388,4 @@ services:
 volumes:
   rss-data: {}
   mcp-stacks: {}
+  synapse_data: {}
