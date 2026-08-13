@@ -441,13 +441,28 @@ def create_proxy_app(data_dir: str = "") -> object:
         has_tools = len(tools) > 0
         local_first = has_tools and token_estimate < 2000 and len(tools) <= 6
 
+        # Model routing (same map as /v1/chat/completions)
+        tool_model_routing = {
+            "llama3.2:3b": "local",
+            "gemma4:12b": "local",
+            "qwen2.5:7b": "local",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+        }
+        standard_model_routing = {
+            "llama3.2:3b": "local",
+            "gemma4:12b": "local",
+            "qwen2.5:7b": "local",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+        }
+        model_routing = tool_model_routing if has_tools else standard_model_routing
+
         resp_text = ""
         tokens_in = 0
         tokens_out = 0
         tool_calls = None
         provider_used = "none"
 
-        # Try local Ollama first for tool calls
+        # Try local Ollama — use qwen2.5:7b (fast, already loaded) for tool calls
         if local_first:
             try:
                 import httpx
@@ -459,13 +474,13 @@ def create_proxy_app(data_dir: str = "") -> object:
                     role = msg.get("role", "")
                     content = msg.get("content", "")
                     if isinstance(content, list):
-                        texts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                        texts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
                         content = "\n".join(texts)
                     if role in ("user", "assistant"):
-                        or_messages.append({"role": role, "content": content})
-                
+                        or_messages.append({"role": role, "content": str(content) if content else ""})
+
                 local_payload = {
-                    "model": os.environ.get("LOCAL_TOOL_MODEL", "gemma4:12b"),
+                    "model": os.environ.get("LOCAL_TOOL_MODEL", "qwen2.5:7b"),
                     "messages": or_messages,
                     "tools": tools,
                     "stream": False,
@@ -487,10 +502,11 @@ def create_proxy_app(data_dir: str = "") -> object:
                         tokens_in = local_usage.get("prompt_tokens", 0)
                         tokens_out = local_usage.get("completion_tokens", 0)
                         provider_used = "local"
-            except Exception:
+            except Exception as e:
+                log.error(f"Local Ollama fallback failed: {e}")
                 pass
 
-        # Fallback to OpenRouter
+        # Fallback to OpenRouter (cloud)
         if not resp_text and not tool_calls:
             openrouter_key = os.environ.get("OPENROUTER_API_KEY")
             if openrouter_key:
@@ -538,14 +554,44 @@ def create_proxy_app(data_dir: str = "") -> object:
                             tokens_in = or_usage.get("prompt_tokens", 0)
                             tokens_out = or_usage.get("completion_tokens", 0)
                             provider_used = "openrouter"
-                except Exception:
+                except Exception as e:
+                    log.error(f"OpenRouter fallback failed: {e}")
                     pass
+
+        # Final fallback: use the Router (same logic as /v1/chat/completions)
+        if not resp_text and not tool_calls:
+            try:
+                router = _get_router()
+                from core.providers.base import Complexity, LLMRequest
+                token_estimate = len(prompt.split()) if prompt else 0
+                complexity = Complexity.LOW if token_estimate < 20 else (Complexity.MEDIUM if token_estimate < 100 else Complexity.HIGH)
+                llm_req = LLMRequest(
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    complexity=complexity,
+                    system_prompt=system,
+                )
+                routed_provider = model_routing.get(requested_model, None)
+                router_resp = router.route(llm_req, forced_provider=routed_provider)
+                resp_text = router_resp.text or ""
+                tokens_in = router_resp.tokens_in or 0
+                tokens_out = router_resp.tokens_out or 0
+                provider_used = "router:" + (routed_provider or router_resp.provider or "auto")
+                if router_resp.tool_calls:
+                    tool_calls = [{"function": {"name": tc.name, "arguments": json.dumps(tc.args)}} for tc in router_resp.tool_calls]
+            except Exception as e:
+                log.error(f"Router fallback failed: {e}")
+                pass
 
         msg_id = "msg_ah_" + str(int(time.time()))
         content_blocks = []
         
         if resp_text:
             content_blocks.append({"type": "text", "text": resp_text})
+        elif provider_used == "none":
+            # Log the failure for debugging — don't silently return empty
+            log.error(f"All providers exhausted for /v1/messages request. Provider: none, Tool calls: {bool(tool_calls)}")
         
         if tool_calls:
             for tc in tool_calls:
