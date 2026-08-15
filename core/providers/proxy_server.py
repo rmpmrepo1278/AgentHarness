@@ -72,12 +72,22 @@ def create_proxy_app(data_dir: str = "") -> object:
         rlt = RateLimitTracker(data_dir=data_dir)  # Rate limit tracker for cooldown checking
         providers = []
 
-        # Local LLM (Ollama) — disaster recovery fallback
-        local = LlamaCppProvider(
-            name="local",
-            endpoint=os.environ.get("LOCAL_LLM_URL", "http://localhost:11434"),
-        )
-        providers.append(local)
+        # Local LLM (Ollama) — multiple models for intent-based routing.
+        # Larger models need longer timeout for cold starts.
+        local_endpoint = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
+        local_models = [
+            ("local", "llama3.2:3b", 15),           # Fast small model
+            ("local-gemma12b", "gemma4:12b", 120),   # 7.5GB — longer for cold start
+            ("local-qwen8b", "qwen3:8b", 60),        # 5.2GB
+            ("local-qwen32b", "qwen3:32b", 180),     # 19GB — longest cold start
+        ]
+        for name, model, timeout in local_models:
+            providers.append(LlamaCppProvider(
+                name=name,
+                endpoint=local_endpoint,
+                model=model,
+                timeout=timeout,
+            ))
 
         # Cloud providers (only if API key is set)
         if os.environ.get("OPENROUTER_API_KEY"):
@@ -119,21 +129,13 @@ def create_proxy_app(data_dir: str = "") -> object:
                 model="gpt-4o",
                 daily_limit=150,
             ))
-        # Local BigMoeOnEdge server (Qwen3-30B-A3B, MoE streaming)
-        providers.append(OpenAICompatProvider(
-            name="local-bmoe",
-            endpoint="http://127.0.0.1:11435/v1/chat/completions",
-            api_key="",
-            model="gpt-oss-20b",
-            timeout=300.0,
-            daily_limit=99999,
-        ))
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
-        # Routing — distribute load across all working providers
-        # round-robin: groq → cerebras → mistral → owl → openrouter → local
-        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local-bmoe", "local"]
+        # Routing — speed-first order across providers.
+        # The task_router in chat_completions() overrides with forced_provider
+        # for intent-based local-first routing + quality-gated escalation.
+        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -290,38 +292,13 @@ def create_proxy_app(data_dir: str = "") -> object:
         if not prompt:
             return JSONResponse({"error": {"message": "No user message"}}, status_code=400)
 
-        # Determine complexity from prompt length and context
+        # Intent classification + complexity estimation (replaces token-only logic)
         from core.providers.base import Complexity, LLMRequest
-        token_estimate = len(prompt.split())
-        if token_estimate < 20:
-            complexity = Complexity.LOW
-        elif token_estimate < 100:
-            complexity = Complexity.MEDIUM
-        else:
-            complexity = Complexity.HIGH
+        from core.providers.task_router import (
+            decide as task_router_decide, check_quality,
+        )
 
-        router = _get_router()
-
-        # Model routing: map model names to specific providers
-        # For tool calls, prefer providers that support tools natively
-        tool_model_routing = {
-            "llama3.2:3b": "local",
-            "gemma4:12b": "local",
-            "qwen2.5:7b": "local",
-            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
-        }
-        # For non-tool requests, use the standard routing
-        standard_model_routing = {
-            "llama3.2:3b": "local",
-            "gemma4:12b": "local",
-            "qwen2.5:7b": "local",
-            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
-        }
-        has_tools = bool(body.get("tools"))
-        model_routing = tool_model_routing if has_tools else standard_model_routing
-        routed_provider = model_routing.get(body.get("model", ""), None)
-
-        # PII redaction - intercept before reaching cloud providers
+        # PII redaction — must happen BEFORE routing to cloud
         pii_result = None
         if pii_redact_enabled():
             redacted_system = redact_pii(system_prompt) if system_prompt else None
@@ -334,19 +311,84 @@ def create_proxy_app(data_dir: str = "") -> object:
                 prompt = redacted_prompt.text
                 system_prompt = redacted_system.text if redacted_system else system_prompt
 
+        decision = task_router_decide(prompt, system_prompt)
+
+        # If client explicitly requested a model, map it to the local provider
+        has_tools = bool(body.get("tools"))
+        requested_model = body.get("model", "")
+        explicit_model_map = {
+            "llama3.2:3b": "local",
+            "gemma4:12b": "local-gemma12b",
+            "qwen3:8b": "local-qwen8b",
+            "qwen3:32b": "local-qwen32b",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+        }
+        explicit_provider = explicit_model_map.get(requested_model, None)
+
+        # Determine routing strategy
+        if explicit_provider:
+            forced_provider = explicit_provider
+            direct_to_cloud = False
+        elif has_tools:
+            # Tool-calling requests need a model with real function-calling
+            # support. Local llama3.2:3b does NOT emit tool_calls — it
+            # narrates commands as text (the "We need to run commands..."
+            # leak users saw in Telegram). All cloud providers here support
+            # native tool calls, so force cloud-first for tool requests.
+            direct_to_cloud = True
+            forced_provider = None
+        else:
+            direct_to_cloud = decision.direct_to_cloud
+            forced_provider = None  # Let Router use normal (cloud-first) routing
+
+        router = _get_router()
+
         llm_request = LLMRequest(
             prompt=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
-            complexity=complexity,
+            complexity=decision.complexity,
             system_prompt=system_prompt,
+            tools=body.get("tools"),
+            tool_name=body.get("tool_name"),
         )
 
         start = time.monotonic()
         import asyncio
-        loop = asyncio.get_event_loop()
-        response = router.route(llm_request, forced_provider=routed_provider)
+        if direct_to_cloud:
+            # Skip local entirely — go straight to cloud with normal failover
+            response = router.route(llm_request)
+        else:
+            # Local-first: force the local model for this intent
+            forced_local = explicit_provider or decision.local_provider
+            response = router.route(llm_request, forced_provider=forced_local)
+
+            # Quality gate — escalate to cloud if local quality is insufficient
+            if response.success and response.text:
+                passed, quality_reason = check_quality(
+                    response.text, prompt, decision.intent
+                )
+                if not passed:
+                    log.warning(
+                        f"Local quality gate failed ({quality_reason}) "
+                        f"intent={decision.intent.value}, escalating to cloud"
+                    )
+                    # Try the primary cloud provider, then fall back to normal routing
+                    cloud_provider = decision.cloud_providers[0] if decision.cloud_providers else None
+                    if cloud_provider:
+                        cloud_response = router.route(llm_request, forced_provider=cloud_provider)
+                        if cloud_response.success:
+                            response = cloud_response
+                        else:
+                            response = router.route(llm_request)  # Normal failover
+
         elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        log.info(
+            f"Routed: intent={decision.intent.value} complex={decision.complexity.value} "
+            f"model={decision.local_model} direct_cloud={decision.direct_to_cloud} "
+            f"provider={response.provider} latency={elapsed_ms}ms"
+        )
 
         if not response.success:
             return JSONResponse(
@@ -354,13 +396,37 @@ def create_proxy_app(data_dir: str = "") -> object:
                 status_code=503,
             )
 
+        # Surface structured tool_calls. Cloud providers (groq, cerebras,
+        # openai_compat, openrouter) encode tool_calls as JSON text inside
+        # ``response.text``. Decode them back into the OpenAI ``tool_calls``
+        # field so clients execute the tools instead of echoing the JSON
+        # narration back to the user.
+        tool_calls = None
+        resp_text = response.text or ""
+        if has_tools:
+            try:
+                parsed = json.loads(resp_text)
+                if isinstance(parsed, dict) and parsed.get("tool_calls"):
+                    tool_calls = parsed["tool_calls"]
+                    resp_text = ""
+            except Exception:
+                pass
+
         # Streaming support (SSE)
         if body.get("stream", False):
             from starlette.responses import StreamingResponse
             import json as _json
-            resp_text = response.text or ""
 
             async def stream_response():
+                if tool_calls:
+                    yield "data: " + _json.dumps({"choices": [{"delta": {"role": "assistant"}, "index": 0}]}) + "\n\n"
+                    for i, tc in enumerate(tool_calls):
+                        tc_with_index = dict(tc)
+                        tc_with_index["index"] = i
+                        yield "data: " + _json.dumps({"choices": [{"delta": {"tool_calls": [tc_with_index]}, "index": 0}]}) + "\n\n"
+                    yield "data: " + _json.dumps({"choices": [{"delta": {}, "finish_reason": "tool_calls", "index": 0}]}) + "\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
                 yield "data: " + _json.dumps({"choices": [{"delta": {"role": "assistant"}, "index": 0}]}) + "\n\n"
                 for i in range(0, len(resp_text), max(1, len(resp_text) // 20)):
                     chunk = resp_text[i:i + max(1, len(resp_text) // 20)]
@@ -372,6 +438,10 @@ def create_proxy_app(data_dir: str = "") -> object:
             return StreamingResponse(stream_response(), media_type="text/event-stream")
 
         # Format as OpenAI response (non-streaming)
+        message_payload = {"role": "assistant", "content": resp_text}
+        if tool_calls:
+            message_payload["content"] = None
+            message_payload["tool_calls"] = tool_calls
         resp_data = {
             "id": f"chatcmpl-ah-{int(time.time())}",
             "object": "chat.completion",
@@ -379,8 +449,8 @@ def create_proxy_app(data_dir: str = "") -> object:
             "model": f"agentharness-proxy ({response.provider})",
             "choices": [{
                 "index": 0,
-                "message": {"role": "assistant", "content": response.text},
-                "finish_reason": "stop",
+                "message": message_payload,
+                "finish_reason": "tool_calls" if tool_calls else "stop",
             }],
             "usage": {
                 "prompt_tokens": response.tokens_in,
@@ -390,6 +460,12 @@ def create_proxy_app(data_dir: str = "") -> object:
             "timings": {
                 "provider": response.provider,
                 "latency_ms": elapsed_ms,
+            },
+            "routing": {
+                "intent": decision.intent.value,
+                "complexity": decision.complexity.value,
+                "local_model": decision.local_model,
+                "direct_to_cloud": decision.direct_to_cloud,
             },
         }
         return JSONResponse(resp_data)

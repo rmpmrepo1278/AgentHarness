@@ -43,6 +43,11 @@ class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
                 "temperature": request.temperature,
             },
         }
+        # Qwen3 models emit thinking tokens by default. Disable to get
+        # direct content output (avoids empty-content responses).
+        # Note: think must be at the top level, not inside options.
+        if "qwen3" in payload["model"].lower():
+            payload["think"] = False
 
         try:
             t0 = time.monotonic()
@@ -56,6 +61,12 @@ class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
             data = resp.json()
 
             text = data.get("message", {}).get("content", "")
+            # Qwen3 models on Ollama output their response in "thinking"
+            # instead of "content" — fall back to thinking if content is empty.
+            if not text:
+                thinking = data.get("message", {}).get("thinking", "")
+                if thinking:
+                    text = thinking
             # Ollama returns usage in prompt_eval_count (input) and eval_count (output)
             prompt_eval_count = data.get("prompt_eval_count", 0)
             eval_count = data.get("eval_count", 0)
