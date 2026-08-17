@@ -61,8 +61,7 @@ snapshot_one "homepage config" /home/rohit/services/homepage   kind:homepage
 
 # Delete snapshots superseded beyond retention, then compact
 echo "[$(date)] Pruning old snapshots..." >> "$LOG"
-sudo $KOPIA --config-file=$CFG snapshot prune 2>> "$LOG" || \
-  sudo $KOPIA --config-file=$CFG maintenance run --full 2>> "$LOG" || true
+sudo $KOPIA --config-file=$CFG maintenance run --full 2>> "$LOG" || true
 
 echo "[$(date)] Kopia snapshots complete" >> "$LOG"
 
