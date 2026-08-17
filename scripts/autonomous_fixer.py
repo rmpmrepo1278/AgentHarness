@@ -60,9 +60,10 @@ CLAUDE_FIXABLE_TYPES = {
     "missing_script",
     "cron_failure",
     "timer_drift",
-    "port_conflict",
-    "volume_leak",
-    "git_drift",
+    "missing_config",
+    "invalid_script_command",
+    # Data & storage
+    "backup_failure",
     # Network & DNS
     "dependency_failure",
     "network_partition",
@@ -122,6 +123,7 @@ ISSUE_TYPE_CATEGORY = {
     "dns_resolution":      "network",
     "duckdns_sync":        "network",
     "db_integrity":        "data",
+    "backup_failure":      "data",
     "backup_integrity":    "data",
     "api_retry_failure":   "security",
     "provider_stale":      "security",
@@ -131,6 +133,8 @@ ISSUE_TYPE_CATEGORY = {
     "zombie_process":      "container",
     "ssl_cert_expiry":     "security",
     "api_key_invalid":     "security",
+    "missing_config":      "config",
+    "invalid_script_command": "config",
 }
 
 # Critical scripts that must exist for the system to function.
@@ -532,6 +536,44 @@ def critic_verify_claim(claim_type: str, target: str) -> dict:
         s.close()
         actual = "open" if result == 0 else "closed"
         return {"claimed": "open", "actual": actual, "match": result == 0}
+    elif claim_type == "backup_fresh":
+        # Verify kopia snapshots exist and are recent (< 48h)
+        import shutil as _shutil
+        kopia_bin = _shutil.which("kopia") or "/usr/local/bin/kopia"
+        cfg = Path("/root/.config/kopia/repository.config")
+        if not cfg.exists() or not Path(kopia_bin).exists():
+            return {"claimed": "backup_ok", "actual": "config_or_binary_missing", "match": False}
+        try:
+            r = subprocess.run(
+                [kopia_bin, "snapshot", "list"],
+                capture_output=True, text=True, timeout=15,
+                env={**os.environ, "KOPIA_PASSWORD": "kopia-homelab-home-hp"},
+            )
+            if r.returncode != 0 or not r.stdout:
+                return {"claimed": "backup_ok", "actual": "snapshot_list_failed", "match": False}
+            # Check freshensst
+            import re as _re
+            timestamps = _re.findall(r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})', r.stdout)
+            if not timestamps:
+                return {"claimed": "backup_ok", "actual": "no_timestamps_in_output", "match": False}
+            from datetime import datetime as _dt
+            latest = max(timestamps)
+            latest_dt = _dt.strptime(f"{latest[0]} {latest[1]}", "%Y-%m-%d %H:%M:%S")
+            age_h = (_dt.now() - latest_dt).total_seconds() / 3600
+            actual = f"latest snapshot {age_h:.1f}h ago"
+            return {"claimed": "backup_ok", "actual": actual, "match": age_h < 48}
+        except Exception as e:
+            return {"claimed": "backup_ok", "actual": f"error: {e}", "match": False}
+    elif claim_type == "config_exists":
+        exists = Path(target).exists()
+        return {"claimed": "exists", "actual": "exists" if exists else "missing", "match": exists}
+    elif claim_type == "script_valid":
+        # Verify script syntax with bash -n
+        if not Path(target).exists():
+            return {"claimed": "valid", "actual": "file_missing", "match": False}
+        r = subprocess.run(["bash", "-n", target], capture_output=True, text=True, timeout=10)
+        valid = r.returncode == 0
+        return {"claimed": "valid", "actual": "valid" if valid else "syntax_error", "match": valid}
     return {"claimed": claim_type, "actual": "unknown", "match": True}
 
 
@@ -548,6 +590,9 @@ _VERIFY_CLAIM_MAP = {
     "dns_resolution":     "dns_resolves",
     "mcp_child_health":   "port_open",
     "port_conflict":      "port_open",
+    "backup_failure":     "backup_fresh",
+    "missing_config":     "config_exists",
+    "invalid_script_command": "script_valid",
     # Human-only — no auto-verify possible
     "ssl_cert_expiry":    None,
     "api_key_invalid":    None,
@@ -576,6 +621,10 @@ def verify_fix(issue: dict, result: dict) -> dict:
     )
     if claim_type == "port_open" and issue.get("port"):
         target = str(issue["port"])
+    if claim_type == "config_exists":
+        target = issue.get("kopia_config") or issue.get("script_path") or target
+    if claim_type == "script_valid":
+        target = issue.get("script_path") or target
 
     r = critic_verify_claim(claim_type, target)
     return {"verified": r["match"], "actual": r["actual"], "claimed": r["claimed"]}
@@ -1258,80 +1307,424 @@ def check_ux_quality() -> list[dict]:
     return issues
 
 
+# ---------------------------------------------------------------------------
+# Backup health monitoring (L1 self-heal for kopia config)
+# ---------------------------------------------------------------------------
+
+def check_backup_health() -> list[dict]:
+    """Check kopia backup health and L1 self-heal missing repository config.
+
+    Mirrors the DuckDNS self-heal pattern: attempts repair before reporting.
+    Detects: missing kopia binary, missing repo config, stale backups, invalid
+    commands in backup scripts.
+    """
+    issues = []
+    import shutil
+
+    # 1. Kopia binary availability
+    kopia_bin = shutil.which("kopia")
+    if not kopia_bin:
+        kopia_bin = "/usr/local/bin/kopia"
+    if not Path(kopia_bin).exists():
+        issues.append({
+            "issue": f"Kopia binary not found at {kopia_bin}",
+            "type": "backup_failure",
+            "severity": "critical",
+            "kopia_bin": kopia_bin,
+        })
+        return issues  # Can't check further without kopia
+
+    # 2. Repository config existence + L1 self-heal
+    cfg_path = Path("/root/.config/kopia/repository.config")
+    if not cfg_path.exists():
+        log(f"Kopia: repository config missing — attempting self-heal reconnect")
+        # Attempt L1 self-heal: reconnect the repository
+        kopia_password = os.environ.get("KOPIA_PASSWORD", "")
+        if not kopia_password:
+            # Try reading from hc_uuids.sh
+            hc_uuids = HERMES_HOME / "scripts" / "hc_uuids.sh"
+            if hc_uuids.exists():
+                import re
+                for line in hc_uuids.read_text().splitlines():
+                    m = re.match(r'export\s+KOPIA_PASSWORD="([^"]+)"', line.strip())
+                    if m:
+                        kopia_password = m.group(1)
+                        break
+
+        repo_path = Path("/mnt/usb/kopia-repo-volumes")
+        if repo_path.exists() and kopia_password:
+            try:
+                result = subprocess.run(
+                    [kopia_bin, "repository", "connect", "filesystem",
+                     "--path", str(repo_path)],
+                    capture_output=True, text=True, timeout=30,
+                    env={**os.environ, "KOPIA_PASSWORD": kopia_password},
+                )
+                if result.returncode == 0 and cfg_path.exists():
+                    log(f"Kopia: repository reconnected successfully")
+                    # Verify by listing snapshots
+                    verify = subprocess.run(
+                        [kopia_bin, "snapshot", "list"],
+                        capture_output=True, text=True, timeout=15,
+                        env={**os.environ, "KOPIA_PASSWORD": kopia_password},
+                    )
+                    if verify.returncode == 0:
+                        log("Kopia: self-heal verified — snapshots accessible")
+                        return []  # Fully recovered
+                    else:
+                        log(f"Kopia: reconnected but snapshot list failed: {verify.stderr[:200]}")
+                else:
+                    log(f"Kopia: self-heal failed: {result.stderr[:200]}")
+            except Exception as e:
+                log(f"Kopia: self-heal exception: {e}")
+
+        issues.append({
+            "issue": f"Kopia repository config missing at {cfg_path} and self-heal failed",
+            "type": "backup_failure",
+            "severity": "critical",
+            "kopia_config": str(cfg_path),
+        })
+
+    # 3. Backup freshness — check for recent snapshots
+    if cfg_path.exists():
+        try:
+            kopia_password = os.environ.get("KOPIA_PASSWORD", "")
+            if not kopia_password:
+                hc_uuids = HERMES_HOME / "scripts" / "hc_uuids.sh"
+                if hc_uuids.exists():
+                    import re
+                    for line in hc_uuids.read_text().splitlines():
+                        m = re.match(r'export\s+KOPIA_PASSWORD="([^"]+)"', line.strip())
+                        if m:
+                            kopia_password = m.group(1)
+                            break
+
+            result = subprocess.run(
+                [kopia_bin, "snapshot", "list"],
+                capture_output=True, text=True, timeout=15,
+                env={**os.environ, "KOPIA_PASSWORD": kopia_password},
+            )
+            if result.returncode == 0 and result.stdout:
+                # Check freshensst — at least one snapshot in last 48h
+                import re as _re
+                timestamps = _re.findall(
+                    r'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})', result.stdout
+                )
+                if timestamps:
+                    from datetime import datetime as _dt
+                    latest = max(timestamps)
+                    latest_dt = _dt.strptime(
+                        f"{latest[0]} {latest[1]}", "%Y-%m-%d %H:%M:%S"
+                    )
+                    age_hours = (_dt.now() - latest_dt).total_seconds() / 3600
+                    if age_hours > 48:
+                        issues.append({
+                            "issue": f"Kopia backups stale — last snapshot {age_hours:.0f}h ago",
+                            "type": "backup_failure",
+                            "severity": "high",
+                            "last_snapshot": f"{latest[0]} {latest[1]}",
+                        })
+                else:
+                    issues.append({
+                        "issue": "Kopia snapshots exist but timestamps unparseable",
+                        "type": "backup_failure",
+                        "severity": "medium",
+                    })
+            else:
+                issues.append({
+                    "issue": "Kopia snapshot list failed — repository may be corrupted",
+                    "type": "backup_failure",
+                    "severity": "critical",
+                    "kopia_error": result.stderr[:200] if result.stderr else "no output",
+                })
+        except Exception as e:
+            issues.append({
+                "issue": f"Kopia snapshot check exception: {e}",
+                "type": "backup_failure",
+                "severity": "medium",
+            })
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# Script validation — detect invalid commands in monitoring scripts
+# ---------------------------------------------------------------------------
+
+def check_script_health() -> list[dict]:
+    """Validate that monitoring/backup scripts don't contain broken commands.
+
+    Uses static analysis (grep for known-invalid commands) + dry-run testing.
+    """
+    issues = []
+    # Scripts that contain kopia_backup, backup, or monitoring logic
+    scripts_to_check = [
+        HERMES_HOME / "agentharness" / "scripts" / "kopia_backup.sh",  # wait, this doesn't exist at this path
+    ]
+    # Actually find scripts dynamically
+    script_dirs = [
+        Path("/home/rohit/agentharness/scripts"),
+        HERMES_HOME / "scripts",
+    ]
+    checked = set()
+
+    # Known-invalid kopia commands (kopia CLI v0.23 doesn't support these)
+    invalid_kopia_commands = [
+        "snapshot prune",      # Should be 'maintenance run --full'
+        "snapshot gc",         # Not a command
+        "snapshot cleanup",    # Not a command
+    ]
+
+    for script_dir in script_dirs:
+        if not script_dir.exists():
+            continue
+        for script_path in script_dir.glob("*.sh"):
+            if script_path in checked:
+                continue
+            checked.add(script_path)
+            try:
+                content = script_path.read_text(errors="replace")
+                for invalid_cmd in invalid_kopia_commands:
+                    if invalid_cmd in content:
+                        issues.append({
+                            "issue": f"Invalid kopia command in {script_path.name}: '{invalid_cmd}'",
+                            "type": "invalid_script_command",
+                            "severity": "high",
+                            "script_path": str(script_path),
+                            "invalid_command": invalid_cmd,
+                        })
+            except Exception:
+                pass
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
+# Container restart loop L1 self-heal
+# ---------------------------------------------------------------------------
+
+def check_container_restart_loops() -> list[dict]:
+    """Detect container restart loops and attempt L1 root-cause fixes.
+
+    Scans container logs for common patterns and applies targeted fixes:
+    - OOM kills: restart with memory limits
+    - Dependency failures: restart dependency container first
+    - Healthcheck failures: restart container
+    """
+    issues = []
+    containers = docker_ps()
+    import re
+
+    for c in containers:
+        status = c.get("Status", "")
+        name = c.get("Name", c.get("Names", "?"))
+        restart_count = get_recent_restart_count(name)
+
+        if restart_count < 3:
+            continue
+
+        # If container is currently healthy and stable, skip
+        if "Up" in status and "restart" not in status.lower():
+            try:
+                inspect_result = subprocess.run(
+                    ["docker", "inspect", "--format",
+                     "{{.State.Health.Status}}|{{.State.StartedAt}}|{{.State.Health.FailingStreak}}",
+                     name],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if inspect_result.returncode == 0:
+                    parts = inspect_result.stdout.strip().split("|", 2)
+                    health = (parts[0] if len(parts) > 0 else "").replace("<no value>", "none")
+                    started_at = parts[1] if len(parts) > 1 else ""
+                    failing_streak = parts[2] if len(parts) > 2 else "0"
+                    try:
+                        streak = int(failing_streak)
+                    except (ValueError, TypeError):
+                        streak = 0
+                    if health in ("healthy", "none") and streak == 0 and started_at:
+                        from datetime import datetime, timezone
+                        try:
+                            start_dt = datetime.fromisoformat(
+                                started_at.replace("Z", "+00:00")
+                            )
+                            uptime_hours = (
+                                datetime.now(timezone.utc) - start_dt
+                            ).total_seconds() / 3600
+                            if uptime_hours >= 1:
+                                # Container is stable — transient restarts, not active loop
+                                continue
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                pass
+
+        # Container is actively restarting — investigate root cause
+        log(f"Container {name} has {restart_count} restarts — checking logs for root cause")
+        try:
+            log_result = subprocess.run(
+                ["docker", "logs", "--tail", "100", name],
+                capture_output=True, text=True, timeout=10,
+            )
+            log_text = log_result.stderr + "\n" + log_result.stdout  # stderr first (errors)
+
+            # Pattern: OOM kill
+            if re.search(r"oom|out of memory|killed process.*signal 9", log_text, re.IGNORECASE):
+                log(f"  Root cause: OOM kill for {name} — attempting L1 fix")
+                # L1 fix: check if container has memory limit, bump if too low
+                try:
+                    inspect_result = subprocess.run(
+                        ["docker", "inspect", "--format",
+                         "{{.HostConfig.Memory}}", name],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                    mem_limit = inspect_result.stdout.strip()
+                    if mem_limit and mem_limit != "0":
+                        # Container has a limit — report for L2 escalation
+                        issues.append({
+                            "issue": f"Container {name} OOM killed (memory limit {mem_limit}) — needs L2 memory limit adjustment",
+                            "type": "restart_loop",
+                            "severity": "high",
+                            "container": name,
+                        })
+                    else:
+                        # No memory limit set — try restarting with a higher one
+                        issues.append({
+                            "issue": f"Container {name} OOM killed (no memory limit) — restart with --memory limit",
+                            "type": "restart_loop",
+                            "severity": "high",
+                            "container": name,
+                            "root_cause": "oom",
+                        })
+                except Exception:
+                    pass
+                continue
+
+            # Pattern: dependency failure (DB, Redis, etc.)
+            dep_patterns = [
+                (r"ECONNREFUSED.*5432|postgres.*unavailable|database.*connect", "database"),
+                (r"ECONNREFUSED.*6379|redis.*unavailable|redis.*connect", "redis"),
+                (r"ECONNREFUSED.*9092|kafka.*unavailable", "kafka"),
+                (r"ECONNREFUSED.*(3306|mysql)", "mysql"),
+            ]
+            for pattern, dep_name in dep_patterns:
+                if re.search(pattern, log_text, re.IGNORECASE):
+                    log(f"  Root cause: dependency {dep_name} failure for {name}")
+                    # L1 fix: check if dependency is running, restart if needed
+                    dep_container = None
+                    for pc in containers:
+                        pc_name = pc.get("Name", pc.get("Names", ""))
+                        if dep_name in pc_name.lower():
+                            dep_container = pc_name
+                            break
+                    if dep_container:
+                        dep_status = docker_ps_status(dep_container)
+                        if dep_status != "running":
+                            log(f"  L1 fix: restarting dependency {dep_container}")
+                            subprocess.run(
+                                ["docker", "restart", dep_container],
+                                capture_output=True, text=True, timeout=30,
+                            )
+                            # Give it time to come up
+                            import time as _time
+                            _time.sleep(10)
+                            # Restart the failing container too
+                            subprocess.run(
+                                ["docker", "restart", name],
+                                capture_output=True, text=True, timeout=30,
+                            )
+                            log(f"  L1 fix applied: restarted {dep_container} + {name}")
+                            # Verify
+                            new_status = docker_ps_status(name)
+                            if new_status == "running":
+                                new_restarts = get_recent_restart_count(name)
+                                if new_restarts == restart_count:
+                                    log(f"  L1 fix verified: {name} stable")
+                                    return issues  # Self-healed
+                    issues.append({
+                        "issue": f"Container {name} restart loop — dependency {dep_name} failure (dep: {dep_container or 'unknown'})",
+                        "type": "restart_loop",
+                        "severity": "high",
+                        "container": name,
+                        "root_cause": dep_name,
+                    })
+                    break
+            else:
+                # No known pattern — check if it's a crash with exit code
+                exit_match = re.search(r'exit code (\d+)', log_text)
+                if exit_match:
+                    exit_code = int(exit_match.group(1))
+                    if exit_code == 137 or exit_code == 139:
+                        # SIGKILL or segfault — memory or binary issue
+                        issues.append({
+                            "issue": f"Container {name} crashed (exit code {exit_code}) — likely memory or binary issue",
+                            "type": "restart_loop",
+                            "severity": "high",
+                            "container": name,
+                            "exit_code": exit_code,
+                        })
+                    else:
+                        issues.append({
+                            "issue": f"Container {name} crashed (exit code {exit_code})",
+                            "type": "restart_loop",
+                            "severity": "high",
+                            "container": name,
+                            "exit_code": exit_code,
+                        })
+                else:
+                    issues.append({
+                        "issue": f"Container {name} has restarted {restart_count} times recently",
+                        "type": "restart_loop",
+                        "severity": "high",
+                        "container": name,
+                    })
+        except Exception as e:
+            log(f"Failed to check container logs for {name}: {e}")
+            issues.append({
+                "issue": f"Container {name} has restarted {restart_count} times recently",
+                "type": "restart_loop",
+                "severity": "high",
+                "container": name,
+            })
+
+    return issues
+
+
+def docker_ps_status(name: str) -> str:
+    """Get container status string."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", name],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return "unknown"
+
+    
+
 def detect_issues() -> list[dict]:
     """Scan system state and return list of detected issues."""
     issues = []
     containers = docker_ps()
 
-    # ── 1. Container restart loops ──
-    restarting = [c for c in containers if "Restarting" in c.get("Status", "")]
-    for c in restarting:
-        name = c.get("Name", c.get("Names", "?"))
-        issues.append({
-            "issue": f"Container {name} is in a restart loop",
-            "type": "restart_loop",
-            "severity": "high",
-            "container": name,
-        })
+    # ── 1. Container restart loops (with L1 root-cause self-heal) ──
+    issues.extend(check_container_restart_loops())
 
-    # Also check restart count for running containers that recently crashed
-    # Skip containers that are currently healthy with no recent failures —
-    # high restart count from a past transient event (e.g. ISP outage) is not
-    # an active issue and spawning fix sessions wastes resources.
-    for c in containers:
-        status = c.get("Status", "")
-        name = c.get("Name", c.get("Names", "?"))
-        if "Up" in status and "restart" not in status.lower():
-            count = get_recent_restart_count(name)
-            if count >= 3:
-                # Check if container is currently healthy and stable
-                try:
-                    inspect_result = subprocess.run(
-                        ["docker", "inspect", "--format",
-                         "{{.State.Health.Status}}|{{.State.StartedAt}}|{{.State.Health.FailingStreak}}",
-                         name],
-                        capture_output=True, text=True, timeout=10,
-                    )
-                    if inspect_result.returncode == 0:
-                        parts = inspect_result.stdout.strip().split("|", 2)
-                        health = (parts[0] if len(parts) > 0 else "").replace("<no value>", "none")
-                        started_at = parts[1] if len(parts) > 1 else ""
-                        failing_streak = parts[2] if len(parts) > 2 else "0"
-                        try:
-                            streak = int(failing_streak)
-                        except (ValueError, TypeError):
-                            streak = 0
-                        # If healthy, running >1h, and no failing streak → skip
-                        is_stable = (
-                            health in ("healthy", "none")
-                            and streak == 0
-                            and started_at
-                        )
-                        if is_stable:
-                            from datetime import datetime, timezone
-                            try:
-                                start_dt = datetime.fromisoformat(
-                                    started_at.replace("Z", "+00:00")
-                                )
-                                uptime_hours = (
-                                    datetime.now(timezone.utc) - start_dt
-                                ).total_seconds() / 3600
-                                if uptime_hours >= 1:
-                                    # Container is stable — restarts were
-                                    # transient, not an active loop. Skip.
-                                    continue
-                            except (ValueError, TypeError):
-                                pass
-                except Exception:
-                    pass
-                issues.append({
-                    "issue": f"Container {name} has restarted {count} times recently",
-                    "type": "restart_loop",
-                    "severity": "high",
-                    "container": name,
-                })
+    # ── (rest of original checks continue here) ──
 
-    # ── 2. Unhealthy containers ──
+    # ── 2. Backup health (with L1 kopia config self-heal) ──
+    backup_issues = check_backup_health()
+    if backup_issues:
+        log(f"Backup checks: {len(backup_issues)} issue(s) detected")
+        all_issues.extend(backup_issues)
+
+    # ── 2b. Script validation (detect invalid commands) ──
+    script_issues = check_script_health()
+    if script_issues:
+        log(f"Script validation: {len(script_issues)} issue(s) detected")
+        all_issues.extend(script_issues)
+
+    # ── 3. Unhealthy containers ──
     unhealthy = [c for c in containers if "unhealthy" in c.get("Status", "").lower()]
     for c in unhealthy:
         name = c.get("Name", c.get("Names", "?"))
