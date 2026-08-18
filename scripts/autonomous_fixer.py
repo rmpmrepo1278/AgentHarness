@@ -1715,12 +1715,44 @@ def _get_predictive_warnings() -> list[dict]:
         )
         if r.returncode != 0:
             return []
-        # Parse JSON from output
         for line in r.stdout.splitlines():
             line = line.strip()
             if line.startswith("{"):
                 data = _json.loads(line)
                 return data.get("predictions", {})
+    except Exception:
+        pass
+    return {}
+
+
+def _check_internet_outage_window() -> bool:
+    """Check if we're in the known daily internet outage window (11PM-9AM PT)."""
+    try:
+        now = datetime.now()
+        try:
+            import pytz
+            pt = pytz.timezone("US/Pacific")
+            now = datetime.now(pt)
+        except ImportError:
+            pass
+        hour = now.hour
+        return hour >= 23 or hour < 9
+    except Exception:
+        return False
+
+
+def _check_mcp_health() -> list[dict]:
+    """Check MCP server health via mcp_health_watchdog."""
+    try:
+        r = subprocess.run(
+            [sys.executable, str(HERMES_HOME / "scripts" / "mcp_health_watchdog.py")],
+            capture_output=True, text=True, timeout=30,
+        )
+        for line in r.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("{"):
+                data = json.loads(line)
+                return data.get("mcp_issues", [])
     except Exception:
         pass
     return []
@@ -1750,13 +1782,32 @@ def detect_issues() -> list[dict]:
 
     # ── 2c. Predictive trend warnings ──
     predictions = _get_predictive_warnings()
-    for pred in predictions:
+    for pred in predictions.values():
         issues.append({
             "issue": f"Predictive: {pred['signal']} predicted to hit {pred['threshold']} in {pred['predicted_hours_to_threshold']}h (severity: {pred['severity']})",
             "type": "predictive_warning",
             "severity": pred["severity"],
             "signal": pred["signal"],
             "predicted_hours": pred["predicted_hours_to_threshold"],
+        })
+
+    # ── 2d. Internet outage window (switch to local-only mode) ──
+    outage = _check_internet_outage_window()
+    if outage:
+        issues.append({
+            "issue": "Internet outage window active (11PM-9AM PT) — proxy switched to local-only routing",
+            "type": "internet_outage",
+            "severity": "info",
+        })
+
+    # ── 2e. MCP server health ──
+    mcp_issues = _check_mcp_health()
+    for mi in mcp_issues:
+        issues.append({
+            "issue": f"MCP server '{mi['name']}' unhealthy: {mi['detail']}",
+            "type": "mcp_child_health",
+            "severity": "medium",
+            "container": mi["name"],
         })
 
     # ── 3. Unhealthy containers ──
