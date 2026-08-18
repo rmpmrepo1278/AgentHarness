@@ -85,6 +85,8 @@ CLAUDE_FIXABLE_TYPES = {
     "oom_kill_pattern",
     "zombie_process",
     "ssl_cert_expiry",
+    # Proactive predictions
+    "predictive_warning",
     # Security (alert-only, L3 human)
     "api_key_invalid",
 }
@@ -598,6 +600,7 @@ _VERIFY_CLAIM_MAP = {
     "api_key_invalid":    None,
     "config_drift":       None,
     "missing_script":     None,
+    "predictive_warning": None,
 }
 
 def verify_fix(issue: dict, result: dict) -> dict:
@@ -1702,6 +1705,27 @@ def docker_ps_status(name: str) -> str:
 
     
 
+def _get_predictive_warnings() -> list[dict]:
+    """Fetch proactive predictions from predictive_signals.py."""
+    try:
+        import subprocess, json as _json
+        r = subprocess.run(
+            [sys.executable, str(HERMES_HOME / "scripts" / "predictive_signals.py"), "--show"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if r.returncode != 0:
+            return []
+        # Parse JSON from output
+        for line in r.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("{"):
+                data = _json.loads(line)
+                return data.get("predictions", {})
+    except Exception:
+        pass
+    return []
+
+
 def detect_issues() -> list[dict]:
     """Scan system state and return list of detected issues."""
     issues = []
@@ -1716,13 +1740,24 @@ def detect_issues() -> list[dict]:
     backup_issues = check_backup_health()
     if backup_issues:
         log(f"Backup checks: {len(backup_issues)} issue(s) detected")
-        all_issues.extend(backup_issues)
+        issues.extend(backup_issues)
 
     # ── 2b. Script validation (detect invalid commands) ──
     script_issues = check_script_health()
     if script_issues:
         log(f"Script validation: {len(script_issues)} issue(s) detected")
-        all_issues.extend(script_issues)
+        issues.extend(script_issues)
+
+    # ── 2c. Predictive trend warnings ──
+    predictions = _get_predictive_warnings()
+    for pred in predictions:
+        issues.append({
+            "issue": f"Predictive: {pred['signal']} predicted to hit {pred['threshold']} in {pred['predicted_hours_to_threshold']}h (severity: {pred['severity']})",
+            "type": "predictive_warning",
+            "severity": pred["severity"],
+            "signal": pred["signal"],
+            "predicted_hours": pred["predicted_hours_to_threshold"],
+        })
 
     # ── 3. Unhealthy containers ──
     unhealthy = [c for c in containers if "unhealthy" in c.get("Status", "").lower()]
