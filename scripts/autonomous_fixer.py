@@ -1339,7 +1339,11 @@ def check_backup_health() -> list[dict]:
 
     # 2. Repository config existence + L1 self-heal
     cfg_path = Path("/root/.config/kopia/repository.config")
-    if not cfg_path.exists():
+    try:
+        cfg_exists = cfg_path.exists()
+    except PermissionError:
+        cfg_exists = True  # root-owned config exists; unreadable as non-root user
+    if not cfg_exists:
         log(f"Kopia: repository config missing — attempting self-heal reconnect")
         # Attempt L1 self-heal: reconnect the repository
         kopia_password = os.environ.get("KOPIA_PASSWORD", "")
@@ -1389,7 +1393,11 @@ def check_backup_health() -> list[dict]:
         })
 
     # 3. Backup freshness — check for recent snapshots
-    if cfg_path.exists():
+    try:
+        cfg_exists = cfg_path.exists()
+    except PermissionError:
+        cfg_exists = True
+    if cfg_exists:
         try:
             kopia_password = os.environ.get("KOPIA_PASSWORD", "")
             if not kopia_password:
