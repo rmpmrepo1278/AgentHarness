@@ -1011,7 +1011,7 @@ def check_memory() -> dict:
     result["top_consumers"] = out.splitlines()[1:] if out else []  # skip header
 
     # OOM kill history
-    rc, out, _ = _run("dmesg -T 2>/dev/null | grep -i 'oom\\|out of memory' | tail -5")
+    rc, out, _ = _run("sudo dmesg -T 2>/dev/null | grep -i 'oom\\|out of memory' | tail -5")
     result["oom_history"] = out.splitlines() if out else []
 
     return result

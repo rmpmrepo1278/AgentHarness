@@ -543,11 +543,15 @@ def critic_verify_claim(claim_type: str, target: str) -> dict:
         import shutil as _shutil
         kopia_bin = _shutil.which("kopia") or "/usr/local/bin/kopia"
         cfg = Path("/root/.config/kopia/repository.config")
-        if not cfg.exists() or not Path(kopia_bin).exists():
+        try:
+            cfg_exists = cfg.exists()
+        except PermissionError:
+            cfg_exists = True  # root-owned config exists; unreadable as non-root user
+        if not cfg_exists or not Path(kopia_bin).exists():
             return {"claimed": "backup_ok", "actual": "config_or_binary_missing", "match": False}
         try:
             r = subprocess.run(
-                [kopia_bin, "snapshot", "list"],
+                ["sudo", kopia_bin, "--config-file", str(cfg), "snapshot", "list"],
                 capture_output=True, text=True, timeout=15,
                 env={**os.environ, "KOPIA_PASSWORD": "kopia-homelab-home-hp"},
             )
@@ -775,13 +779,13 @@ def check_oom_kills() -> list[dict]:
     issues = []
     try:
         result = subprocess.run(
-            ["dmesg", "--time-format=iso"],
+            ["sudo", "dmesg", "--time-format=iso"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
             # dmesg may need root; try journalctl
             result = subprocess.run(
-                ["journalctl", "-k", "--since", "1 hour ago", "--no-pager", "-q"],
+                ["sudo", "journalctl", "-k", "--since", "1 hour ago", "--no-pager", "-q"],
                 capture_output=True, text=True, timeout=10,
             )
         lines = result.stdout.strip().split("\n")
@@ -1362,7 +1366,7 @@ def check_backup_health() -> list[dict]:
         if repo_path.exists() and kopia_password:
             try:
                 result = subprocess.run(
-                    [kopia_bin, "repository", "connect", "filesystem",
+                    ["sudo", kopia_bin, "repository", "connect", "filesystem",
                      "--path", str(repo_path)],
                     capture_output=True, text=True, timeout=30,
                     env={**os.environ, "KOPIA_PASSWORD": kopia_password},
@@ -1371,7 +1375,7 @@ def check_backup_health() -> list[dict]:
                     log(f"Kopia: repository reconnected successfully")
                     # Verify by listing snapshots
                     verify = subprocess.run(
-                        [kopia_bin, "snapshot", "list"],
+                        ["sudo", kopia_bin, "--config-file", str(cfg_path), "snapshot", "list"],
                         capture_output=True, text=True, timeout=15,
                         env={**os.environ, "KOPIA_PASSWORD": kopia_password},
                     )
@@ -1411,7 +1415,7 @@ def check_backup_health() -> list[dict]:
                             break
 
             result = subprocess.run(
-                [kopia_bin, "snapshot", "list"],
+                ["sudo", kopia_bin, "--config-file", str(cfg_path), "snapshot", "list"],
                 capture_output=True, text=True, timeout=15,
                 env={**os.environ, "KOPIA_PASSWORD": kopia_password},
             )

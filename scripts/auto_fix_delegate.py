@@ -78,7 +78,7 @@ ISSUE_TEMPLATES = {
         "investigation_steps": [
             "Check container status and restart count: docker ps -a --filter 'name=<container>'",
             "Check container logs: docker logs --tail 100 <container>",
-            "Check for OOM kills: dmesg | grep -i oom",
+            "Check for OOM kills: sudo dmesg | grep -i oom",
             "Check docker inspect for exit codes",
             "Check network connectivity between dependent containers",
             "Check compose file for the service configuration",
@@ -147,7 +147,7 @@ ISSUE_TEMPLATES = {
             "Check memory: free -h",
             "Check top consumers: ps aux --sort=-%mem | head -20",
             "Check Docker container memory: docker stats --no-stream",
-            "Check for OOM kills: dmesg | grep -i oom | tail -10",
+            "Check for OOM kills: sudo dmesg | grep -i oom | tail -10",
             "Check swap usage",
         ],
         "fix_permissions": [
@@ -246,7 +246,7 @@ ISSUE_TEMPLATES = {
         "keywords": ["oom", "out of memory", "killed process", "oom_kill"],
         "priority": "critical",
         "investigation_steps": [
-            "Check recent OOM kills: dmesg | grep -i 'oom\\|killed process' | tail -20",
+            "Check recent OOM kills: sudo dmesg | grep -i 'oom\\|killed process' | tail -20",
             "Check current memory: free -h",
             "Check top memory consumers: ps aux --sort=-%mem | head -20",
             "Check Docker container memory: docker stats --no-stream | head -20",
@@ -258,7 +258,7 @@ ISSUE_TEMPLATES = {
             "systemctl --user restart services",
             "docker update --memory 512m <container>",
         ],
-        "verify_template": "dmesg | grep -i oom | tail -5 && free -h | awk '/^Mem:/{print \"Available:\", $7}'",
+        "verify_template": "sudo dmesg | grep -i oom | tail -5 && free -h | awk '/^Mem:/{print \"Available:\", $7}'",
     },
     "zombie_process": {
         "keywords": ["zombie", "defunct", "zombie_process"],
@@ -711,7 +711,7 @@ def enrich_context(issue: str, issue_type: str) -> str:
     # 7. Recent errors from journal (last 5 min)
     try:
         result = subprocess.run(
-            ["journalctl", "--since", "5 min ago", "--priority=err", "--no-pager", "-n", "20"],
+            ["sudo", "journalctl", "--since", "5 min ago", "--priority=err", "--no-pager", "-n", "20"],
             capture_output=True, text=True, timeout=10,
         )
         errors = result.stdout.strip()
@@ -900,6 +900,17 @@ def spawn_claude(prompt: str, timeout: int) -> dict:
                     "summary": "",
                     "raw_output": result.stdout[:5000],
                     "error": "Delegate returned an empty result (no action performed)",
+                }
+            # Detect degenerate output: repeated patterns like > or dots that
+            # indicate a broken/infinite-loop generation rather than a real fix.
+            _s = str(summary)
+            if _s.count(_s[0]) > len(_s) * 0.8 and len(_s) > 100:
+                return {
+                    "status": "failed",
+                    "session_id": sid,
+                    "summary": _s[:200],
+                    "raw_output": result.stdout[:5000],
+                    "error": "Delegate returned degenerate output (likely broken generation loop)",
                 }
             return {
                 "status": "completed",
@@ -1215,10 +1226,20 @@ def main():
         cc_result["source"] = source
         cc_result["commit_hash"] = commit_hash
 
-        # ── 9. Post-fix health check ──
+        # ── 9. Post-fix health check (HARD GATE) ──
         health = post_fix_health_check(actual_type, template.get("verify_template", ""), issue)
         cc_result["health_check"] = health
         log(f"Post-fix health check: {'PASS' if health.get('passed') else 'FAIL'} — {health.get('output', '')[:100]}")
+
+        # If the session "completed" but the post-fix health check fails,
+        # downgrade to 'failed' so it is flagged for retry/rate-limiting
+        # instead of reported as a successful fix.
+        if cc_result["status"] == "completed" and not health.get("passed", True):
+            cc_result["status"] = "failed"
+            cc_result["error"] = (
+                cc_result.get("error", "") or ""
+            ) + f"; post-fix health check failed: {health.get('output', 'unknown')}"
+            log(f"Session {sid} downgraded from COMPLETED to FAILED — health check failed")
 
         # ── 10. Calculate duration ──
         duration = time.time() - start_time

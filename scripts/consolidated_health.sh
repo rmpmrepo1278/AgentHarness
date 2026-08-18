@@ -130,7 +130,7 @@ fi
 
 # ── 8. OOM kill check ──
 log "=== OOM kill check ==="
-OOM_COUNT=$(dmesg 2>/dev/null | grep -ciE "oom|killed process" | head -1 || true)
+OOM_COUNT=$(sudo dmesg 2>/dev/null | grep -ciE "oom|killed process" | head -1 || true)
 if [ "$OOM_COUNT" -gt 0 ]; then
     log "WARNING: $OOM_COUNT OOM kill(s) detected in dmesg"
     ISSUES=$((ISSUES + 1))

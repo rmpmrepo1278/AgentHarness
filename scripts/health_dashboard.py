@@ -279,9 +279,9 @@ def check_zombies() -> dict:
 
 
 def check_oom() -> dict:
-    r = _run(["dmesg"], timeout=5)
+    r = _run(["sudo", "dmesg"], timeout=5)
     if r.returncode != 0:
-        r = _run(["journalctl", "-k", "--since", "24 hours ago", "--no-pager", "-q"], timeout=10)
+        r = _run(["sudo", "journalctl", "-k", "--since", "24 hours ago", "--no-pager", "-q"], timeout=10)
     oom_lines = [l for l in r.stdout.strip().split("\n") if "oom" in l.lower() or "killed process" in l.lower()]
     count = len(oom_lines)
     if count > 0:
@@ -330,9 +330,11 @@ def check_backups() -> dict:
     """Check backups — uses Kopia snapshots (replaced tar-based backups)."""
     try:
         result = subprocess.run(
-            ["/usr/local/bin/kopia", "snapshot", "list", "--json"],
-            capture_output=True, text=True, timeout=15,
-        )
+            ["sudo", "/usr/local/bin/kopia", "--config-file",
+             "/root/.config/kopia/repository.config", "snapshot", "list", "--json"],
+             capture_output=True, text=True, timeout=15,
+             env={**os.environ, "KOPIA_PASSWORD": "kopia-homelab-home-hp"},
+         )
         if result.returncode != 0:
             return _check("backups", "warning", message="Kopia snapshot list failed")
 
