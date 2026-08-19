@@ -216,8 +216,8 @@ def check_cpu() -> dict:
 def check_network() -> dict:
     # Check key ports - only check services that should be running
     key_ports = {
-        8080: "llm-proxy", 8787: "hermes-webui",
-        3002: "grafana", 4321: "khoj", 8000: "paperless",
+        8080: "llm-proxy", 8082: "hermes-webui",
+        3001: "grafana", 8000: "paperless",
     }
     down = []
     for port, name in key_ports.items():
@@ -332,9 +332,8 @@ def check_backups() -> dict:
         result = subprocess.run(
             ["sudo", "/usr/local/bin/kopia", "--config-file",
              "/root/.config/kopia/repository.config", "snapshot", "list", "--json"],
-             capture_output=True, text=True, timeout=15,
-             env={**os.environ, "KOPIA_PASSWORD": "kopia-homelab-home-hp"},
-         )
+            capture_output=True, text=True, timeout=15,
+        )
         if result.returncode != 0:
             return _check("backups", "warning", message="Kopia snapshot list failed")
 

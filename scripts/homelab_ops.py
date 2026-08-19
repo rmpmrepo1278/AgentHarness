@@ -896,7 +896,7 @@ def get_logs(service: str, lines: int = 50) -> str:
         return out
 
     # Systemd service
-    rc, out, _ = _run(f"journalctl -u {service} -n {lines} --no-pager 2>&1")
+    rc, out, _ = _run(f"sudo journalctl -u {service} -n {lines} --no-pager 2>&1")
     if rc == 0 and out:
         return out
 
