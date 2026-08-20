@@ -1,23 +1,13 @@
-# Merged MCP Services - Consolidated from 12 containers to 5
-# infrastructure-services: backup, doctor, file (ports 8102, 8105, 8097)
-# data-management: git, paperless, rss (ports 8100, 8099, 8104)
-# system-monitoring: docker, homelab-ops, network, gateway (ports 8103, 8106, 8103, 8090)
-# communication: global-chat (port 8104)
-# hermes-memory: separate (port 8091)
-# homelab-exec: separate (port 8108)
-
 services:
   infrastructure-services:
-  # ============================================================
-  # Group 1: Infrastructure Services
-  # ============================================================
     build: ./merged-mcp/infrastructure-services
     container_name: infrastructure-services
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -27,34 +17,40 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8102
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - DOCKER_HOST=tcp://127.0.0.1:2375
+    - MCP_PORT=8102
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - DOCKER_HOST=tcp://127.0.0.1:2375
     network_mode: host
     restart: always
     volumes:
-      - ./merged-mcp/infrastructure-services/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - ./merged-mcp/infrastructure-services/infrastructure:/app/infrastructure:ro
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /mnt/usb/backups:/backups
+    - ./merged-mcp/infrastructure-services/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - ./merged-mcp/infrastructure-services/infrastructure:/app/infrastructure:ro
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /mnt/usb/backups:/backups
     memswap_limit: 512M
     read_only: true
     tmpfs:
-      - /tmp
-      - /root/.npm
-
-  # ============================================================
-  # Group 2: Data Management Services
-  # ============================================================
+    - /tmp
+    - /root/.npm
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8103/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   data-management:
     build: ./merged-mcp/data-management
     container_name: data-management
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -64,36 +60,42 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8100
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - GITEA_URL=http://127.0.0.1:3001
-      - PAPERLESS_URL=http://127.0.0.1:8000
-      - PAPERLESS_TOKEN=${PAPERLESS_TOKEN}
-      - CONSUME_DIR=/consume
-      - FEEDS_FILE=/data/rss_feeds.json
+    - MCP_PORT=8100
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - GITEA_URL=http://127.0.0.1:3001
+    - PAPERLESS_URL=http://127.0.0.1:8000
+    - PAPERLESS_TOKEN=${PAPERLESS_TOKEN}
+    - CONSUME_DIR=/consume
+    - FEEDS_FILE=/data/rss_feeds.json
     network_mode: host
     restart: always
     volumes:
-      - ./merged-mcp/data-management/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - ./merged-mcp/data-management/data_management:/app/data_management:ro
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/openclaw/data/paperless/consume:/consume:rw
-      - /mnt/usb:/mnt/usb:ro
-      - /home/rohit/openclaw/data:/home/rohit/openclaw/data:ro
+    - ./merged-mcp/data-management/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - ./merged-mcp/data-management/data_management:/app/data_management:ro
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/openclaw/data/paperless/consume:/consume:rw
+    - /mnt/usb:/mnt/usb:ro
+    - /home/rohit/openclaw/data:/home/rohit/openclaw/data:ro
     memswap_limit: 512M
-
-  # ============================================================
-  # Group 3: System Monitoring Services
-  # ============================================================
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8105/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   system-monitoring:
     build: ./merged-mcp/system-monitoring
     container_name: system-monitoring
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -103,36 +105,42 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8103
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - DOCKER_HOST=tcp://127.0.0.1:2375
-      - DOCTOR_BASE_URL=http://127.0.0.1:8080/doctor
-      - HOST_IP=192.168.29.10
-      - HEALTH_DATA_DIR=/home/rohit/agentharness/data
+    - MCP_PORT=8103
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - DOCKER_HOST=tcp://127.0.0.1:2375
+    - DOCTOR_BASE_URL=http://127.0.0.1:8080/doctor
+    - HOST_IP=192.168.29.10
+    - HEALTH_DATA_DIR=/home/rohit/agentharness/data
     network_mode: host
     restart: always
     volumes:
-      - ./merged-mcp/system-monitoring/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - ./merged-mcp/system-monitoring/system_monitoring:/app/system_monitoring:ro
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /usr/bin/docker:/usr/bin/docker:ro
-      - /home/rohit/agentharness/data:/home/rohit/agentharness/data:ro
+    - ./merged-mcp/system-monitoring/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - ./merged-mcp/system-monitoring/system_monitoring:/app/system_monitoring:ro
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /usr/bin/docker:/usr/bin/docker:ro
+    - /home/rohit/agentharness/data:/home/rohit/agentharness/data:ro
     oom_score_adj: -250
     memswap_limit: 512M
-
-  # ============================================================
-  # Group 4: Communication Services (unchanged)
-  # ============================================================
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8104/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   global-chat-mcp:
     build: ./global-chat-mcp
     container_name: global-chat-mcp
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -142,28 +150,34 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8104
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
+    - MCP_PORT=8104
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
     network_mode: host
     restart: always
     volumes:
-      - ./global-chat-mcp/mcp_base:/mcp-base:ro
+    - ./global-chat-mcp/mcp_base:/mcp-base:ro
     memswap_limit: 512M
     read_only: true
     tmpfs:
-      - /tmp
-      - /root/.npm
-
-  # ============================================================
-  # Gateway (unchanged - core service)
-  # ============================================================
+    - /tmp
+    - /root/.npm
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8102/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   mcp-gateway:
     build: ./mcp-gateway
     container_name: mcp-gateway
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     deploy:
       resources:
         limits:
@@ -173,33 +187,39 @@ services:
         reservations:
           memory: 128M
     environment:
-      - GATEWAY_PORT=8090
-      - HEALTH_CHECK_INTERVAL=60
-      - CHAGULI_ALERTS_DIR=/data/alerts
-      - GATEWAY_STATE_FILE=/data/gateway_state.json
-      - GATEWAY_LOG_FILE=/data/gateway.log
-      - DOCKER_HOST=tcp://127.0.0.1:2375
+    - GATEWAY_PORT=8090
+    - HEALTH_CHECK_INTERVAL=60
+    - CHAGULI_ALERTS_DIR=/data/alerts
+    - GATEWAY_STATE_FILE=/data/gateway_state.json
+    - GATEWAY_LOG_FILE=/data/gateway.log
+    - DOCKER_HOST=tcp://127.0.0.1:2375
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/data:/data
-      - ./templates/docker:/templates/repo:ro
-      - ~/mcp-gateway/templates:/templates/local
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - ./mcp-gateway/data:/data
+    - ./templates/docker:/templates/repo:ro
+    - ~/mcp-gateway/templates:/templates/local
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
     oom_score_adj: -250
     memswap_limit: 512M
-
-  # ============================================================
-  # Other unchanged services
-  # ============================================================
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8090/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   hermes-memory-mcp:
     build: ./hermes-memory-mcp
     container_name: hermes-memory-mcp
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -209,27 +229,36 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8091
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - HERMES_HOME=/hermes
-      - SHARED_MEMORY_DIR=/shared-memory
+    - MCP_PORT=8091
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - HERMES_HOME=/hermes
+    - SHARED_MEMORY_DIR=/shared-memory
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/.hermes:/hermes:rw
-      - /home/rohit/shared_agent_memory:/shared-memory:rw
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/.hermes:/hermes:rw
+    - /home/rohit/shared_agent_memory:/shared-memory:rw
     memswap_limit: 512M
-
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8091/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   homelab-exec:
     build: ./homelab-exec
     container_name: homelab-exec
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
@@ -239,98 +268,105 @@ services:
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8108
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - DOCKER_HOST=tcp://127.0.0.1:2375
-      - HOME=/home/rohit
+    - MCP_PORT=8108
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - DOCKER_HOST=tcp://127.0.0.1:2375
+    - HOME=/home/rohit
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /home/rohit/agentharness/scripts:/scripts:ro
-      - /home/rohit/.hermes/scripts:/scripts-hm:ro
-      - /home/rohit/.hermes/lib:/home/rohit/.hermes/lib:ro
-      - /home/rohit/.hermes:/home/rohit/.hermes:rw
-      - /mnt/usb:/mnt/usb:ro
-      - /tmp/homelab-exec-logs:/home/rohit/.hermes/logs
-      - /run/systemd:/run/systemd:ro
-      - /run/user/1000:/run/user/1000:ro
-      - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
-      - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
-      - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /home/rohit/agentharness/scripts:/scripts:ro
+    - /home/rohit/.hermes/scripts:/scripts-hm:ro
+    - /home/rohit/.hermes/lib:/home/rohit/.hermes/lib:ro
+    - /home/rohit/.hermes:/home/rohit/.hermes:rw
+    - /mnt/usb:/mnt/usb:ro
+    - /tmp/homelab-exec-logs:/home/rohit/.hermes/logs
+    - /run/systemd:/run/systemd:ro
+    - /run/user/1000:/run/user/1000:ro
+    - /home/rohit/.ssh/id_ed25519:/run/ssh/rohit_ed25519:ro
+    - /usr/local/bin/kopia:/usr/local/bin/kopia:ro
+    - /home/rohit/.config/kopia:/home/rohit/.config/kopia:ro
     oom_score_adj: -250
     memswap_limit: 512M
-
-  # ============================================================
-  # Knowledge Graph Service
-  # ============================================================
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8100/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   graphify-mcp:
     build: ./merged-mcp/graphify-mcp
     container_name: graphify-mcp
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
-          cpus: "0.50"
+          cpus: '0.50'
           memory: 512M
           pids: 500
         reservations:
           memory: 128M
     environment:
-      - MCP_PORT=8110
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - GRAPHIFY_GRAPH_PATH=/data/graphify-out/graph.json
+    - MCP_PORT=8110
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - GRAPHIFY_GRAPH_PATH=/data/graphify-out/graph.json
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/.graphify:/home/rohit/.graphify:rw
-      - /home/rohit/.hermes/scripts/graphify-out:/data/graphify-out:rw
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/.graphify:/home/rohit/.graphify:rw
+    - /home/rohit/.hermes/scripts/graphify-out:/data/graphify-out:rw
     memswap_limit: 512M
     read_only: false
-
-  # ------------------------------------------------------------
-  # Synapse — local-first personal memory OS (Danialsamadi/synapse)
-  # Runs the CLI on a shared SQLite DB so OpenCode's synapse-recall plugin
-  # + Hermes can persist/retrieve long-term memory across sessions.
-  # No HTTP server: OpenCode invokes
-  #   `pnpm --dir packages/cli start query "<text>"`
-  # (start script = `node --import tsx src/cli.ts`) directly.
-  # Deps + node_modules are pre-installed on the host bind mount
-  # (services/synapse) so the container merely stays up.
-  # ------------------------------------------------------------
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import os; assert os.path.exists(\"/proc/1/status\")" || exit
+        1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   synapse-mcp:
     image: node:20
     container_name: synapse-mcp
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     environment:
-      - MCP_PORT=8109
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - MCP_BASE_DIR=/mcp-base
-      - SYNAPSE_DB=/synapse-data/synapse.db
-      - SYNAPSE_EMBED_PROVIDER=local
-      - HOME=/synapse
+    - MCP_PORT=8109
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - MCP_BASE_DIR=/mcp-base
+    - SYNAPSE_DB=/synapse-data/synapse.db
+    - SYNAPSE_EMBED_PROVIDER=local
+    - HOME=/synapse
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/.hermes:/hermes:rw
-      - /home/rohit/services/synapse:/synapse:rw
-      - synapse_data:/synapse-data
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/.hermes:/hermes:rw
+    - /home/rohit/services/synapse:/synapse:rw
+    - synapse_data:/synapse-data
     working_dir: /synapse/packages/cli
     command: sh -c "corepack enable 2>/dev/null; exec sleep infinity"
     healthcheck:
-      test: ["CMD-SHELL", "node --import tsx src/cli.ts list >/dev/null 2>&1"]
+      test:
+      - CMD-SHELL
+      - node --import tsx src/cli.ts list >/dev/null 2>&1
       interval: 30s
       timeout: 15s
       retries: 3
@@ -344,47 +380,51 @@ services:
         reservations:
           memory: 256M
     memswap_limit: 1G
-
-
-  # ============================================================
-  # code-review-graph Bridge (SSE -> JSON-RPC)
-  # ============================================================
   code-review-bridge:
     build: ./merged-mcp/code-review-bridge
     container_name: code-review-bridge
     labels:
-      - autoheal=true
-      - homelab.managed=true
+    - com.centurylinklabs.watchtower.enable="true"
+    - autoheal=true
+    - homelab.managed=true
     depends_on:
-      - mcp-gateway
+    - mcp-gateway
     deploy:
       resources:
         limits:
-          cpus: "0.25"
+          cpus: '0.25'
           memory: 128M
           pids: 50
         reservations:
           memory: 64M
     environment:
-      - MCP_PORT=8096
-      - GATEWAY_URL=http://127.0.0.1:8090
-      - CRG_MCP_PORT=8095
+    - MCP_PORT=8096
+    - GATEWAY_URL=http://127.0.0.1:8090
+    - CRG_MCP_PORT=8095
     network_mode: host
     restart: always
     volumes:
-      - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
-      - /home/rohit/.local/bin:/home/rohit/.local/bin:ro
-      - /home/rohit/.local/share/pipx/venvs/code-review-graph:/home/rohit/.local/share/pipx/venvs/code-review-graph:ro
-      - /home/rohit/.local/lib/python3.13/site-packages:/home/rohit/.local/lib/python3.13/site-packages:ro
-      - /home/rohit/.graphify:/home/rohit/.graphify:rw
-      - /home/rohit/.config/opencode:/home/rohit/.config/opencode:ro
-      - /home/rohit/.claude:/home/rohit/.claude:ro
-      - /home/rohit/.hermes:/home/rohit/.hermes:ro
-      - /home/rohit:/home/rohit:ro
-      - /home/rohit/.code-review-graph:/home/rohit/.code-review-graph:rw
+    - ./mcp-gateway/mcp_base.py:/mcp-base/mcp_base.py:ro
+    - /home/rohit/.local/bin:/home/rohit/.local/bin:ro
+    - /home/rohit/.local/share/pipx/venvs/code-review-graph:/home/rohit/.local/share/pipx/venvs/code-review-graph:ro
+    - /home/rohit/.local/lib/python3.13/site-packages:/home/rohit/.local/lib/python3.13/site-packages:ro
+    - /home/rohit/.graphify:/home/rohit/.graphify:rw
+    - /home/rohit/.config/opencode:/home/rohit/.config/opencode:ro
+    - /home/rohit/.claude:/home/rohit/.claude:ro
+    - /home/rohit/.hermes:/home/rohit/.hermes:ro
+    - /home/rohit:/home/rohit:ro
+    - /home/rohit/.code-review-graph:/home/rohit/.code-review-graph:rw
     memswap_limit: 128M
     read_only: false
-
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:8097/health\")"
+        || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 volumes:
   rss-data: {}
   mcp-stacks: {}
