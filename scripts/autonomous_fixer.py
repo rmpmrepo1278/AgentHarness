@@ -48,6 +48,13 @@ STAGNATION_THRESHOLD = 3          # max attempts
 STAGNATION_WINDOW_SECONDS = 1800  # 30 minutes
 
 # Issue types that Claude can fix (vs. simple bash or human-only)
+# Issue types that Claude Code cannot effectively fix (too complex / requires reboot / human intervention)
+NON_DELEGATABLE_TYPES = {
+    "zombie_process",    # requires reboot (orphaned zombies)
+    "missing_script",    # needs human to write the script
+    "api_key_invalid",   # needs human to regenerate keys
+}
+
 CLAUDE_FIXABLE_TYPES = {
     # Infrastructure
     "restart_loop",
@@ -815,27 +822,34 @@ def check_oom_kills() -> list[dict]:
 
 
 def check_zombie_processes() -> list[dict]:
-    """Check for zombie process accumulation."""
+    """Check for zombie process accumulation.
+
+    Orphaned zombies (PPID=0) cannot be reaped without reboot and are
+    excluded from the count -- they consume no resources and are harmless.
+    """
     issues = []
     try:
         result = subprocess.run(
             ["ps", "-eo", "stat,pid,ppid,comm"],
             capture_output=True, text=True, timeout=5,
         )
-        zombies = [l for l in result.stdout.strip().split("\n") if l.startswith("Z")]
-        if len(zombies) > 50:
+        all_zombies = [l for l in result.stdout.strip().split("\n") if l.startswith("Z")]
+        # Exclude orphaned zombies (PPID=0) -- these require reboot to clear
+        non_orphaned = [l for l in all_zombies if not l.startswith("Z     0")]
+        zombie_count = len(non_orphaned)
+        if zombie_count > 50:
             issues.append({
-                "issue": f"Critical zombie process count: {len(zombies)}",
+                "issue": f"Critical zombie process count: {zombie_count} (orphaned: {len(all_zombies) - zombie_count})",
                 "type": "zombie_process",
                 "severity": "high",
-                "zombie_count": len(zombies),
+                "zombie_count": zombie_count,
             })
-        elif len(zombies) > 10:
+        elif zombie_count > 20:
             issues.append({
-                "issue": f"Elevated zombie process count: {len(zombies)}",
+                "issue": f"Elevated zombie process count: {zombie_count} (orphaned: {len(all_zombies) - zombie_count})",
                 "type": "zombie_process",
                 "severity": "medium",
-                "zombie_count": len(zombies),
+                "zombie_count": zombie_count,
             })
     except Exception:
         pass
@@ -1948,10 +1962,16 @@ def detect_issues() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def filter_issues(issues: list[dict], min_severity: str = "medium") -> list[dict]:
-    """Filter issues: only Claude-fixable types, above min severity."""
+    """Filter issues: only Claude-fixable types, above min severity.
+
+    Non-delegatable types are excluded -- they require human intervention.
+    """
     min_level = SEVERITY_LEVELS.get(min_severity, 2)
     filtered = []
     for issue in issues:
+        # Skip non-delegatable types entirely
+        if issue["type"] in NON_DELEGATABLE_TYPES:
+            continue
         # Must be a Claude-fixable type
         if issue["type"] not in CLAUDE_FIXABLE_TYPES:
             continue
@@ -2227,6 +2247,19 @@ def main():
 
     for issue in top_issues:
         log(f"Processing: {issue['issue']} (type={issue['type']}, severity={issue['severity']})")
+
+        # Skip issues that Claude Code cannot fix
+        if issue.get("type") in NON_DELEGATABLE_TYPES:
+            log(f"SKIP (non-delegatable): {issue['issue']}")
+            send_telegram(
+                f"⏭️ <b>Skipped (non-delegatable)</b>\n\n"
+                f"Issue: <code>{issue['issue'][:120]}</code>\n"
+                f"Type: {issue['type']}\n"
+                f"Reason: requires human intervention or system reboot."
+            )
+            results.append({"status": "skipped_non_delegatable", "issue": issue["issue"]})
+            record_attempt(issue)
+            continue
 
         # Stagnation check: skip if we've tried this too many times
         if is_stagnant(issue):
