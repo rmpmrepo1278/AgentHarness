@@ -94,6 +94,8 @@ CLAUDE_FIXABLE_TYPES = {
     "ssl_cert_expiry",
     # Proactive predictions
     "predictive_warning",
+    # Documentation drift (auto-gen sections stale, structural drift)
+    "doc_drift",
     # Security (alert-only, L3 human)
     "api_key_invalid",
 }
@@ -142,6 +144,7 @@ ISSUE_TYPE_CATEGORY = {
     "zombie_process":      "container",
     "ssl_cert_expiry":     "security",
     "api_key_invalid":     "security",
+    "doc_drift":            "config",
     "missing_config":      "config",
     "invalid_script_command": "config",
 }
@@ -606,6 +609,7 @@ _VERIFY_CLAIM_MAP = {
     "backup_failure":     "backup_fresh",
     "missing_config":     "config_exists",
     "invalid_script_command": "script_valid",
+    "doc_drift": "doc_drift_fresh",
     # Human-only — no auto-verify possible
     "ssl_cert_expiry":    None,
     "api_key_invalid":    None,
@@ -1784,6 +1788,36 @@ def _check_mcp_health() -> list[dict]:
     return []
 
 
+def check_doc_drift() -> list[dict]:
+    """Run doc_drift_check.py --json and surface failures as fixable issues."""
+    issues = []
+    try:
+        r = subprocess.run(
+            [sys.executable, str(HERMES_HOME / "scripts" / "doc_drift_check.py"), "--json"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode == 0:
+            return issues  # clean
+        # Parse JSON (may have leading non-JSON lines — take last line)
+        try:
+            data = json.loads(r.stdout.strip().splitlines()[-1])
+        except Exception:
+            data = {"failed": []}
+        for name, detail in data.get("failed", []):
+            drift_kind = "autogen" if str(name).startswith("auto-gen:") else "structural"
+            severity = "medium" if drift_kind == "autogen" else "medium"
+            issues.append({
+                "issue": f"Doc drift [{name}]: {detail}",
+                "type": "doc_drift",
+                "severity": severity,
+                "drift_kind": drift_kind,
+                "check_name": name,
+            })
+    except Exception as e:
+        log(f"check_doc_drift error: {e}")
+    return issues
+
+
 def detect_issues() -> list[dict]:
     """Scan system state and return list of detected issues."""
     issues = []
@@ -1799,6 +1833,12 @@ def detect_issues() -> list[dict]:
     if backup_issues:
         log(f"Backup checks: {len(backup_issues)} issue(s) detected")
         issues.extend(backup_issues)
+
+    # ── 1f. Documentation drift (autogen + structural) ──
+    doc_issues = check_doc_drift()
+    if doc_issues:
+        log(f"Doc drift: {len(doc_issues)} drift item(s) detected")
+        all_issues.extend(doc_issues)
 
     # ── 2b. Script validation (detect invalid commands) ──
     script_issues = check_script_health()
@@ -1998,6 +2038,61 @@ def deduplicate_issues(issues: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Delegate invocation
 # ---------------------------------------------------------------------------
+
+def fix_doc_drift(issue: dict, dry_run: bool = False) -> dict:
+    """L1 auto-fix for doc_drift autogen staleness: regenerate + commit.
+
+    Runs claude_md_sync --all (regenerates auto-gen sections in all CLAUDE.md
+    targets) and commits each repo if content changed.  Only handles autogen
+    staleness — structural drift (dead jobs, port claims) is delegated to Claude.
+    """
+    script = HERMES_HOME / "scripts" / "claude_md_sync.py"
+    if dry_run:
+        return {"status": "dry_run", "issue": issue.get("issue", ""), "type": "doc_drift"}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(script), "--all"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode != 0:
+            return {"status": "fail", "issue": issue.get("issue", ""), "raw": r.stderr[:200]}
+        committed = []
+        # Commit each repo that has changes
+        for repo_root in [Path.home(), Path("/home/rohit/AgentChaguli")]:
+            claude_path = repo_root / "CLAUDE.md"
+            if not claude_path.exists():
+                continue
+            try:
+                subprocess.run(
+                    ["git", "-C", str(repo_root), "add", "CLAUDE.md"],
+                    capture_output=True, timeout=30,
+                )
+                status = subprocess.run(
+                    ["git", "-C", str(repo_root), "status", "--porcelain", "CLAUDE.md"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if status.stdout.strip():
+                    subprocess.run(
+                        ["git", "-C", str(repo_root), "commit",
+                         "-m", "docs: auto-sync CLAUDE.md (doc_drift_check autogen fix)"],
+                        capture_output=True, timeout=30,
+                    )
+                    subprocess.run(
+                        ["git", "-C", str(repo_root), "push"],
+                        capture_output=True, timeout=60,
+                    )
+                    committed.append(str(repo_root))
+            except Exception as e:
+                log(f"doc_drift commit failed for {repo_root}: {e}")
+        return {
+            "status": "completed",
+            "issue": issue.get("issue", ""),
+            "type": "doc_drift",
+            "committed": committed,
+        }
+    except Exception as e:
+        return {"status": "fail", "issue": issue.get("issue", ""), "raw": str(e)[:200]}
+
 
 def invoke_delegate(issue: dict, dry_run: bool = False) -> dict:
     """Invoke auto_fix_delegate.py for a single issue."""
@@ -2276,7 +2371,21 @@ def main():
             results.append({"status": "stagnant", "issue": issue["issue"], "key": key})
             continue
 
-        # ── Reflexion: query past failures before acting ──
+        
+        # ── L1 auto-fix for doc_drift autogen staleness ──
+        if issue.get("type") == "doc_drift" and issue.get("drift_kind") == "autogen":
+            log(f"L1 doc_drift autogen fix: {issue['issue'][:80]}")
+            if dry_run:
+                result = {"status": "dry_run", "issue": issue["issue"], "type": "doc_drift"}
+            else:
+                result = fix_doc_drift(issue, dry_run=False)
+            results.append(result)
+            record_attempt(issue)
+            # Verify autogen is now fresh
+            v = verify_fix(issue, result)
+            log(f"VERIFY doc_drift: claimed={v['claimed']} actual={v['actual']}")
+            continue
+# ── Reflexion: query past failures before acting ──
         reflexion = query_reflexion(issue)
         if reflexion.get("reflections"):
             log(f"Reflexion: {len(reflexion['reflections'])} past reflection(s) found")
