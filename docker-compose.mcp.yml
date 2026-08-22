@@ -41,6 +41,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   data-management:
     build: ./merged-mcp/data-management
     container_name: data-management
@@ -85,6 +86,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   system-monitoring:
     build: ./merged-mcp/system-monitoring
     container_name: system-monitoring
@@ -129,6 +131,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   global-chat-mcp:
     build: ./global-chat-mcp
     container_name: global-chat-mcp
@@ -167,6 +170,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   mcp-gateway:
     build: ./mcp-gateway
     container_name: mcp-gateway
@@ -206,6 +210,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   hermes-memory-mcp:
     build: ./hermes-memory-mcp
     container_name: hermes-memory-mcp
@@ -244,6 +249,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   homelab-exec:
     build: ./homelab-exec
     container_name: homelab-exec
@@ -293,6 +299,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   graphify-mcp:
     build: ./merged-mcp/graphify-mcp
     container_name: graphify-mcp
@@ -330,6 +337,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
   synapse-mcp:
     container_name: synapse-mcp
     labels:
@@ -373,6 +381,7 @@ services:
     build:
       context: /home/rohit/services/synapse
       dockerfile: Dockerfile
+    init: true
   code-review-bridge:
     build: ./merged-mcp/code-review-bridge
     container_name: code-review-bridge
@@ -417,6 +426,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    init: true
 volumes:
   rss-data: {}
   mcp-stacks: {}
