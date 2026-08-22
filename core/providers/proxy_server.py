@@ -129,13 +129,29 @@ def create_proxy_app(data_dir: str = "") -> object:
                 model="gpt-4o",
                 daily_limit=150,
             ))
+        # TokenRouter free models (last-resort cloud fallback before local)
+        if os.environ.get("TOKENROUTER_API_KEY"):
+            providers.append(OpenAICompatProvider(
+                name="tokenrouter-qwen",
+                endpoint="https://www.tokenrouter.com/v1/chat/completions",
+                env_key="TOKENROUTER_API_KEY",
+                model="qwen/qwen3.8-max-free",
+                daily_limit=50,
+            ))
+            providers.append(OpenAICompatProvider(
+                name="tokenrouter-nvidia",
+                endpoint="https://www.tokenrouter.com/v1/chat/completions",
+                env_key="TOKENROUTER_API_KEY",
+                model="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                daily_limit=50,
+            ))
         provider_names = [p.name for p in providers]
         log.info(f"LLM Proxy initialized with providers: {provider_names}")
 
         # Routing — speed-first order across providers.
         # The task_router in chat_completions() overrides with forced_provider
         # for intent-based local-first routing + quality-gated escalation.
-        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
+        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
         router = Router(
             providers=providers,
             budget=bt,
