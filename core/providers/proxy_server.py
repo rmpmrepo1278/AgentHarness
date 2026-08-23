@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import time
-from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +23,15 @@ except ImportError:
     HAS_FASTAPI = False
 
 # PII redaction - strips emails, phones, SSNs, etc. before cloud LLMs
+# Circuit breaker for provider resilience
+from core.providers.circuit_breaker import get_all_states
+from core.providers.circuit_breaker import reset as reset_circuit_breaker
 from core.providers.pii_redact import (
-    redact as redact_pii,
     is_enabled as pii_redact_enabled,
 )
-# Circuit breaker for provider resilience
-from core.providers.circuit_breaker import get_all_states, reset as reset_circuit_breaker
+from core.providers.pii_redact import (
+    redact as redact_pii,
+)
 
 
 def _tool_args(arguments) -> dict:
@@ -60,13 +62,13 @@ def create_proxy_app(data_dir: str = "") -> object:
             return _router_cache["router"]
 
         from core.providers.budget import BudgetTracker
-        from core.providers.router import Router
-        from core.providers.llamacpp import LlamaCppProvider
-        from core.providers.rate_limit_tracker import RateLimitTracker
-        from core.providers.groq import GroqProvider
         from core.providers.cerebras import CerebrasProvider
+        from core.providers.groq import GroqProvider
+        from core.providers.llamacpp import LlamaCppProvider
         from core.providers.openai_compat import OpenAICompatProvider
         from core.providers.openrouter import OpenRouterProvider
+        from core.providers.rate_limit_tracker import RateLimitTracker
+        from core.providers.router import Router
 
         bt = BudgetTracker(data_dir=data_dir)
         rlt = RateLimitTracker(data_dir=data_dir)  # Rate limit tracker for cooldown checking
@@ -113,6 +115,12 @@ def create_proxy_app(data_dir: str = "") -> object:
                 model="deepseek/deepseek-v4-flash:free",
                 name="deepseek-v4-flash",
                 daily_limit=50000
+            ))
+            # Stealth Ox Alpha (free on OpenRouter)
+            providers.append(OpenRouterProvider(
+                model="stealth/ox-alpha",
+                name="stealth-ox-alpha",
+                daily_limit=100000
             ))
         if os.environ.get("GROQ_API_KEY"):
             providers.append(GroqProvider(model="llama-3.3-70b-versatile", daily_limit=12000))
@@ -222,7 +230,7 @@ def create_proxy_app(data_dir: str = "") -> object:
     def cache_stats():
         # ponytail: thin read-only view over existing caches, not a new caching
         # layer. Add a real response cache only if hit-rate proves it's needed.
-        from core.providers import token_juice, short_circuit
+        from core.providers import short_circuit, token_juice
         tj = token_juice.get_stats()
         sc_len = len(getattr(short_circuit, "_cache", {}))
         hits = tj.get("cache_hits", 0)
@@ -238,7 +246,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 
     @app.delete("/v1/cache")
     def cache_clear():
-        from core.providers import token_juice, short_circuit
+        from core.providers import short_circuit, token_juice
         if hasattr(token_juice, "_content_cache"):
             token_juice._content_cache._cache.clear()  # type: ignore[attr-defined]
         if hasattr(short_circuit, "_cache"):
@@ -309,9 +317,12 @@ def create_proxy_app(data_dir: str = "") -> object:
             return JSONResponse({"error": {"message": "No user message"}}, status_code=400)
 
         # Intent classification + complexity estimation (replaces token-only logic)
-        from core.providers.base import Complexity, LLMRequest
+        from core.providers.base import LLMRequest
         from core.providers.task_router import (
-            decide as task_router_decide, check_quality,
+            check_quality,
+        )
+        from core.providers.task_router import (
+            decide as task_router_decide,
         )
 
         # PII redaction — must happen BEFORE routing to cloud
@@ -338,8 +349,9 @@ def create_proxy_app(data_dir: str = "") -> object:
             "qwen3:8b": "local-qwen8b",
             "qwen3:32b": "local-qwen32b",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+            "stealth/ox-alpha": "stealth-ox-alpha",
         }
-        explicit_provider = explicit_model_map.get(requested_model, None)
+        explicit_provider = explicit_model_map.get(requested_model)
 
         # Determine routing strategy
         if explicit_provider:
@@ -430,8 +442,9 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Streaming support (SSE)
         if body.get("stream", False):
-            from starlette.responses import StreamingResponse
             import json as _json
+
+            from starlette.responses import StreamingResponse
 
             async def stream_response():
                 if tool_calls:
@@ -539,13 +552,15 @@ def create_proxy_app(data_dir: str = "") -> object:
             "gemma4:12b": "local",
             "qwen2.5:7b": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+            "stealth/ox-alpha": "stealth-ox-alpha",
         }
         standard_model_routing = {
-            "llama3.2:3b": "local",
-            "gemma4:12b": "local",
-            "qwen2.5:7b": "local",
-            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
-        }
+             "llama3.2:3b": "local",
+             "gemma4:12b": "local",
+             "qwen2.5:7b": "local",
+             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+             "stealth/ox-alpha": "stealth-ox-alpha",
+         }
         model_routing = tool_model_routing if has_tools else standard_model_routing
 
         resp_text = ""
@@ -614,7 +629,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                         content = "\n".join(texts)
                     if role in ("user", "assistant"):
                         or_messages.append({"role": role, "content": content})
-                
+
                 or_payload = {
                     "model": "inclusionai/ling-3.0-flash:free",
                     "messages": or_messages,
@@ -623,7 +638,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 }
                 if tools:
                     or_payload["tools"] = tools
-                
+
                 or_headers = {
                     "Authorization": f"Bearer {openrouter_key}",
                     "Content-Type": "application/json",
@@ -678,13 +693,13 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         msg_id = "msg_ah_" + str(int(time.time()))
         content_blocks = []
-        
+
         if resp_text:
             content_blocks.append({"type": "text", "text": resp_text})
         elif provider_used == "none":
             # Log the failure for debugging — don't silently return empty
             log.error(f"All providers exhausted for /v1/messages request. Provider: none, Tool calls: {bool(tool_calls)}")
-        
+
         if tool_calls:
             for tc in tool_calls:
                 func = tc.get("function", {})
@@ -700,10 +715,10 @@ def create_proxy_app(data_dir: str = "") -> object:
 
             def iter_anthropic():
                 yield "event: message_start\ndata: " + json.dumps({
-                    "type": "message_start", 
+                    "type": "message_start",
                     "message": {
-                        "id": msg_id, "type": "message", "role": "assistant", 
-                        "content": [], "model": requested_model, 
+                        "id": msg_id, "type": "message", "role": "assistant",
+                        "content": [], "model": requested_model,
                         "stop_reason": None, "stop_sequence": None,
                         "usage": {"input_tokens": tokens_in, "output_tokens": 0}
                     }
@@ -713,40 +728,40 @@ def create_proxy_app(data_dir: str = "") -> object:
                     for i, block in enumerate(content_blocks):
                         if block["type"] == "tool_use":
                             yield "event: content_block_start\ndata: " + json.dumps({
-                                "type": "content_block_start", 
-                                "index": i, 
+                                "type": "content_block_start",
+                                "index": i,
                                 "content_block": {"type": "tool_use", "id": block["id"], "name": block["name"], "input": {}}
                             }) + "\n\n"
-                            
+
                             yield "event: content_block_delta\ndata: " + json.dumps({
-                                "type": "content_block_delta", 
-                                "index": i, 
+                                "type": "content_block_delta",
+                                "index": i,
                                 "delta": {"type": "input_json_delta", "partial_json": json.dumps(block["input"])}
                             }) + "\n\n"
-                            
+
                             yield "event: content_block_stop\ndata: " + json.dumps({"type": "content_block_stop", "index": i}) + "\n\n"
                         else:
                             yield "event: content_block_start\ndata: " + json.dumps({
-                                "type": "content_block_start", 
-                                "index": i, 
+                                "type": "content_block_start",
+                                "index": i,
                                 "content_block": {"type": "text", "text": ""}
                             }) + "\n\n"
-                            
+
                             text = block["text"]
                             for j in range(0, len(text), 20):
                                 chunk = text[j:j+20]
                                 yield "event: content_block_delta\ndata: " + json.dumps({
-                                    "type": "content_block_delta", 
-                                    "index": i, 
+                                    "type": "content_block_delta",
+                                    "index": i,
                                     "delta": {"type": "text_delta", "text": chunk}
                                 }) + "\n\n"
-                            
+
                             yield "event: content_block_stop\ndata: " + json.dumps({"type": "content_block_stop", "index": i}) + "\n\n"
 
                 stop_reason = "tool_use" if tool_calls else "end_turn"
                 yield "event: message_delta\ndata: " + json.dumps({
-                    "type": "message_delta", 
-                    "delta": {"stop_reason": stop_reason, "stop_sequence": None}, 
+                    "type": "message_delta",
+                    "delta": {"stop_reason": stop_reason, "stop_sequence": None},
                     "usage": {"output_tokens": tokens_out}
                 }) + "\n\n"
                 yield "event: message_stop\ndata: " + json.dumps({"type": "message_stop"}) + "\n\n"
@@ -772,6 +787,7 @@ def create_proxy_app(data_dir: str = "") -> object:
 def main():
     """Run the proxy server."""
     import argparse
+
     import uvicorn
 
     parser = argparse.ArgumentParser(description="AgentHarness LLM Proxy")
