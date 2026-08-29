@@ -79,10 +79,8 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Larger models need longer timeout for cold starts.
         local_endpoint = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
         local_models = [
-            ("local", "qwen3.5:27b", 180),           # Fast small model
-            ("local-gemma12b", "qwen3.5:27b", 180),   # 7.5GB — longer for cold start
-            ("local-qwen8b", "qwen3.5:27b", 180),        # 5.2GB
-            ("local-qwen32b", "qwen3.5:27b", 180),     # 19GB — longest cold start
+            ("local", "qwen3.5:27b", 180),
+            ("local-qwen8b", "qwen3.5:2b", 180),
         ]
         for name, model, timeout in local_models:
             providers.append(LlamaCppProvider(
@@ -160,7 +158,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Routing — speed-first order across providers.
         # The task_router in chat_completions() overrides with forced_provider
         # for intent-based local-first routing + quality-gated escalation.
-        speed_order = ["groq", "sambanova", "cerebras", "mistral", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "owl", "github-models", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
+        speed_order = ["groq", "sambanova", "cerebras", "mistral", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "owl", "github-models", "local-qwen32b", "local-qwen8b", "local"]
         router = Router(
             providers=providers,
             budget=bt,
