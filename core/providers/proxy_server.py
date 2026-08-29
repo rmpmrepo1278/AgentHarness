@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 import os
 import time
 
@@ -78,10 +79,10 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Larger models need longer timeout for cold starts.
         local_endpoint = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
         local_models = [
-            ("local", "llama3.2:3b", 15),           # Fast small model
-            ("local-gemma12b", "gemma4:12b", 120),   # 7.5GB — longer for cold start
-            ("local-qwen8b", "qwen3:8b", 60),        # 5.2GB
-            ("local-qwen32b", "qwen3:32b", 180),     # 19GB — longest cold start
+            ("local", "qwen3.5:27b", 180),           # Fast small model
+            ("local-gemma12b", "qwen3.5:27b", 180),   # 7.5GB — longer for cold start
+            ("local-qwen8b", "qwen3.5:27b", 180),        # 5.2GB
+            ("local-qwen32b", "qwen3.5:27b", 180),     # 19GB — longest cold start
         ]
         for name, model, timeout in local_models:
             providers.append(LlamaCppProvider(
@@ -123,7 +124,7 @@ def create_proxy_app(data_dir: str = "") -> object:
                 daily_limit=100000
             ))
         if os.environ.get("GROQ_API_KEY"):
-            providers.append(GroqProvider(model="llama-3.3-70b-versatile", daily_limit=12000))
+            providers.append(GroqProvider(model="qwen/qwen3.8-27b", daily_limit=12000))
         if os.environ.get("CEREBRAS_API_KEY"):
             providers.append(CerebrasProvider(model="gpt-oss-120b", daily_limit=50000))
         if os.environ.get("SAMBANOVA_API_KEY"):
@@ -159,7 +160,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Routing — speed-first order across providers.
         # The task_router in chat_completions() overrides with forced_provider
         # for intent-based local-first routing + quality-gated escalation.
-        speed_order = ["groq", "sambanova", "github-models", "cerebras", "mistral", "owl", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
+        speed_order = ["groq", "sambanova", "cerebras", "mistral", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "owl", "github-models", "local-qwen32b", "local-gemma12b", "local-qwen8b", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -297,6 +298,20 @@ def create_proxy_app(data_dir: str = "") -> object:
         except Exception:
             return JSONResponse({"error": {"message": "Invalid JSON"}}, status_code=400)
 
+        import sys; print(f" >>> REQ model={body.get("model")} stream={body.get("stream")} tools={bool(body.get("tools"))} msgs={len(body.get("messages", []))}", file=sys.stderr, flush=True)
+        for i, m in enumerate(body.get("messages", [])):
+            role = m.get("role")
+            content_str = str(m.get("content", ""))[:200]
+            tool_calls = m.get("tool_calls")
+            if tool_calls:
+                for tc in tool_calls:
+                    fn = tc.get("function", {})
+                    print(f"     MSG[{i}] role={role} tool_call={fn.get("name")} args={str(fn.get("arguments", ""))[:100]}", file=sys.stderr, flush=True)
+            else:
+                print(f"     MSG[{i}] role={role} content={content_str}", file=sys.stderr, flush=True)
+            if role == "tool" and m.get("tool_call_id"):
+                tc_id = m.get("tool_call_id")
+                print(f"       TOOL_RESULT for {tc_id}: {content_str}", file=sys.stderr, flush=True)
         messages = body.get("messages", [])
         max_tokens = body.get("max_tokens", 1024)
         temperature = body.get("temperature", 0.7)
@@ -310,7 +325,11 @@ def create_proxy_app(data_dir: str = "") -> object:
             if role == "system":
                 system_prompt = content
             elif role == "user":
-                prompt_parts.append(content)
+                if isinstance(content, list):
+                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                    prompt_parts.append("\n".join(text_parts))
+                else:
+                    prompt_parts.append(str(content))
 
         prompt = "\n".join(prompt_parts) if prompt_parts else ""
         if not prompt:
@@ -344,10 +363,10 @@ def create_proxy_app(data_dir: str = "") -> object:
         has_tools = bool(body.get("tools"))
         requested_model = body.get("model", "")
         explicit_model_map = {
-            "llama3.2:3b": "local",
-            "gemma4:12b": "local-gemma12b",
-            "qwen3:8b": "local-qwen8b",
-            "qwen3:32b": "local-qwen32b",
+            "qwen3.5:27b": "local",
+            "qwen3.5:27b": "local-gemma12b",
+            "qwen3.5:2b": "local-qwen8b",
+            "qwen3.5:27b": "local-qwen32b",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
             "stealth/ox-alpha": "stealth-ox-alpha",
         }
@@ -359,7 +378,7 @@ def create_proxy_app(data_dir: str = "") -> object:
             direct_to_cloud = False
         elif has_tools:
             # Tool-calling requests need a model with real function-calling
-            # support. Local llama3.2:3b does NOT emit tool_calls — it
+            # support. Local qwen3.5:27b does NOT emit tool_calls — it
             # narrates commands as text (the "We need to run commands..."
             # leak users saw in Telegram). All cloud providers here support
             # native tool calls, so force cloud-first for tool requests.
@@ -544,19 +563,19 @@ def create_proxy_app(data_dir: str = "") -> object:
             complexity = Complexity.HIGH
 
         has_tools = len(tools) > 0
-        local_first = has_tools and token_estimate < 2000 and len(tools) <= 6
+        local_first = False  # Cloud models needed for tool calling
 
         # Model routing (same map as /v1/chat/completions)
         tool_model_routing = {
-            "llama3.2:3b": "local",
-            "gemma4:12b": "local",
+            "qwen3.5:27b": "local",
+            "qwen3.5:27b": "local",
             "qwen2.5:7b": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
             "stealth/ox-alpha": "stealth-ox-alpha",
         }
         standard_model_routing = {
-             "llama3.2:3b": "local",
-             "gemma4:12b": "local",
+             "qwen3.5:27b": "local",
+             "qwen3.5:27b": "local",
              "qwen2.5:7b": "local",
              "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
              "stealth/ox-alpha": "stealth-ox-alpha",
@@ -685,8 +704,14 @@ def create_proxy_app(data_dir: str = "") -> object:
                 tokens_in = router_resp.tokens_in or 0
                 tokens_out = router_resp.tokens_out or 0
                 provider_used = "router:" + (routed_provider or router_resp.provider or "auto")
-                if router_resp.tool_calls:
-                    tool_calls = [{"function": {"name": tc.name, "arguments": json.dumps(tc.args)}} for tc in router_resp.tool_calls]
+                if has_tools:
+                    try:
+                        parsed = json.loads(resp_text)
+                        if isinstance(parsed, dict) and parsed.get("tool_calls"):
+                            tool_calls = parsed["tool_calls"]
+                            resp_text = ""
+                    except Exception:
+                        pass
             except Exception as e:
                 log.error(f"Router fallback failed: {e}")
                 pass

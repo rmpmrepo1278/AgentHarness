@@ -13,11 +13,9 @@ Strategy: Local-First with Cloud Escalation
 """
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
 
 from core.providers.base import Complexity
 
@@ -31,7 +29,7 @@ class TaskIntent(str, Enum):
 
 # ── Keyword banks for intent classification ───────────────────────────────────
 
-PLANNING_KEYWORDS: List[str] = [
+PLANNING_KEYWORDS: list[str] = [
     "design", "architect", "plan", "analyze", "debug", "compare", "research",
     "review", "assess", "evaluate", "strategy", "architecture", "design pattern",
     "trade-off", "tradeoff", "pros and cons", "recommendation", "roadmap",
@@ -42,7 +40,7 @@ PLANNING_KEYWORDS: List[str] = [
     "explain how", "how is", "how does", "how to set",
 ]
 
-CODING_KEYWORDS: List[str] = [
+CODING_KEYWORDS: list[str] = [
     "implement", "write code", "create", "build", "refactor", "code",
     "function", "class", "method", "fix", "generate code", "write a function",
     "write a class", "snippet", "script", "module", "library", "api",
@@ -53,7 +51,7 @@ CODING_KEYWORDS: List[str] = [
     "help me write", "better prompt", "write a",
 ]
 
-EXECUTION_KEYWORDS: List[str] = [
+EXECUTION_KEYWORDS: list[str] = [
     "run", "test", "verify", "execute", "deploy", "check", "validate",
     "compile", "install", "build", "git", "commit", "push", "pull",
     "shell", "command", "terminal", "bash", "output", "result",
@@ -63,7 +61,7 @@ EXECUTION_KEYWORDS: List[str] = [
 ]
 
 # Hedging / evasion language — signals low quality in local responses
-HEDGING_PATTERNS: List[str] = [
+HEDGING_PATTERNS: list[str] = [
     r"\bi think\b", r"\bi believe\b", r"\bi suggest\b", r"\bi recommend\b",
     r"\bi'm not sure\b", r"\bi am not sure\b", r"\bi can't\b", r"\bi cannot\b",
     r"\bi don't know\b", r"\bi dont know\b", r"\bunable to\b",
@@ -79,10 +77,10 @@ _HEDGING_RE = re.compile("|".join(HEDGING_PATTERNS), re.IGNORECASE)
 
 # Maps Ollama model name → proxy provider name
 MODEL_TO_PROVIDER: dict[str, str] = {
-    "llama3.2:3b":  "local",
-    "gemma4:12b":   "local-gemma12b",
-    "qwen3:8b":     "local-qwen8b",
-    "qwen3:32b":    "local-qwen32b",
+    "qwen3.5:27b": "local",
+    "qwen3.5:27b":   "local-gemma12b",
+    "qwen3.5:2b":     "local-qwen8b",
+    "qwen3.5:27b":    "local-qwen32b",
 }
 
 def local_provider_for_model(model: str) -> str:
@@ -92,25 +90,25 @@ def local_provider_for_model(model: str) -> str:
 # Maps (intent, complexity) → Ollama model name
 LOCAL_MODEL_MAP: dict[tuple[str, str], str] = {
     # PLANNING
-    ("planning", "low"):    "llama3.2:3b",     # Simple Q&A, quick answers
-    ("planning", "medium"): "gemma4:12b",      # Medium design tasks
-    ("planning", "high"):   "gemma4:12b",      # Complex planning
-    ("planning", "critical"): "qwen3:32b",     # Deep reasoning (rare)
+    ("planning", "low"):    "qwen3.5:27b",     # Simple Q&A, quick answers
+    ("planning", "medium"): "qwen3.5:27b",      # Medium design tasks
+    ("planning", "high"):   "qwen3.5:27b",      # Complex planning
+    ("planning", "critical"): "qwen3.5:27b",     # Deep reasoning (rare)
     # CODING
-    ("coding", "low"):      "qwen3:8b",        # Quick snippets, fixes
-    ("coding", "medium"):   "qwen3:32b",       # Standard code — 32b for quality
-    ("coding", "high"):     "qwen3:32b",       # Multi-function code
-    ("coding", "critical"): "qwen3:32b",       # Large modules
+    ("coding", "low"):      "qwen3.5:2b",        # Quick snippets, fixes
+    ("coding", "medium"):   "qwen3.5:27b",       # Standard code — 32b for quality
+    ("coding", "high"):     "qwen3.5:27b",       # Multi-function code
+    ("coding", "critical"): "qwen3.5:27b",       # Large modules
     # EXECUTION
-    ("execution", "low"):   "llama3.2:3b",     # Tool use, simple checks
-    ("execution", "medium"): "llama3.2:3b",
-    ("execution", "high"):   "qwen3:8b",
-    ("execution", "critical"): "qwen3:8b",
+    ("execution", "low"):   "qwen3.5:27b",     # Tool use, simple checks
+    ("execution", "medium"): "qwen3.5:27b",
+    ("execution", "high"):   "qwen3.5:2b",
+    ("execution", "critical"): "qwen3.5:2b",
     # SIMPLE (fallback)
-    ("simple", "low"):      "llama3.2:3b",
-    ("simple", "medium"):   "llama3.2:3b",
-    ("simple", "high"):     "llama3.2:3b",
-    ("simple", "critical"): "llama3.2:3b",
+    ("simple", "low"):      "qwen3.5:27b",
+    ("simple", "medium"):   "qwen3.5:27b",
+    ("simple", "high"):     "qwen3.5:27b",
+    ("simple", "critical"): "qwen3.5:27b",
 }
 
 # Cloud providers to escalate to (in order) if local quality gate fails
@@ -123,19 +121,13 @@ CLOUD_ESCALATION_MAP: dict[str, list[str]] = {
 
 # Tasks that should go straight to cloud (skip local)
 def should_go_cloud_directly(intent: TaskIntent, complexity: Complexity) -> bool:
-    """Return True if this combination is likely beyond local capabilities."""
-    # Deepseek/Claude level planning
-    if intent == TaskIntent.PLANNING and complexity == Complexity.CRITICAL:
-        return True
-    # Large multi-file refactor
-    if intent == TaskIntent.CODING and complexity == Complexity.CRITICAL:
-        return True
-    return False
+    """Always route through cloud-first queue."""
+    return True
 
 
 # ── Classification ───────────────────────────────────────────────────────────
 
-def classify_intent(prompt: str, system: Optional[str] = None) -> TaskIntent:
+def classify_intent(prompt: str, system: str | None = None) -> TaskIntent:
     """Classify a request into a task intent.
 
     Uses keyword matching — no LLM call, ~1ms latency.
@@ -181,8 +173,8 @@ def classify_intent(prompt: str, system: Optional[str] = None) -> TaskIntent:
 
 def estimate_complexity(
     prompt: str,
-    system: Optional[str] = None,
-    intent: Optional[TaskIntent] = None,
+    system: str | None = None,
+    intent: TaskIntent | None = None,
 ) -> Complexity:
     """Estimate task complexity from prompt length + intent + structure."""
     word_count = len((prompt or "").split())
@@ -201,7 +193,7 @@ def estimate_complexity(
     if intent in (TaskIntent.PLANNING, TaskIntent.CODING):
         # Planning/coding tasks should never be routed to the smallest local
         # model even if the prompt is short — use at least MEDIUM so gemma4/qwen8b
-        # gets selected instead of llama3.2:3b.
+        # gets selected instead of qwen3.5:27b.
         if base == Complexity.LOW:
             base = Complexity.MEDIUM
 
@@ -230,7 +222,7 @@ def select_local_model(intent: TaskIntent, complexity: Complexity) -> str:
     """Choose the best local Ollama model for this intent + complexity."""
     model = LOCAL_MODEL_MAP.get(
         (intent.value, complexity.value),
-        "llama3.2:3b",
+        "qwen3.5:27b",
     )
     # Ensure model is available in local Ollama
     return model
@@ -296,7 +288,7 @@ class RoutingDecision:
     complexity: Complexity
     local_model: str
     local_provider: str
-    cloud_providers: List[str]
+    cloud_providers: list[str]
     direct_to_cloud: bool
 
     @property
@@ -304,7 +296,7 @@ class RoutingDecision:
         return not self.direct_to_cloud
 
 
-def decide(prompt: str, system: Optional[str] = None) -> RoutingDecision:
+def decide(prompt: str, system: str | None = None) -> RoutingDecision:
     """Full routing decision: classify → estimate complexity → select models."""
     intent = classify_intent(prompt, system)
     complexity = estimate_complexity(prompt, system, intent)
