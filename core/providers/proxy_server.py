@@ -298,20 +298,6 @@ def create_proxy_app(data_dir: str = "") -> object:
         except Exception:
             return JSONResponse({"error": {"message": "Invalid JSON"}}, status_code=400)
 
-        import sys; print(f" >>> REQ model={body.get("model")} stream={body.get("stream")} tools={bool(body.get("tools"))} msgs={len(body.get("messages", []))}", file=sys.stderr, flush=True)
-        for i, m in enumerate(body.get("messages", [])):
-            role = m.get("role")
-            content_str = str(m.get("content", ""))[:200]
-            tool_calls = m.get("tool_calls")
-            if tool_calls:
-                for tc in tool_calls:
-                    fn = tc.get("function", {})
-                    print(f"     MSG[{i}] role={role} tool_call={fn.get("name")} args={str(fn.get("arguments", ""))[:100]}", file=sys.stderr, flush=True)
-            else:
-                print(f"     MSG[{i}] role={role} content={content_str}", file=sys.stderr, flush=True)
-            if role == "tool" and m.get("tool_call_id"):
-                tc_id = m.get("tool_call_id")
-                print(f"       TOOL_RESULT for {tc_id}: {content_str}", file=sys.stderr, flush=True)
         messages = body.get("messages", [])
         max_tokens = body.get("max_tokens", 1024)
         temperature = body.get("temperature", 0.7)
