@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
 from datetime import datetime
-from typing import Any, Optional
+from enum import Enum
+from typing import Any
 
 
 class Complexity(Enum):
@@ -26,9 +26,9 @@ class LLMRequest:
     max_tokens: int = 1024
     temperature: float = 0.7
     complexity: Complexity = Complexity.MEDIUM
-    system_prompt: Optional[str] = None
-    tool_name: Optional[str] = None
-    tools: Optional[list[dict[str, Any]]] = None
+    system_prompt: str | None = None
+    tool_name: str | None = None
+    tools: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -42,7 +42,7 @@ class LLMResponse:
     tokens_out: int = 0
     latency_ms: float = 0.0
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def total_tokens(self) -> int:
@@ -53,9 +53,9 @@ class LLMResponse:
 class BudgetStatus:
     """Budget/quota status for a provider."""
 
-    known_remaining: Optional[int] = None
-    estimated_remaining: Optional[int] = None
-    reset_at: Optional[datetime] = None
+    known_remaining: int | None = None
+    estimated_remaining: int | None = None
+    reset_at: datetime | None = None
     cost_model: str = "free"
 
 

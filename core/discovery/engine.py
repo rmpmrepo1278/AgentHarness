@@ -5,17 +5,16 @@ discovery, then persists results via StateManager.
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
-from core.discovery.state import StateManager
-from core.discovery.paths import discover_paths
-from core.discovery.hardware import discover_hardware
-from core.discovery.services import discover_services
 from core.discovery.agents import discover_agents
-from core.resilience.selftest import run_selftest
+from core.discovery.hardware import discover_hardware
+from core.discovery.paths import discover_paths
+from core.discovery.services import discover_services
+from core.discovery.state import StateManager
 from core.resilience.circuit_breaker import CircuitBreaker
+from core.resilience.selftest import run_selftest
 from core.security.integrity import generate_checksums, save_checksums
 
 

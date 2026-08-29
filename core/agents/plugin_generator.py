@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import inspect
 import logging
-import os
 import shutil
 import stat
 from pathlib import Path
-from typing import Optional
 
 from core.agents import inbox_watcher
 

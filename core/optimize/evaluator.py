@@ -1,6 +1,7 @@
 """Score finding applicability against current and future hardware."""
 from __future__ import annotations
-from typing import Any, Optional
+
+from typing import Any
 
 NPU_KEYWORDS = ["npu", "xdna", "neural processing", "ai accelerator"]
 GPU_KEYWORDS = ["gpu", "cuda", "rocm", "vulkan", "opencl", "radeon"]
@@ -9,7 +10,7 @@ GPU_KEYWORDS = ["gpu", "cuda", "rocm", "vulkan", "opencl", "radeon"]
 def evaluate_finding(
     finding: dict[str, Any],
     hardware: dict[str, Any],
-    planned_hardware: Optional[dict[str, Any]] = None,
+    planned_hardware: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Evaluate whether a finding is applicable to current/future hardware."""
     body = (finding.get("body", "") + " " + finding.get("name", "")).lower()

@@ -1,9 +1,9 @@
 """Bridge: JSON-RPC HTTP <-> code-review-graph CLI."""
 import json
-import subprocess
-import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
+import os
+import subprocess
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("code-review-bridge")
@@ -14,17 +14,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length else b"{}"
-        
+
         try:
             req = json.loads(body)
         except json.JSONDecodeError:
             self._json_error(400, "Invalid JSON")
             return
-        
+
         method = req.get("method", "")
         params = req.get("params", {})
         req_id = req.get("id", 1)
-        
+
         try:
             if method == "tools/list":
                 result = self._list_tools()
@@ -40,13 +40,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 }
             else:
                 result = {"error": {"code": -32601, "message": f"Method not found: {method}"}}
-            
+
             response = {"jsonrpc": "2.0", "result": result, "id": req_id}
             self._json_response(200, response)
         except Exception as e:
             log.error("Bridge error: %s", e)
             self._json_error(500, str(e))
-    
+
     def _list_tools(self):
         return [
             {"name": "query", "description": "Query the knowledge graph for code relationships", "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
@@ -62,12 +62,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             {"name": "repos", "description": "List registered repositories", "inputSchema": {"type": "object", "properties": {}}},
             {"name": "register", "description": "Register a repository", "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "name": {"type": "string"}}}},
         ]
-    
+
     def _call_tool(self, tool_name, arguments):
         """Call code-review-graph CLI using container Python."""
         tool_name = tool_name.replace("_", "-")
         cmd = ["/usr/local/bin/code-review-graph", tool_name]
-        
+
         if tool_name == "query":
             subcmd = arguments.get("subcommand", "callers_of")
             target = arguments.get("target", arguments.get("query", ""))
@@ -97,9 +97,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 cmd.extend(["--repo", arguments.get("path", "/home/rohit")])
                 if "name" in arguments:
                     cmd.extend(["--name", arguments["name"]])
-        
+
         env = os.environ.copy()
-        
+
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd="/home/rohit", env=env)
             if proc.returncode != 0:
@@ -109,16 +109,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return {"error": "Timeout after 120s"}
         except Exception as e:
             return {"error": str(e)}
-    
+
     def _json_response(self, code, data):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
-    
+
     def _json_error(self, code, message):
         self._json_response(code, {"error": message})
-    
+
     def do_GET(self):
         if self.path == "/health":
             self._json_response(200, {"status": "ok"})

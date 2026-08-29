@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def emit(data_dir: str | Path, event_type: str, **kwargs) -> None:
     entry = {
         "type": event_type,
         "timestamp": time.time(),
-        "iso": datetime.now(timezone.utc).isoformat(),
+        "iso": datetime.now(UTC).isoformat(),
         **kwargs,
     }
 

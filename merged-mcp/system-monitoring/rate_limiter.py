@@ -1,6 +1,6 @@
 """Per-tool and global rate limiting for the MCP gateway."""
-import time
 import threading
+import time
 from collections import defaultdict
 
 _DEFAULT_LIMITS = {

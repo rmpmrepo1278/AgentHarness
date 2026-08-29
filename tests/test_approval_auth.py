@@ -1,7 +1,9 @@
 # tests/test_approval_auth.py
 from __future__ import annotations
+
 import json
 import time
+
 import pytest
 
 
@@ -51,7 +53,7 @@ def test_agent_approve_valid(gateway):
 
 
 def test_approve_expired_raises(gateway):
-    from core.approval.auth import validate_and_approve, ApprovalValidationError
+    from core.approval.auth import ApprovalValidationError, validate_and_approve
     p = gateway.create(
         tool_name="a", args={}, reason="test",
         proposal_type="tool_execution",
@@ -68,13 +70,13 @@ def test_approve_expired_raises(gateway):
 
 
 def test_approve_nonexistent_raises(gateway):
-    from core.approval.auth import validate_and_approve, ApprovalValidationError
+    from core.approval.auth import ApprovalValidationError, validate_and_approve
     with pytest.raises(ApprovalValidationError):
         validate_and_approve(gateway, "ZZZZZZ", source="cli")
 
 
 def test_state_hash_mismatch_raises(gateway):
-    from core.approval.auth import validate_and_approve, ApprovalValidationError
+    from core.approval.auth import ApprovalValidationError, validate_and_approve
     p = gateway.create(
         tool_name="cleanup_system", args={"x": 1}, reason="test",
         proposal_type="tool_execution",

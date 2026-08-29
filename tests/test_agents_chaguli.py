@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import json
 import os
+
 import pytest
 
 
@@ -22,8 +24,8 @@ def bridge_dirs(tmp_path):
 
 
 def test_send_briefing_writes_json(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
     from core.agents.base import Briefing
+    from core.agents.chaguli import ChaguliBridge
 
     bridge = ChaguliBridge(**bridge_dirs)
     briefing = Briefing(
@@ -45,8 +47,8 @@ def test_send_briefing_writes_json(bridge_dirs):
 
 
 def test_send_insight_writes_json(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
     from core.agents.base import Insight
+    from core.agents.chaguli import ChaguliBridge
 
     bridge = ChaguliBridge(**bridge_dirs)
     insight = Insight(
@@ -66,8 +68,8 @@ def test_send_insight_writes_json(bridge_dirs):
 
 
 def test_send_tool_update_writes_json(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
     from core.agents.base import ToolUpdate
+    from core.agents.chaguli import ChaguliBridge
 
     bridge = ChaguliBridge(**bridge_dirs)
     update = ToolUpdate(
@@ -101,8 +103,9 @@ def test_generate_capability_report_no_agent(tmp_path):
 
 
 def test_generate_capability_report_with_agent(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
     from pathlib import Path
+
+    from core.agents.chaguli import ChaguliBridge
 
     # Simulate Chaguli files existing
     agent_dir = Path(bridge_dirs["agent_dir"])
@@ -117,9 +120,10 @@ def test_generate_capability_report_with_agent(bridge_dirs):
 
 
 def test_multiple_briefings_unique_filenames(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
-    from core.agents.base import Briefing
     from pathlib import Path
+
+    from core.agents.base import Briefing
+    from core.agents.chaguli import ChaguliBridge
 
     bridge = ChaguliBridge(**bridge_dirs)
     for i in range(3):
@@ -133,9 +137,10 @@ def test_multiple_briefings_unique_filenames(bridge_dirs):
 
 
 def test_cleanup_old_files(bridge_dirs):
-    from core.agents.chaguli import ChaguliBridge
-    from pathlib import Path
     import time
+    from pathlib import Path
+
+    from core.agents.chaguli import ChaguliBridge
 
     bridge = ChaguliBridge(**bridge_dirs, ttl_seconds=0)
 

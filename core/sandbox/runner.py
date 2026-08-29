@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from core.sandbox.direct import DirectRunner, RunResult
 from core.sandbox.docker_sandbox import ContainerRunner
@@ -51,10 +50,10 @@ class SandboxRunner:
     def execute(
         self,
         script: str,
-        args: List[str],
+        args: list[str],
         sandbox_mode: str,
         timeout: int = 300,
-        env: Optional[Dict[str, str]] = None,
+        env: dict[str, str] | None = None,
         allow_network: bool = False,
         memory: str = "512m",
         cpus: str = "1",

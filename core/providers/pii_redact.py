@@ -69,7 +69,7 @@ def redact(text: str | list) -> PIIResult:
         text = "\n".join(b.get("text", "") for b in text if isinstance(b, dict) and b.get("type") == "text")
     if not text or not isinstance(text, str):
         return PIIResult(text="", redacted={}, total=0)
-    
+
     result = PIIResult(text=text, redacted={})
     for pattern in _PATTERNS:
         n = len(pattern.regex.findall(result.text))

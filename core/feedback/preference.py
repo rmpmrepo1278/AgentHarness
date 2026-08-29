@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
 
-from core.resilience.atomic_json import safe_read_json, atomic_write_json
+from core.resilience.atomic_json import atomic_write_json, safe_read_json
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class PreferenceModel:
         data = safe_read_json(self.data_file, default={})
         return data.get(pattern_key, {"approved": 0, "rejected": 0, "total": 0})
 
-    def get_suggestion(self, pattern_key: str) -> Optional[dict]:
+    def get_suggestion(self, pattern_key: str) -> dict | None:
         """Get a suggestion based on pattern history. Returns None if insufficient data."""
         history = self.get_history(pattern_key)
         total = history.get("total", 0)

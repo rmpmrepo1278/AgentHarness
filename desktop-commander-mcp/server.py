@@ -15,16 +15,15 @@ Tools:
   get_file_info   — Get file metadata
 """
 from __future__ import annotations
-import os
-import sys
-import json
-import subprocess
+
 import logging
-import stat
-import time
+import os
 import signal
-from pathlib import Path
+import stat
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -91,7 +90,7 @@ def read_file(args: dict) -> dict:
         return {"error": f"File too large ({file_size} bytes). Max: {MAX_FILE_SIZE}"}
 
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
     except Exception as e:
         return {"error": f"Cannot read file: {e}"}
@@ -135,7 +134,7 @@ def edit_block(args: dict) -> dict:
         return {"error": f"File not found: {path}"}
 
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             content = f.read()
     except Exception as e:
         return {"error": f"Cannot read file: {e}"}
@@ -224,7 +223,7 @@ def search_files(args: dict) -> dict:
                 break
             try:
                 if content_pattern:
-                    with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    with open(p, encoding="utf-8", errors="replace") as f:
                         for i, line in enumerate(f, 1):
                             if content_pattern in line:
                                 results.append({

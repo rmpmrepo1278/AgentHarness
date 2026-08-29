@@ -11,14 +11,12 @@ If no agent is installed, alerts are only visible via:
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from core.resilience.atomic_json import atomic_append_json, safe_read_json
 
@@ -34,12 +32,12 @@ class Alert:
     timestamp: str = ""
     delivered: bool = False
     requires_approval: bool = False
-    approval_id: Optional[str] = None
-    actions: Optional[list[dict]] = None
+    approval_id: str | None = None
+    actions: list[dict] | None = None
 
     def __post_init__(self):
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+            self.timestamp = datetime.now(UTC).isoformat()
 
 
 class AlertSender:
@@ -53,9 +51,9 @@ class AlertSender:
         self.alerts_file = self.data_dir / "alerts_inbox.jsonl"
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-    def send(self, severity: str, message: str, source: str = "", requires_approval: bool = False, approval_id: Optional[str] = None, actions: Optional[list[dict]] = None) -> None:
+    def send(self, severity: str, message: str, source: str = "", requires_approval: bool = False, approval_id: str | None = None, actions: list[dict] | None = None) -> None:
         """Queue an alert for the agent to deliver."""
-        print(f"sender.py send() called with:")
+        print("sender.py send() called with:")
         print(f"  severity: {severity}")
         print(f"  message: {message}")
         print(f"  source: {source}")

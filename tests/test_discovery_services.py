@@ -1,18 +1,15 @@
 """Tests for core.discovery.services — Docker, LLM server, and port discovery."""
 
 import json
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from core.discovery.services import (
-    discover_docker_services,
     _parse_docker_ps,
-    discover_llm_servers,
+    discover_docker_services,
     discover_listening_ports,
+    discover_llm_servers,
     discover_services,
 )
-
 
 SAMPLE_DOCKER_PS = "\n".join([
     json.dumps({

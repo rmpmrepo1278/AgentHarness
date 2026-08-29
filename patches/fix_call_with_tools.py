@@ -49,5 +49,5 @@ if not fixed:
 target.write_text("\n".join(lines) + "\n")
 print(f"Fixed call_with_tools in {target}")
 print(f"  Line {func_start + 1}: call_with_tools function")
-print(f"  Replaced Groq URL with proxy (LLAMA_URL)")
-print(f"  Removed Authorization header")
+print("  Replaced Groq URL with proxy (LLAMA_URL)")
+print("  Removed Authorization header")

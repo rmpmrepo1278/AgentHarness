@@ -17,7 +17,6 @@ import os
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
 
 from core.agents.base import (
     AgentBridge,
@@ -166,7 +165,7 @@ class ChaguliBridge(AgentBridge):
             warnings=warnings,
         )
 
-    def cleanup(self, directory: Optional[str] = None) -> int:
+    def cleanup(self, directory: str | None = None) -> int:
         """Remove files older than TTL from a communication directory.
 
         Returns the number of files removed.

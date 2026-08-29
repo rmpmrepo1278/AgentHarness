@@ -1,11 +1,14 @@
 from __future__ import annotations
-from typing import Any
-import httpx
-import time
-import logging
+
 import asyncio
-from core.providers.openai_compat import OpenAICompatProvider
+import logging
+import time
+from typing import Any
+
+import httpx
+
 from core.providers.base import LLMRequest, LLMResponse
+from core.providers.openai_compat import OpenAICompatProvider
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,7 @@ class OpenRouterProvider(OpenAICompatProvider):
             return
         if time.time() - self._last_refresh < 3600:
             return
-        
+
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get("https://openrouter.ai/api/v1/models")
@@ -40,7 +43,7 @@ class OpenRouterProvider(OpenAICompatProvider):
                     data = resp.json()
                     self._free_models = [
                         m["id"] for m in data.get("data", [])
-                        if m.get("pricing", {}).get("prompt") == "0" 
+                        if m.get("pricing", {}).get("prompt") == "0"
                         and m.get("pricing", {}).get("completion") == "0"
                     ]
                     # Also include anything that has :free in the ID as a safety measure
@@ -59,7 +62,7 @@ class OpenRouterProvider(OpenAICompatProvider):
         # Skip cost protection entirely for openrouter-tools (it needs gpt-4o-mini for tool support)
         if self.name != "openrouter-tools":
             await self._refresh_free_models()
-        
+
                 # SAFETY NET: Force free models only.
         # If the requested model is NOT in the free list, switch to the first available free model.
         # EXCEPTION: The openrouter-tools provider is specifically configured for tool use with gpt-4o-mini.
@@ -106,31 +109,31 @@ class OpenRouterProvider(OpenAICompatProvider):
             async with httpx.AsyncClient() as client:
                 resp = await client.post(self.endpoint, json=payload, headers=headers, timeout=self.timeout)
                 latency = (time.monotonic() - t0) * 1000
-                
+
                 if resp.status_code != 200:
                     logger.warning(f"OpenRouter returned {resp.status_code}: {resp.text}")
                     if resp.status_code == 402: # Payment Required
                          logger.error(f"Cost Alert! Model {self.model} attempted to charge. Switching to free list immediately.")
                          if self._free_models:
                              self.model = self._free_models[0]
-                    
+
                     return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=f"HTTP {resp.status_code}: {resp.text}")
-                
+
                 data = resp.json()
                 message = data["choices"][0].get("message", {}) or {}
                 choice = message.get("content") or ""
                 tool_calls = message.get("tool_calls")
                 usage = data.get("usage", {})
                 self._usage_today += 1
-                
+
                 # If tool_calls present, encode them in text for routing
                 if tool_calls:
                     import json
                     choice = json.dumps({"tool_calls": tool_calls}, ensure_ascii=False)
-                
+
                 return LLMResponse(text=choice, provider=self.name, model=self.model, tokens_in=usage.get("prompt_tokens", 0), tokens_out=usage.get("completion_tokens", 0), latency_ms=latency)
         except Exception as e:
-            logger.error(f"OpenRouter exception: {str(e)}")
+            logger.error(f"OpenRouter exception: {e!s}")
             return LLMResponse(text="", provider=self.name, model=self.model, success=False, error=str(e))
 
     def complete(self, request: LLMRequest) -> LLMResponse:

@@ -5,7 +5,6 @@ resource usage before it impacts the homelab.
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import platform
@@ -14,7 +13,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from core.resilience.atomic_json import atomic_append_json, safe_read_json
 
@@ -179,7 +178,7 @@ class ResourceMonitor:
         self.data_dir = Path(data_dir)
         self.history_file = self.data_dir / "resource_usage.json"
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """Take a resource usage snapshot right now."""
         return {
             "timestamp": time.time(),
@@ -207,9 +206,9 @@ class ResourceMonitor:
         snap = self.snapshot()
         atomic_append_json(self.history_file, snap)
 
-    def summary(self, hours: int = 24) -> Dict[str, Any]:
+    def summary(self, hours: int = 24) -> dict[str, Any]:
         """Summarize resource usage over the last N hours."""
-        history: List[Dict[str, Any]] = safe_read_json(self.history_file, default=[])
+        history: list[dict[str, Any]] = safe_read_json(self.history_file, default=[])
         if not isinstance(history, list):
             history = []
 
@@ -233,10 +232,10 @@ class ResourceMonitor:
             s["data_dir"]["total_mb"] for s in recent if "data_dir" in s
         ]
 
-        def _avg(vals: List[float]) -> float:
+        def _avg(vals: list[float]) -> float:
             return round(sum(vals) / len(vals), 2) if vals else 0.0
 
-        def _max(vals: List[float]) -> float:
+        def _max(vals: list[float]) -> float:
             return round(max(vals), 2) if vals else 0.0
 
         return {

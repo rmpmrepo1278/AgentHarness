@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import json, sqlite3, subprocess, sys, re
+import json
+import re
+import sqlite3
+import subprocess
+import sys
 from datetime import datetime
 
 NPM_DB = "/var/lib/docker/volumes/npm_npm-data/_data/database.sqlite"

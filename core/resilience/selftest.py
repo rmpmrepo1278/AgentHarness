@@ -8,7 +8,8 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from core.common import fs_checks
 
@@ -17,13 +18,13 @@ def _check(
     name: str,
     fn: Callable[[], None],
     required: bool,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run *fn*; return a check-result dict.  Catches all exceptions."""
     try:
         fn()
         return {"name": name, "status": "ok", "required": required}
-    except Exception as exc:  # noqa: BLE001
-        result: Dict[str, Any] = {
+    except Exception as exc:
+        result: dict[str, Any] = {
             "name": name,
             "status": "fail",
             "required": required,
@@ -40,7 +41,7 @@ def _check_state_file(data_dir: str) -> None:
     path = os.path.join(data_dir, "state.json")
     if not os.path.isfile(path):
         raise FileNotFoundError(f"state.json missing at {path}")
-    with open(path, "r") as fh:
+    with open(path) as fh:
         json.load(fh)  # must be valid JSON
 
 
@@ -78,7 +79,7 @@ def _check_stale_locks(data_dir: str) -> None:
 # Public API
 # ------------------------------------------------------------------
 
-def run_selftest(data_dir: str) -> Dict[str, Any]:
+def run_selftest(data_dir: str) -> dict[str, Any]:
     """Run all startup checks and return a summary dict.
 
     Returns::
@@ -92,19 +93,19 @@ def run_selftest(data_dir: str) -> Dict[str, Any]:
             ],
         }
     """
-    checks: List[Dict[str, Any]] = []
+    checks: list[dict[str, Any]] = []
 
     # 1. state.json readable
     checks.append(_check("state_file", lambda: _check_state_file(data_dir), required=True))
 
     # Read state.json for dir paths (best-effort)
-    state: Dict[str, str] = {}
+    state: dict[str, str] = {}
     state_path = os.path.join(data_dir, "state.json")
     if os.path.isfile(state_path):
         try:
-            with open(state_path, "r") as fh:
+            with open(state_path) as fh:
                 state = json.load(fh)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     # 2. reports_dir writable

@@ -1,10 +1,7 @@
 """Tests for registry schema validation."""
 from __future__ import annotations
 
-import pytest
-
 from core.registry.schema import validate_check, validate_harness, validate_tool
-
 
 # ── Check validation ──────────────────────────────────────────────
 

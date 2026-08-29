@@ -1,7 +1,6 @@
 """Tests for core.security.integrity — SHA-256 manifest verification."""
 from __future__ import annotations
 
-import json
 import os
 
 from core.security.integrity import generate_checksums, save_checksums, verify_integrity

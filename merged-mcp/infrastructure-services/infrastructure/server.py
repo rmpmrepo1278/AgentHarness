@@ -8,28 +8,36 @@ Each service runs on its own port in a separate process:
 - 8097: File Operations
 """
 from __future__ import annotations
-import os
-import sys
-import signal
-import subprocess
+
 import multiprocessing
+import os
+import signal
+import sys
 
 # Import the service modules' TOOL_SCHEMAS
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 
+from mcp_base import MCPServer
+
 from infrastructure.backup import TOOL_SCHEMAS as BACKUP_TOOLS
-from infrastructure.doctor import TOOL_SCHEMAS as DOCTOR_TOOLS
-from infrastructure.file_ops import TOOL_SCHEMAS as FILE_TOOLS
 
 # Import handlers
-from infrastructure.backup import run_backup, backup_status, list_backups, verify_backup
-from infrastructure.doctor import doctor_status, doctor_runbooks, doctor_heal
+from infrastructure.backup import backup_status, list_backups, run_backup, verify_backup
+from infrastructure.doctor import TOOL_SCHEMAS as DOCTOR_TOOLS
+from infrastructure.doctor import doctor_heal, doctor_runbooks, doctor_status
+from infrastructure.file_ops import TOOL_SCHEMAS as FILE_TOOLS
 from infrastructure.file_ops import (
-    list_files, copy_files, move_files, read_file, write_file,
-    delete_file, file_hash, safe_remove, ensure_backup, sync_directories
+    copy_files,
+    delete_file,
+    ensure_backup,
+    file_hash,
+    list_files,
+    move_files,
+    read_file,
+    safe_remove,
+    sync_directories,
+    write_file,
 )
-
-from mcp_base import MCPServer
 
 
 def create_backup_server():

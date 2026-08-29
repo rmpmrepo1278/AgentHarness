@@ -78,8 +78,8 @@ def create_app(data_dir: str, auth_token: str = "") -> Any:
     async def api_approve(proposal_id: str):
         """Approve a proposal via the dashboard."""
         try:
-            from core.approval.gateway import ApprovalGateway
             from core.approval.auth import validate_and_approve
+            from core.approval.gateway import ApprovalGateway
             proposals_dir = str(data_path / "proposals")
             gw = ApprovalGateway(proposals_dir=proposals_dir)
             validate_and_approve(gw, proposal_id, source="dashboard")
@@ -93,8 +93,8 @@ def create_app(data_dir: str, auth_token: str = "") -> Any:
         try:
             body = await request.json()
             reason = body.get("reason", "Rejected via dashboard")
-            from core.approval.gateway import ApprovalGateway
             from core.approval.auth import validate_and_reject
+            from core.approval.gateway import ApprovalGateway
             proposals_dir = str(data_path / "proposals")
             gw = ApprovalGateway(proposals_dir=proposals_dir)
             validate_and_reject(gw, proposal_id, reason=reason, source="dashboard")

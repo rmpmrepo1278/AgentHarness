@@ -36,8 +36,8 @@ import subprocess
 import sys
 import time
 import uuid
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -574,7 +574,7 @@ def acquire_lock() -> tuple[bool, int | None]:
         fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_WRONLY)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return True, fd
-    except (IOError, OSError):
+    except OSError:
         if 'fd' in dir():
             os.close(fd)
         return False, None
@@ -666,7 +666,7 @@ def enrich_context(issue: str, issue_type: str) -> str:
         )
         failed = [l for l in result.stdout.strip().split("\n") if l and "0 loaded" not in l]
         if failed:
-            parts.append(f"\n## Failed Systemd Services:")
+            parts.append("\n## Failed Systemd Services:")
             parts.extend(failed[:10])
     except Exception:
         pass
@@ -799,7 +799,7 @@ def build_prompt(issue: str, issue_type: str, context: str, template: dict, comm
     words = issue.split()
     for w in words:
         clean = w.strip("():,.")
-        if clean and not clean.lower() in ("container", "service", "is", "has", "been", "the", "a", "an", "not"):
+        if clean and clean.lower() not in ("container", "service", "is", "has", "been", "the", "a", "an", "not"):
             container_hint = clean
             break
 
@@ -949,7 +949,7 @@ def post_fix_health_check(issue_type: str, verify_template: str, issue: str = ""
         name = _extract_container_name(issue)
         if name:
             cmd = (
-                "docker ps --filter name=^/{name}$ --format '{{.Names}}: {{.Status}}'".format(name=name)
+                f"docker ps --filter name=^/{name}$ --format '{{.Names}}: {{.Status}}'"
             )
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
             output = result.stdout.strip()

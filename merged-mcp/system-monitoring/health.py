@@ -1,14 +1,13 @@
 """Health monitor for registered MCP servers.
 Adaptive frequency, auto-restart via Docker, escalation to user."""
-import threading
 import logging
-import requests
+import threading
 
 import docker
-
-import registry
 import gateway_log
 import notify
+import registry
+import requests
 
 log = logging.getLogger("health")
 

@@ -5,7 +5,6 @@ import pytest
 
 from core.security.sanitize import sanitize_shell_arg, sanitize_tool_args, validate_url
 
-
 # --- sanitize_shell_arg ---
 
 def test_safe_string_passes():

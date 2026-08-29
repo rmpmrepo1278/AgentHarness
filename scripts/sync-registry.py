@@ -8,7 +8,11 @@ Usage:
   python3 sync-registry.py --fix              # Auto-fix discrepancies
   python3 sync-registry.py --report           # Generate coverage report
 """
-import os, sys, re, json, yaml
+import os
+import re
+import sys
+
+import yaml
 
 REGISTRY_PATH = os.path.expanduser("~/services/service-registry.yml")
 COMPOSE_MCP = os.path.expanduser("~/agentharness/docker-compose.mcp.merged.yml")  # canonical running MCP stack

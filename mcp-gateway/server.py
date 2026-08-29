@@ -3,14 +3,13 @@ Exposes registration, tool catalog, tool routing, and status endpoints."""
 import logging
 import os
 import time
-import requests as http_requests
 
-from flask import Flask, request, jsonify
-
-import registry
-import router
-import health
 import gateway_log
+import health
+import registry
+import requests as http_requests
+import router
+from flask import Flask, jsonify, request
 
 logging.basicConfig(
     level=logging.INFO,

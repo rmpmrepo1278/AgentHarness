@@ -1,9 +1,7 @@
 """Tests for core.discovery.hardware — hardware detection for RAM, CPU, GPU, NPU, storage, network."""
 
-import pytest
 
 from core.discovery.hardware import discover_hardware, recommended_model_size_gb
-
 
 REQUIRED_KEYS = {"total_ram_gb", "cpu_cores", "cpu_model", "architecture"}
 

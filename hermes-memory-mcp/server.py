@@ -12,14 +12,13 @@ on port 8090. Claude Code connects via Streamable HTTP transport.
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sqlite3
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer

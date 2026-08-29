@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -25,10 +25,10 @@ class Briefing:
     """Daily infrastructure briefing for the agent."""
     date: str
     summary: str
-    sections: Dict[str, Any] = field(default_factory=dict)
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    sections: dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)
     proposals_pending: int = 0
-    alerts: List[str] = field(default_factory=list)
+    alerts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Insight:
     title: str
     description: str
     priority: str = "low"  # "low", "medium", "high", "critical"
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
     source: str = "agentharness"
 
 
@@ -49,17 +49,17 @@ class ToolUpdate:
     tool_name: str
     description: str = ""
     bundle: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class CapabilityReport:
     """Report of what integration level was achieved with an agent."""
     agent: str
-    communication: Dict[str, Any] = field(default_factory=dict)
+    communication: dict[str, Any] = field(default_factory=dict)
     tools_integration: str = "none"
-    capabilities_detected: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    capabilities_detected: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class AgentBridge(abc.ABC):

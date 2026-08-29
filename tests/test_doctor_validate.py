@@ -1,9 +1,6 @@
 """Tests for pre-deploy validation checks."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 
 def test_validate_local():
     from core.doctor.validate_remote import validate_local
@@ -26,7 +23,7 @@ def test_validate_local_checks_disk():
 
 
 def test_validate_format_report():
-    from core.doctor.validate_remote import validate_local, format_report
+    from core.doctor.validate_remote import format_report, validate_local
     result = validate_local()
     report = format_report(result)
     assert isinstance(report, str)

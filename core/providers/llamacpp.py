@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, List
+from typing import Any
 
 import httpx
 
 from core.providers.base import BudgetStatus, LLMProvider, LLMRequest, LLMResponse
 
 
-class LlamaCppProvider(LLMProvider):  # noqa: N801 - Ollama adapter
+class LlamaCppProvider(LLMProvider):
     """Ollama adapter — llama.cpp-compatible OpenAI endpoint using Ollama as the local inference engine."""
 
     def __init__(

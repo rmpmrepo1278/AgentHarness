@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -19,7 +19,7 @@ _VALIDATORS = {
 }
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML file, returning an empty dict on missing/empty/invalid files."""
     if not path.is_file():
         return {}
@@ -32,11 +32,11 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
 
 
 def _merge_section(
-    target: Dict[str, Any],
-    source: Dict[str, Any],
+    target: dict[str, Any],
+    source: dict[str, Any],
     section: str,
     bundle_name: str,
-    warnings: List[str],
+    warnings: list[str],
 ) -> None:
     """Merge *source[section]* into *target[section]*.
 
@@ -58,8 +58,8 @@ def _merge_section(
 
 def load_registry(
     bundles_dir: Path | str,
-    overrides_file: Optional[Path | str] = None,
-) -> Dict[str, Any]:
+    overrides_file: Path | str | None = None,
+) -> dict[str, Any]:
     """Load all bundle YAML files and return a unified registry.
 
     Load order:
@@ -73,7 +73,7 @@ def load_registry(
     dict with keys: checks, tools, harnesses, validation_errors, warnings
     """
     bundles_dir = Path(bundles_dir)
-    registry: Dict[str, Any] = {
+    registry: dict[str, Any] = {
         "checks": {},
         "tools": {},
         "harnesses": {},
@@ -81,7 +81,7 @@ def load_registry(
         "warnings": [],
     }
 
-    warnings: List[str] = registry["warnings"]
+    warnings: list[str] = registry["warnings"]
 
     # Discover bundle directories
     if not bundles_dir.is_dir():
@@ -117,7 +117,7 @@ def load_registry(
                 _merge_section(registry, data, section, "overrides", warnings)
 
     # Validate all entries
-    errors: List[str] = []
+    errors: list[str] = []
     for section in _SECTIONS:
         validator = _VALIDATORS[section]
         for name, entry in registry[section].items():

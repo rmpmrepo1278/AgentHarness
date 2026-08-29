@@ -21,9 +21,7 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from datetime import datetime, timedelta
-from pathlib import Path
 
 # Metrics pipeline — feeds the self-evolution loop
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,7 +66,6 @@ def load_registry_fallback():
     for path in [REGISTRY_PATH, FALLBACK_REGISTRY]:
         if os.path.exists(path):
             # Parse just enough to extract check/harness names and commands
-            import json
             content = open(path).read()
             # Try to convert to JSON-ish structure
             print("WARNING: PyYAML not installed. Install with: pip install pyyaml")

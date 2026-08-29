@@ -212,7 +212,7 @@ def cmd_audit(args: argparse.Namespace) -> None:
     # Read last 20 lines
     lines: list[str] = []
     try:
-        with open(audit_file, "r") as f:
+        with open(audit_file) as f:
             lines = collections.deque(f, maxlen=20)  # type: ignore[assignment]
     except OSError as exc:
         print(f"Error reading audit log: {exc}")
@@ -254,8 +254,9 @@ def cmd_budget(args: argparse.Namespace) -> int:
 
 def cmd_migrate_scheduler(args: argparse.Namespace) -> int:
     """Migrate from bash scheduler (cron) to Python scheduler (systemd)."""
-    from core.discovery.state import StateManager
     import subprocess
+
+    from core.discovery.state import StateManager
 
     sm = StateManager()
     state = sm.read()
@@ -326,8 +327,8 @@ def cmd_proposals(args: argparse.Namespace) -> int:
 
 def cmd_approve(args: argparse.Namespace) -> int:
     """Approve a pending proposal."""
+    from core.approval.auth import ApprovalValidationError, validate_and_approve
     from core.approval.gateway import ApprovalGateway
-    from core.approval.auth import validate_and_approve, ApprovalValidationError
     from core.discovery.state import StateManager
 
     sm = StateManager()
@@ -337,7 +338,7 @@ def cmd_approve(args: argparse.Namespace) -> int:
     try:
         proposal = validate_and_approve(gw, args.proposal_id, source="cli")
         print(f"Approved proposal {proposal.proposal_id} ({proposal.tool_name})")
-        print(f"Will execute in next scheduler tick.")
+        print("Will execute in next scheduler tick.")
         return 0
     except ApprovalValidationError as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -346,8 +347,8 @@ def cmd_approve(args: argparse.Namespace) -> int:
 
 def cmd_reject(args: argparse.Namespace) -> int:
     """Reject a pending proposal."""
+    from core.approval.auth import ApprovalValidationError, validate_and_reject
     from core.approval.gateway import ApprovalGateway
-    from core.approval.auth import validate_and_reject, ApprovalValidationError
     from core.discovery.state import StateManager
 
     sm = StateManager()
@@ -370,8 +371,9 @@ def cmd_reject(args: argparse.Namespace) -> int:
 
 def cmd_briefing(args: argparse.Namespace) -> int:
     """Show the latest infrastructure briefing."""
-    from core.discovery.state import StateManager
     import json as _json
+
+    from core.discovery.state import StateManager
 
     sm = StateManager()
     state = sm.read()
@@ -423,7 +425,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def cmd_smoketest(args: argparse.Namespace) -> int:
     """Run full post-deploy smoketest."""
-    from core.doctor.smoketest import run_smoketest, format_report
+    from core.doctor.smoketest import format_report, run_smoketest
 
     data_dir = _data_dir()
     result = run_smoketest(data_dir=data_dir)
@@ -433,7 +435,7 @@ def cmd_smoketest(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     """Run pre-deploy validation and print report."""
-    from core.doctor.validate_remote import validate_local, format_report
+    from core.doctor.validate_remote import format_report, validate_local
 
     results = validate_local()
     print(format_report(results))
@@ -460,8 +462,8 @@ def cmd_setup_coding_tool(args: argparse.Namespace) -> int:
     """Generate and write Aider config, print setup script."""
     from core.tools.setup_aider import (
         generate_aider_config,
-        write_aider_config,
         generate_setup_script,
+        write_aider_config,
     )
 
     provider = getattr(args, "provider", "groq")
@@ -487,11 +489,11 @@ def cmd_generate_agent_plugin(args: argparse.Namespace) -> int:
         agent_type=agent_type,
     )
     print(f"Plugin generated: {result}")
-    print(f"\nNext steps:")
+    print("\nNext steps:")
     print(f"  1. Copy {result} to your agent's machine")
-    print(f"  2. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID")
+    print("  2. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID")
     print(f"  3. Run: python3 inbox_watcher.py --inbox-dir {data_dir} --once")
-    print(f"  4. Verify: agentharness test-agent-link")
+    print("  4. Verify: agentharness test-agent-link")
     return 0
 
 
@@ -520,8 +522,8 @@ def cmd_test_agent_link(args: argparse.Namespace) -> int:
 
 def cmd_alerts(args: argparse.Namespace) -> int:
     """Show pending and recent alerts."""
-    from core.alerts.sender import AlertSender
     from core.agents.link_test import check_delivery_health
+    from core.alerts.sender import AlertSender
 
     data_dir = _data_dir()
     sender = AlertSender(data_dir=data_dir)
@@ -560,8 +562,9 @@ def cmd_alerts(args: argparse.Namespace) -> int:
 
 def cmd_llm_status(args: argparse.Namespace) -> int:
     """Fetch LLM proxy status, format it, print to stdout, and send via alert."""
-    import urllib.request
     import urllib.error
+    import urllib.request
+
     from core.alerts.sender import AlertSender
 
     proxy_url = "http://localhost:8080/v1/status"

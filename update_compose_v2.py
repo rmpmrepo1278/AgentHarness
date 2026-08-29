@@ -1,6 +1,6 @@
 import re
 
-with open('docker-compose.mcp.yml', 'r') as f:
+with open('docker-compose.mcp.yml') as f:
     content = f.read()
 
 # 1. Add mnemo-postgres if missing
@@ -53,7 +53,7 @@ if 'global-chat-mcp' not in content:
     content += global_chat
 
 # 4. Update mnemo-mcp to use mnemo-server
-content = re.sub(r'mnemo-mcp:.*?depends_on:.*? - mcp-gateway', 
+content = re.sub(r'mnemo-mcp:.*?depends_on:.*? - mcp-gateway',
                  r'mnemo-mcp:\n    build: ./mnemo-mcp\n    container_name: mnemo-mcp\n    network_mode: host\n    volumes:\n      - mnemo-data:/app/data\n      - ./hf_cache:/app/hf_cache\n    environment:\n      - PUBLIC_URL=http://0.0.0.0:8096\n      - MCP_PORT=8096\n      - MNEMO_SERVER_URL=http://127.0.0.1:8001\n      - GATEWAY_URL=http://127.0.0.1:8090\n    healthcheck:\n      test: [\"CMD\", \"python3\", \"-c\", \"import urllib.request; urllib.request.urlopen(\'http://127.0.0.1:8096/health\', timeout=3) or urllib.request.urlopen(\'http://127.0.0.1:8096/\', timeout=3)\"]\n      interval: 30s\n      timeout: 10s\n      retries: 3\n      start_period: 60s\n    restart: unless-stopped\n    depends_on:\n      - mnemo-server',
                  content, flags=re.DOTALL)
 

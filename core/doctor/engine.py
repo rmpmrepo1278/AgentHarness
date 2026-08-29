@@ -13,7 +13,7 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -278,7 +278,7 @@ class RunbookExecutor:
         payload = {
             "runbook": runbook_name,
             "status": result_state,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "failures": [
                 {"step": sr.name, "error": sr.error, "output": sr.output}
                 for sr in step_results if not sr.success and not sr.skipped
@@ -712,7 +712,7 @@ class RunbookExecutor:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         log_file = self.data_dir / "doctor_log.jsonl"
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "runbook": result.runbook,
             "trigger": result.trigger,
             "result": result.result,

@@ -11,11 +11,11 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from core.common import fs_checks
-from pathlib import Path
-from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ def write_heartbeat(data_dir: Path | str) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     hb_path = data_dir / _HEARTBEAT_FILE
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "timestamp": time.time(),
         "pid": os.getpid(),
-        "iso": datetime.now(timezone.utc).isoformat(),
+        "iso": datetime.now(UTC).isoformat(),
     }
 
     tmp_path = hb_path.with_suffix(".json.tmp")
@@ -46,7 +46,7 @@ def write_heartbeat(data_dir: Path | str) -> None:
 
 def check_heartbeat(
     data_dir: Path | str, max_age_seconds: float = 1200
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check heartbeat freshness.
 
     Returns a dict with:

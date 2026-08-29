@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """System Monitoring MCP Server - Docker, systemd, disk, health checks."""
 from __future__ import annotations
-import os
-import sys
-import subprocess
+
 import logging
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
@@ -21,9 +22,33 @@ HOST_IP = os.environ.get("HOST_IP", "192.168.29.10")
 MCP_BASE_DIR = os.environ.get("MCP_BASE_DIR", "/mcp-base")
 
 # Import the modules
-from system_monitoring.docker_ops import docker_status, docker_container_logs, docker_container_restart, docker_container_stop, docker_list_images, docker_prune
-from system_monitoring.homelab_ops import docker_status as hl_docker_status, docker_container_logs as hl_docker_container_logs, docker_container_restart as hl_docker_container_restart, docker_container_stop as hl_docker_container_stop, disk_usage, system_load, check_docker_daemon, check_systemd_services, container_health
-from system_monitoring.network_mcp import port_scan, dns_lookup, check_internet, ping_host, list_network_services, external_ip
+from system_monitoring.docker_ops import (
+    docker_container_logs,
+    docker_container_restart,
+    docker_container_stop,
+    docker_list_images,
+    docker_prune,
+    docker_status,
+)
+from system_monitoring.homelab_ops import (
+    check_docker_daemon,
+    check_systemd_services,
+    container_health,
+    disk_usage,
+    system_load,
+)
+from system_monitoring.homelab_ops import docker_container_logs as hl_docker_container_logs
+from system_monitoring.homelab_ops import docker_container_restart as hl_docker_container_restart
+from system_monitoring.homelab_ops import docker_container_stop as hl_docker_container_stop
+from system_monitoring.homelab_ops import docker_status as hl_docker_status
+from system_monitoring.network_mcp import (
+    check_internet,
+    dns_lookup,
+    external_ip,
+    list_network_services,
+    ping_host,
+    port_scan,
+)
 
 TOOL_SCHEMAS = [
     {"name": "docker_status", "description": "Get Docker status - running/unhealthy counts, disk usage.", "inputSchema": {"type": "object", "properties": {}}},
@@ -52,9 +77,8 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
-    import os
     import logging
+    import os
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("system-monitoring")
 
@@ -62,9 +86,6 @@ def main():
     s = __import__('mcp_base', fromlist=['MCPServer']).MCPServer(name="system-monitoring", port=port, tools=TOOL_SCHEMAS)
 
     # Register handlers
-    from system_monitoring.docker_ops import docker_status, docker_container_logs, docker_container_restart, docker_container_stop, docker_list_images, docker_prune
-    from system_monitoring.homelab_ops import disk_usage, system_load, check_docker_daemon, check_systemd_services, container_health
-    from system_monitoring.network_mcp import port_scan, dns_lookup, check_internet, ping_host, list_network_services, external_ip
 
     s.register_handler("docker_status", docker_status)
     s.register_handler("docker_container_logs", docker_container_logs)

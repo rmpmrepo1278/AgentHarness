@@ -12,7 +12,6 @@ from __future__ import annotations
 import enum
 import logging
 import re
-from typing import Optional
 
 log = logging.getLogger("approval.policies")
 
@@ -53,7 +52,7 @@ def resolve_tier(
     tool_name: str,
     is_self_modification: bool = False,
     is_community: bool = False,
-    override_tier: Optional[str] = None,
+    override_tier: str | None = None,
 ) -> ApprovalTier:
     """Resolve the approval tier for a given tool invocation.
 

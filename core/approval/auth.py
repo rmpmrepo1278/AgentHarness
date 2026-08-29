@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from core.approval.gateway import (
     ApprovalGateway,
+    InvalidTransitionError,
     Proposal,
     ProposalNotFoundError,
-    InvalidTransitionError,
     _compute_state_hash,
 )
 
@@ -34,8 +33,8 @@ class ApprovalValidationError(Exception):
 @dataclass
 class PreconditionResult:
     still_valid: bool
-    changed_keys: List[str] = field(default_factory=list)
-    details: Dict[str, str] = field(default_factory=dict)
+    changed_keys: list[str] = field(default_factory=list)
+    details: dict[str, str] = field(default_factory=dict)
 
 
 def _validate_proposal(gateway: ApprovalGateway, proposal_id: str) -> Proposal:
@@ -114,8 +113,8 @@ def validate_and_reject(
 
 
 def revalidate_preconditions(
-    preconditions: Dict,
-    current_values: Dict,
+    preconditions: dict,
+    current_values: dict,
     threshold_pct: float = 10,
 ) -> PreconditionResult:
     """Revalidate preconditions before executing an approved proposal.

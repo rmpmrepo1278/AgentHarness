@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import json
 import os
-import textwrap
 import time
 from pathlib import Path
 
 import pytest
 import yaml
 
-from core.doctor.engine import RunbookExecutor, StepResult, RunbookResult, reset_cooldown
+from core.doctor.engine import RunbookExecutor, reset_cooldown
 from core.resilience.atomic_json import atomic_write_json
 
 

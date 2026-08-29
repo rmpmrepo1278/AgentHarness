@@ -7,14 +7,11 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import re
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict
-
-import yaml
+from typing import Any
 
 from core.discovery.state import StateManager
 from core.registry.loader import load_registry
@@ -51,7 +48,7 @@ class Scheduler:
         bundles_dir = state.get("paths", {}).get("bundles_dir", "")
         scripts_dir = state.get("paths", {}).get("scripts_dir", "")
 
-        registry: Dict[str, Any] = {"checks": {}, "harnesses": {}}
+        registry: dict[str, Any] = {"checks": {}, "harnesses": {}}
         if bundles_dir and Path(bundles_dir).is_dir():
             registry = load_registry(bundles_dir)
 

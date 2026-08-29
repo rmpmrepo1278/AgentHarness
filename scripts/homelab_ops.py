@@ -9,27 +9,26 @@ import json
 import logging
 import os
 import shutil
+import socket
+import sqlite3
+import ssl
 import subprocess
+import sys
 import time
 import uuid
-import sys
-import sqlite3
-import hashlib
-import socket
-import ssl
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from missions_manager import mission_start, mission_update, mission_status
+    from missions_manager import mission_start, mission_status, mission_update
 except ImportError:
     mission_start = mission_update = mission_status = None
 
 try:
-    from registry import registry, tool_result, tool_error
+    from registry import registry, tool_error, tool_result
 except ImportError:
     registry = tool_result = tool_error = None
 
@@ -114,7 +113,7 @@ def get_incident_stats(days: int = 7) -> dict:
     try:
         _init_incident_db()
         conn = sqlite3.connect(str(INCIDENT_DB_PATH))
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         cursor = conn.execute(
             "SELECT severity, COUNT(*) as cnt FROM incidents WHERE detected_at > ? GROUP BY severity",
             (cutoff,)
@@ -266,7 +265,7 @@ def check_internet_gateway() -> dict:
     """Ping known internet gateways. Returns {gateway: reachable_bool, ...}."""
     results = {}
     for gw in INTERNET_GATEWAYS:
-        rc, _, _ = _run(f"ping -c 1 -W 3 {gw} 2>/dev/null")
+        rc, out, _ = _run(f"ping -c 1 -W 3 {gw} 2>/dev/null")
         results[gw] = rc == 0
     return results
 
@@ -284,7 +283,7 @@ def check_ssl_expiry(hosts: list = None) -> list:
                     expiry = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z")
                     remaining = (expiry - datetime.now()).days
                     results.append((host, remaining, remaining > 14))
-        except Exception as e:
+        except Exception:
             results.append((host, -1, False))
     return results
 
@@ -340,7 +339,7 @@ def check_service_dependencies(name: str) -> dict:
     needed = deps.get(name, [])
     failed = []
     for dep in needed:
-        rc, _, _ = _run(f"docker inspect --format '{{{{.State.Status}}}}' {dep} 2>/dev/null")
+        rc, out, _ = _run(f"docker inspect --format '{{{{.State.Status}}}}' {dep} 2>/dev/null")
         if rc != 0 or "running" not in out:
             failed.append(dep)
     return {"ok": len(failed) == 0, "failed_deps": failed, "service": name}
@@ -390,7 +389,7 @@ def auto_cleanup_disk(dry_run: bool = True) -> dict:
     if log_path.exists() and log_path.stat().st_size > 50 * 1024 * 1024:
         result["actions"].append(f"Monitor log is {log_path.stat().st_size // 1024 // 1024}MB, rotating")
         if not dry_run:
-            backup = log_path.with_suffix(f".log.1")
+            backup = log_path.with_suffix(".log.1")
             if backup.exists():
                 backup.unlink()
             log_path.rename(backup)
@@ -579,7 +578,7 @@ SUBPROCESS_TIMEOUT = 30  # seconds
 logger = logging.getLogger("hermes_ops")
 logger.setLevel(logging.INFO)
 
-_log_handler: Optional[logging.Handler] = None
+_log_handler: logging.Handler | None = None
 
 
 def _ensure_logger():
@@ -635,7 +634,7 @@ def _safe(fn):
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ===========================================================================
@@ -1320,7 +1319,6 @@ def routing_control(action: str, provider: str = "") -> dict:
       enable <provider>  — re-enable a provider
     """
     _log(f"routing_control: action={action} provider={provider}")
-    import subprocess
 
     payload = {"action": action}
     if provider:
@@ -1432,7 +1430,7 @@ def check_background_task(task_id: str) -> dict:
     status = "finished"
     if pid_file.exists():
         pid = pid_file.read_text().strip()
-        rc, _, _ = _run(f"ps -p {pid}")
+        rc, out, _ = _run(f"ps -p {pid}")
         if rc == 0:
             status = "running"
 

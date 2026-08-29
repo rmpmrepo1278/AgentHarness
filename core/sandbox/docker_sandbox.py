@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
-from typing import Dict, List, Optional
 
 from core.sandbox.direct import RunResult
 
@@ -48,12 +47,12 @@ class ContainerRunner:
     def _build_command(
         self,
         script: str,
-        args: List[str],
+        args: list[str],
         allow_network: bool = False,
         memory: str = DEFAULT_MEMORY,
         cpus: str = DEFAULT_CPUS,
-        extra_env: Optional[Dict[str, str]] = None,
-    ) -> List[str]:
+        extra_env: dict[str, str] | None = None,
+    ) -> list[str]:
         """Build the docker run command with proper isolation.
 
         Returns a list of arguments for subprocess (not a shell string).
@@ -95,12 +94,12 @@ class ContainerRunner:
     def run(
         self,
         script: str,
-        args: List[str],
+        args: list[str],
         timeout: int = DEFAULT_TIMEOUT,
         allow_network: bool = False,
         memory: str = DEFAULT_MEMORY,
         cpus: str = DEFAULT_CPUS,
-        extra_env: Optional[Dict[str, str]] = None,
+        extra_env: dict[str, str] | None = None,
     ) -> RunResult:
         """Run a script in an ephemeral Docker container.
 

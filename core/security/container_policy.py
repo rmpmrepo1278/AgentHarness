@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 
 def build_docker_run_args(
     script: str,
@@ -12,8 +10,8 @@ def build_docker_run_args(
     memory: str = "512m",
     cpus: str = "1",
     timeout: int = 300,
-    extra_mounts: Optional[List[str]] = None,
-    extra_env: Optional[Dict[str, str]] = None,
+    extra_mounts: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Build docker run args with secure defaults.
 

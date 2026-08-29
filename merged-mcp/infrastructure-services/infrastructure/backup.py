@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Backup MCP Server - Trigger, verify, and manage backups."""
 from __future__ import annotations
-import os, sys, glob, json, time, logging, subprocess
-from pathlib import Path
+
+import glob
+import logging
+import os
+import subprocess
+import sys
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -97,8 +101,6 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
-    import os
     s = MCPServer(name="infrastructure-backup", port=8102)
     s.register_handler("run_backup", run_backup)
     s.register_handler("backup_status", backup_status)

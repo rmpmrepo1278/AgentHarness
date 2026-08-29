@@ -11,14 +11,12 @@ This extends test_regression_full.py with infrastructure-wide checks.
 
 from __future__ import annotations
 
-import json
 import os
 import socket
 import ssl
 import subprocess
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -319,8 +317,8 @@ class TestSecurity:
 
     def test_vaultwarden_tls_not_expired(self):
         """Vaultwarden TLS certificate is valid and not expired."""
-        import ssl
         import socket
+        import ssl
         from datetime import datetime
 
         ctx = ssl.create_default_context()
@@ -450,7 +448,8 @@ class TestVaultwardenDeep:
 
     def test_tls_valid(self):
         """TLS certificate is valid."""
-        import ssl, socket
+        import socket
+        import ssl
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE

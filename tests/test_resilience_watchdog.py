@@ -6,8 +6,6 @@ import os
 import time
 from pathlib import Path
 
-import pytest
-
 from core.resilience.watchdog import (
     check_heartbeat,
     recover_stale_lock,

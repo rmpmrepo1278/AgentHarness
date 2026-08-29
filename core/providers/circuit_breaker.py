@@ -16,7 +16,6 @@ import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 

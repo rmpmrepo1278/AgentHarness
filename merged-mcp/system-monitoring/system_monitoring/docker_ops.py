@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """System Monitoring - Docker operations."""
 from __future__ import annotations
-import os
-import sys
-import subprocess
+
 import logging
-from pathlib import Path
+import os
+import subprocess
+import sys
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -118,14 +118,12 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
-    import os
     import logging
+    import os
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("docker-ops")
 
     port = int(os.environ.get("MCP_PORT", "8103"))
-    from mcp_base import MCPServer
     s = MCPServer(name="system-monitoring-docker", port=port, tools=TOOL_SCHEMAS)
 
     s.register_handler("docker_status", docker_status)

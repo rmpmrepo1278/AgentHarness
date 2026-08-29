@@ -6,13 +6,13 @@ them using the local LLM to extract semantic links and knowledge graphs,
 and stores them locally for RAG indexing.
 """
 
-import os
-import json
-import time
 import logging
-import feedparser
+import os
+import time
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
+
+import feedparser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -25,10 +25,10 @@ RSS_FEEDS = [
 def analyze_with_local_llm(title: str, summary: str) -> str:
     """Use the local Qwen LLM via the smart proxy to extract entities."""
     import httpx
-    
+
     proxy_url = os.environ.get("OPENAI_BASE_URL", "http://192.168.29.10:8080/v1/chat/completions")
     api_key = os.environ.get("OPENAI_API_KEY", "dummy")
-    
+
     prompt = f"""
     Analyze the following article and extract a semantic knowledge graph.
     Identify key entities (People, Organizations, Technologies) and their relationships.
@@ -37,7 +37,7 @@ def analyze_with_local_llm(title: str, summary: str) -> str:
     Title: {title}
     Summary: {summary}
     """
-    
+
     try:
         resp = httpx.post(
             proxy_url,
@@ -62,31 +62,31 @@ def analyze_with_local_llm(title: str, summary: str) -> str:
 def main():
     data_dir = Path("/home/rohit/agentharness/data/knowledge_graph")
     data_dir.mkdir(parents=True, exist_ok=True)
-    
+
     log.info("Starting knowledge graph RSS ingestion run...")
-    
+
     for feed_url in RSS_FEEDS:
         log.info(f"Fetching {feed_url}...")
         feed = feedparser.parse(feed_url)
-        
+
         # Process the top 3 articles to save time
         for entry in feed.entries[:3]:
             # Generate a safe filename
             safe_title = "".join(c if c.isalnum() else "_" for c in entry.title)[:50]
             out_file = data_dir / f"{safe_title}.md"
-            
+
             if out_file.exists():
                 log.info(f"Skipping already ingested article: {entry.title}")
                 continue
-                
+
             log.info(f"Analyzing article: {entry.title}")
             analysis = analyze_with_local_llm(entry.title, getattr(entry, 'summary', ''))
-            
+
             if analysis:
-                content = f"# {entry.title}\n\n**Source:** {entry.link}\n**Date:** {datetime.now(timezone.utc).isoformat()}\n\n## Semantic Graph Analysis\n\n{analysis}\n"
+                content = f"# {entry.title}\n\n**Source:** {entry.link}\n**Date:** {datetime.now(UTC).isoformat()}\n\n## Semantic Graph Analysis\n\n{analysis}\n"
                 out_file.write_text(content, encoding="utf-8")
                 log.info(f"Saved analysis to {out_file}")
-            
+
             # Rate limit the local LLM
             time.sleep(2)
 

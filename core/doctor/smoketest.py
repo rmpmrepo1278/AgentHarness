@@ -8,10 +8,10 @@ from __future__ import annotations
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
-def run_smoketest(data_dir: str) -> Dict[str, Any]:
+def run_smoketest(data_dir: str) -> dict[str, Any]:
     """Run all post-deploy verification steps and return a structured report.
 
     Steps:
@@ -26,7 +26,7 @@ def run_smoketest(data_dir: str) -> Dict[str, Any]:
     """
     start = time.monotonic()
 
-    report: Dict[str, Any] = {
+    report: dict[str, Any] = {
         "overall": "pass",
         "discovery": {"paths": 0, "services": 0, "agents": 0},
         "selftest": {"overall": "ok", "passed": 0, "failed": 0},
@@ -105,10 +105,9 @@ def run_smoketest(data_dir: str) -> Dict[str, Any]:
 
     # 5. Bundle validation
     try:
-        from core.registry.loader import load_registry
-
         # Discover bundles dir from state or convention
         from core.discovery.state import StateManager
+        from core.registry.loader import load_registry
 
         sm = StateManager(data_dir=data_dir)
         state = sm.read()
@@ -143,7 +142,7 @@ def run_smoketest(data_dir: str) -> Dict[str, Any]:
     return report
 
 
-def format_report(result: Dict[str, Any]) -> str:
+def format_report(result: dict[str, Any]) -> str:
     """Format a smoketest result dict for terminal output."""
     lines: list[str] = []
 

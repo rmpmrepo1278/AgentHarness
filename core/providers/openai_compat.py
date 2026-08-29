@@ -93,7 +93,7 @@ class OpenAICompatProvider(LLMProvider):
         data = resp.json()
         message = data.get("choices", [{}])[0].get("message", {}) or {}
         choice = message.get("content") or ""
-        
+
         # Handle tool calls in response
         tool_calls = message.get("tool_calls")
         if tool_calls:

@@ -12,7 +12,7 @@ import json
 import os
 import pathlib
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from core.resilience.watchdog import recover_stale_lock
 
@@ -99,7 +99,7 @@ class StateManager:
                     lock_fd.write(str(os.getpid()))
                     lock_fd.flush()
                     break
-                except (IOError, OSError):
+                except OSError:
                     if time.monotonic() >= deadline:
                         raise TimeoutError(
                             f"Could not acquire state lock within {LOCK_TIMEOUT}s"
@@ -112,7 +112,7 @@ class StateManager:
             # Deep merge
             merged = _deep_merge(current, updates)
             merged["schema_version"] = SCHEMA_VERSION
-            merged["last_updated"] = datetime.now(timezone.utc).isoformat()
+            merged["last_updated"] = datetime.now(UTC).isoformat()
 
             # Atomic write: tmp file + rename
             tmp_file = self._state_file.with_suffix(".json.tmp")

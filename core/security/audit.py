@@ -5,8 +5,7 @@ import getpass
 import json
 import os
 import re
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 MAX_OUTPUT_LENGTH: int = 2000
@@ -50,7 +49,7 @@ class AuditLogger:
         duration_ms: int | None = None,
     ) -> None:
         """Append a single audit entry to the JSONL log."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         entry: dict[str, object] = {
             "timestamp": now.isoformat(),
             "epoch": now.timestamp(),

@@ -1,5 +1,6 @@
 """Codebase Memory MCP wrapper. Exposes codebase-memory-mcp as an HTTP MCP server."""
 from __future__ import annotations
+
 import json
 import logging
 import os

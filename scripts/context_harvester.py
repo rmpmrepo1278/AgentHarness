@@ -26,12 +26,11 @@ import fcntl
 import json
 import os
 import re
-import signal
 import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────
@@ -87,7 +86,7 @@ def acquire_lock() -> int | None:
         fd.write(str(os.getpid()))
         fd.flush()
         return fd  # caller must keep this open
-    except (IOError, OSError):
+    except OSError:
         return None
 
 
@@ -208,8 +207,8 @@ def evict_stale_observations(ttl_hours: HARVEST_TTL_HOURS,
         conn.close()
         if total_deleted > 0:
             print(f"  [evict] Total removed: {total_deleted}")
-    except Exception as exc:
-        print(f"  [warn] Eviction failed: %s", file=sys.stderr)
+    except Exception:
+        print("  [warn] Eviction failed: %s", file=sys.stderr)
 
 # ── Harvesters (all deduped) ────────────────────────────────────────────────
 
@@ -391,7 +390,7 @@ def harvest_docker_events(since: datetime, state: dict) -> list[str]:
                 print(f"  [docker] no events, reconnect #{reconnects} in {retry_secs}s")
                 time.sleep(retry_secs)
                 # Update since_str to avoid re-getting old events
-                since_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+                since_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
         except Exception as exc:
             print(f"  [docker] error — {exc}", file=sys.stderr)
@@ -401,7 +400,7 @@ def harvest_docker_events(since: datetime, state: dict) -> list[str]:
             time.sleep(base_retry_secs * reconnects)
 
     if events:
-        obs = f"Docker events: " + "; ".join(events[:20])
+        obs = "Docker events: " + "; ".join(events[:20])
         observations.append(obs)
         print(f"  [docker] {len(events)} events (reconnects={reconnects})")
 
@@ -420,7 +419,7 @@ def harvest_health_snippets() -> list[str]:
             lines = [l for l in result.stdout.split("\n")
                     if l.strip() and "ERROR" in l.upper()]
             if lines:
-                obs = f"Health alerts: " + "; ".join(lines[:5])
+                obs = "Health alerts: " + "; ".join(lines[:5])
                 observations.append(obs)
                 print(f"  [health] {len(lines)} alerts")
         except Exception:
@@ -461,11 +460,11 @@ def run_harvest(dry_run: bool = False) -> int:
     # Determine time window
     if state["last_harvest"]:
         since = datetime.fromisoformat(state["last_harvest"])
-        max_lookback = datetime.now(timezone.utc) - timedelta(minutes=HARVEST_INTERVAL)
+        max_lookback = datetime.now(UTC) - timedelta(minutes=HARVEST_INTERVAL)
         if since < max_lookback:
             since = max_lookback
     else:
-        since = datetime.now(timezone.utc) - timedelta(minutes=HARVEST_INTERVAL)
+        since = datetime.now(UTC) - timedelta(minutes=HARVEST_INTERVAL)
 
     # FEEDBACK LOOP: check if proxy is under rate limit pressure
     is_pressured, rl_stats = _check_rate_limiter_pressure()
@@ -500,14 +499,14 @@ def run_harvest(dry_run: bool = False) -> int:
 
     if not all_observations:
         print("[harvest] No new context found")
-        state["last_harvest"] = datetime.now(timezone.utc).isoformat()
+        state["last_harvest"] = datetime.now(UTC).isoformat()
         save_state(state)
         # Write heartbeat even on empty run
         try:
             heartbeat = Path("/home/rohit/agentharness/data/harvester_heartbeat.json")
             heartbeat.parent.mkdir(parents=True, exist_ok=True)
             heartbeat.write_text(json.dumps({
-                "last_run": datetime.now(timezone.utc).isoformat(),
+                "last_run": datetime.now(UTC).isoformat(),
                 "success": True,
                 "observations_saved": 0,
             }))
@@ -529,7 +528,7 @@ def run_harvest(dry_run: bool = False) -> int:
     # Evict stale observations
     evict_stale_observations(HARVEST_TTL_HOURS)
 
-    state["last_harvest"] = datetime.now(timezone.utc).isoformat()
+    state["last_harvest"] = datetime.now(UTC).isoformat()
     state["total_observations"] = state.get("total_observations", 0) + saved
     save_state(state)
 
@@ -541,7 +540,7 @@ def run_harvest(dry_run: bool = False) -> int:
         heartbeat = Path("/home/rohit/agentharness/data/harvester_heartbeat.json")
         heartbeat.parent.mkdir(parents=True, exist_ok=True)
         heartbeat.write_text(json.dumps({
-            "last_run": datetime.now(timezone.utc).isoformat(),
+            "last_run": datetime.now(UTC).isoformat(),
             "success": True,
             "observations_saved": saved,
         }))

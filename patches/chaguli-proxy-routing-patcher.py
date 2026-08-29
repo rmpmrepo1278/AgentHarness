@@ -13,7 +13,6 @@ What it does:
 """
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import sys
@@ -138,9 +137,7 @@ def patch(dry_run: bool = False) -> bool:
     has_record_proxy = '_record_proxy_call' in content
 
     if dry_run:
-        print("DRY RUN -- would replace lines {}-{} with proxy version".format(
-            start + 1, end + 1
-        ))
+        print(f"DRY RUN -- would replace lines {start + 1}-{end + 1} with proxy version")
         print("\n--- Current code ---")
         print(func_text)
         print("\n--- Replacement ---")

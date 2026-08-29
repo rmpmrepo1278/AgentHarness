@@ -16,9 +16,8 @@ import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -239,7 +238,7 @@ class TestCronJobs:
         """Health/backup jobs have succeeded in the last 24 hours."""
         assert SCHEDULER_STATE.exists(), "scheduler_state.json missing"
         state = json.loads(SCHEDULER_STATE.read_text())
-        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        since = datetime.now(UTC) - timedelta(hours=24)
         ok = []
         for job in ["gateway_guardian", "consolidated_health", "backup_all"]:
             entry = state.get(job)

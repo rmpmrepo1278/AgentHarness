@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """File Manager MCP - File operations across mounted volumes."""
 from __future__ import annotations
-import os
-import sys
-import shutil
+
 import glob
 import logging
-import json
-from pathlib import Path
+import os
+import shutil
+import sys
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -197,7 +196,7 @@ def read_file(args: dict) -> dict:
         return {"error": f"File too large: {stat.st_size} bytes (max {max_size})"}
 
     try:
-        with open(path, "r", encoding=encoding) as f:
+        with open(path, encoding=encoding) as f:
             content = f.read()
         return {"path": path, "content": content, "size": stat.st_size}
     except Exception as e:
@@ -395,8 +394,6 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
-    import os
     import logging
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("file-mcp")

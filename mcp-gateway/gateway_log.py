@@ -1,10 +1,10 @@
 """Structured JSON-line logger for the MCP gateway."""
 import json
-import os
-import time
-import threading
 import logging
-from datetime import datetime, timezone
+import os
+import threading
+import time
+from datetime import UTC, datetime
 
 log = logging.getLogger("gateway_log")
 
@@ -33,7 +33,7 @@ def _rotate_if_needed():
 def emit(event: str, **kwargs):
     """Write a structured log event."""
     entry = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "event": event,
         **kwargs,
     }

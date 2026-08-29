@@ -1,3 +1,4 @@
+import signal
 #!/usr/bin/env python3
 """
 autonomous_fixer.py — Periodic orchestrator that detects complex issues and
@@ -21,8 +22,8 @@ import os
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -157,7 +158,7 @@ CRITICAL_SCRIPTS = {
     "autonomous_fixer": AG_HOME / "scripts" / "autonomous_fixer.py",
     "consolidated_health": AG_HOME / "scripts" / "consolidated_health.sh",
     "docker_ghost_check": AG_HOME / "scripts" / "docker_ghost_check.sh",
-    
+
     "unified_cost_guard": HERMES_HOME / "scripts" / "unified_cost_guard.py",
     # Removed in fbdaeda11 consolidation (scripts deleted upstream; entries
     # dropped from CRITICAL_SCRIPTS to stop missing-script alerts):
@@ -688,7 +689,7 @@ def check_api_retry_failures() -> list[dict]:
             continue
         try:
             # Read last 500 lines of each log file
-            with open(log_path, "r", errors="replace") as f:
+            with open(log_path, errors="replace") as f:
                 lines = f.readlines()
             recent_lines = lines[-500:]
             matched_patterns = set()
@@ -1048,7 +1049,6 @@ def check_duckdns_sync() -> list[dict]:
     issues = []
     try:
         import urllib.request
-        import socket
         # Get current external IP
         current_ip = None
         for url in ["https://api.ipify.org", "https://ifconfig.me/ip"]:
@@ -1118,7 +1118,8 @@ def check_duckdns_sync() -> list[dict]:
 
 def _discover_mcp_ports() -> dict:
     """Discover MCP service ports from docker-compose.mcp.yml at runtime."""
-    import re, os
+    import os
+    import re
     mcp_ports = {}
     compose_path = os.path.expanduser("~/agentharness/docker-compose.mcp.yml")
     try:
@@ -1366,7 +1367,7 @@ def check_backup_health() -> list[dict]:
     except PermissionError:
         cfg_exists = True  # root-owned config exists; unreadable as non-root user
     if not cfg_exists:
-        log(f"Kopia: repository config missing — attempting self-heal reconnect")
+        log("Kopia: repository config missing — attempting self-heal reconnect")
         # Attempt L1 self-heal: reconnect the repository
         kopia_password = os.environ.get("KOPIA_PASSWORD", "")
         if not kopia_password:
@@ -1390,7 +1391,7 @@ def check_backup_health() -> list[dict]:
                     env={**os.environ, "KOPIA_PASSWORD": kopia_password},
                 )
                 if result.returncode == 0 and cfg_path.exists():
-                    log(f"Kopia: repository reconnected successfully")
+                    log("Kopia: repository reconnected successfully")
                     # Verify by listing snapshots
                     verify = subprocess.run(
                         ["sudo", kopia_bin, "--config-file", str(cfg_path), "snapshot", "list"],
@@ -1575,13 +1576,13 @@ def check_container_restart_loops() -> list[dict]:
                     except (ValueError, TypeError):
                         streak = 0
                     if health in ("healthy", "none") and streak == 0 and started_at:
-                        from datetime import datetime, timezone
+                        from datetime import datetime
                         try:
                             start_dt = datetime.fromisoformat(
                                 started_at.replace("Z", "+00:00")
                             )
                             uptime_hours = (
-                                datetime.now(timezone.utc) - start_dt
+                                datetime.now(UTC) - start_dt
                             ).total_seconds() / 3600
                             if uptime_hours >= 1:
                                 # Container is stable — transient restarts, not active loop
@@ -1733,12 +1734,13 @@ def docker_ps_status(name: str) -> str:
     except Exception:
         return "unknown"
 
-    
+
 
 def _get_predictive_warnings() -> list[dict]:
     """Fetch proactive predictions from predictive_signals.py."""
     try:
-        import subprocess, json as _json
+        import json as _json
+        import subprocess
         r = subprocess.run(
             [sys.executable, str(HERMES_HOME / "scripts" / "predictive_signals.py"), "--show"],
             capture_output=True, text=True, timeout=15,
@@ -1838,7 +1840,7 @@ def detect_issues() -> list[dict]:
     doc_issues = check_doc_drift()
     if doc_issues:
         log(f"Doc drift: {len(doc_issues)} drift item(s) detected")
-        all_issues.extend(doc_issues)
+        issues.extend(doc_issues)
 
     # ── 2b. Script validation (detect invalid commands) ──
     script_issues = check_script_health()
@@ -2186,7 +2188,7 @@ def main():
     # Determine dry run mode
     dry_run = args.dry_run or DRY_RUN_FLAG.exists()
 
-    log(f"=== Autonomous fixer starting ===")
+    log("=== Autonomous fixer starting ===")
     log(f"Dry run: {dry_run}, Min severity: {args.min_severity}")
 
     run_start = time.time()  # ponytail: for run log duration
@@ -2243,7 +2245,7 @@ def main():
     # ── 1j. DuckDNS sync ──
     duckdns_issues = check_duckdns_sync()
     if duckdns_issues:
-        log(f"DuckDNS: sync issue detected")
+        log("DuckDNS: sync issue detected")
         all_issues.extend(duckdns_issues)
 
     # ── 1k. Systemd timer drift ──
@@ -2371,7 +2373,7 @@ def main():
             results.append({"status": "stagnant", "issue": issue["issue"], "key": key})
             continue
 
-        
+
         # ── L1 auto-fix for doc_drift autogen staleness ──
         if issue.get("type") == "doc_drift" and issue.get("drift_kind") == "autogen":
             log(f"L1 doc_drift autogen fix: {issue['issue'][:80]}")
@@ -2577,7 +2579,7 @@ def main():
                 "severity": issue.get("severity", "medium"),
                 "status": "waiting_human" if r.get("status") == "fix_unverified" else "active",
                 "last_action": r.get("status", "unknown"),
-                "last_run": datetime.now(timezone.utc).isoformat(),
+                "last_run": datetime.now(UTC).isoformat(),
             })
         ls.prune()
         ls.write()

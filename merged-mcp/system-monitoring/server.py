@@ -8,30 +8,46 @@ Ports:
 - 8104: Network MCP
 """
 from __future__ import annotations
-import os
-import sys
-import signal
+
 import multiprocessing
+import os
+import signal
+import sys
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 
 # Import all handlers and their TOOL_SCHEMAS
-from system_monitoring.docker_ops import (
-    docker_status, docker_container_logs, docker_container_restart, docker_container_stop,
-    docker_list_images, docker_prune, TOOL_SCHEMAS as DOCKER_TOOL_SCHEMAS
-)
-from system_monitoring.homelab_ops import (
-    docker_status as homelab_docker_status,
-    docker_container_logs, docker_container_restart, docker_container_stop,
-    disk_usage, system_load, check_docker_daemon, check_systemd_services, container_health,
-    TOOL_SCHEMAS as HOMELAB_TOOL_SCHEMAS
-)
-from system_monitoring.network_mcp import (
-    port_scan, dns_lookup, check_internet, ping_host, list_network_services, external_ip,
-    TOOL_SCHEMAS as NETWORK_TOOL_SCHEMAS
-)
-
 from mcp_base import MCPServer
+from system_monitoring.docker_ops import TOOL_SCHEMAS as DOCKER_TOOL_SCHEMAS
+from system_monitoring.docker_ops import (
+    docker_container_logs,
+    docker_container_restart,
+    docker_container_stop,
+    docker_list_images,
+    docker_prune,
+    docker_status,
+)
+from system_monitoring.homelab_ops import TOOL_SCHEMAS as HOMELAB_TOOL_SCHEMAS
+from system_monitoring.homelab_ops import (
+    check_docker_daemon,
+    check_systemd_services,
+    container_health,
+    disk_usage,
+    docker_container_logs,
+    docker_container_restart,
+    docker_container_stop,
+    system_load,
+)
+from system_monitoring.homelab_ops import docker_status as homelab_docker_status
+from system_monitoring.network_mcp import TOOL_SCHEMAS as NETWORK_TOOL_SCHEMAS
+from system_monitoring.network_mcp import (
+    check_internet,
+    dns_lookup,
+    external_ip,
+    list_network_services,
+    ping_host,
+    port_scan,
+)
 
 
 def create_docker_server():

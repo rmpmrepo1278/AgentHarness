@@ -14,8 +14,7 @@ import logging
 import os
 import subprocess
 import time
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import dataclass
 
 log = logging.getLogger("sandbox.direct")
 
@@ -43,10 +42,10 @@ class DirectRunner:
     def run(
         self,
         script: str,
-        args: List[str],
+        args: list[str],
         timeout: int = DEFAULT_TIMEOUT,
-        env: Optional[Dict[str, str]] = None,
-        cwd: Optional[str] = None,
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
     ) -> RunResult:
         """Run a script directly on the host.
 

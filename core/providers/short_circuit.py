@@ -14,11 +14,10 @@ Patterns detected:
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import logging
 import time
-from typing import Any
 
 log = logging.getLogger(__name__)
 

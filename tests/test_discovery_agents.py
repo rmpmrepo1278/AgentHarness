@@ -1,16 +1,13 @@
 """Tests for core.discovery.agents — agent discovery (Chaguli in Docker, OpenClaw on host)."""
 
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from core.discovery.agents import (
-    discover_agents,
-    _detect_chaguli_in_container,
     _detect_chaguli_capabilities,
+    _detect_chaguli_in_container,
     _detect_openclaw,
+    discover_agents,
 )
 
 

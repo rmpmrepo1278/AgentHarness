@@ -325,7 +325,7 @@ async def _process_with_timeout(content: str, timeout: float) -> str:
             timeout=timeout,
         )
         return result
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise _TimeoutError(f"TokenJuice processing timed out after {timeout}s")
     except Exception:
         raise

@@ -1,10 +1,9 @@
 """Test the agent link — verify the inbox watcher is picking up alerts."""
 from __future__ import annotations
 
-import json
 import logging
 import time
-from pathlib import Path
+from datetime import UTC
 from typing import Any
 
 from core.alerts.sender import AlertSender
@@ -93,8 +92,8 @@ def check_delivery_health(data_dir: str) -> dict[str, Any]:
             continue
 
     if oldest_ts:
-        from datetime import datetime, timezone
-        age_seconds = (datetime.now(timezone.utc) - oldest_ts.replace(tzinfo=timezone.utc)).total_seconds()
+        from datetime import datetime
+        age_seconds = (datetime.now(UTC) - oldest_ts.replace(tzinfo=UTC)).total_seconds()
         age_hours = age_seconds / 3600
 
         if age_hours > 1:

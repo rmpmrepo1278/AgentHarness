@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from core.resilience.config_backup import (
-    snapshot_config,
-    restore_config,
     cleanup_old_snapshots,
+    restore_config,
+    snapshot_config,
 )
 
 

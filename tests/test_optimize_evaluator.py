@@ -1,6 +1,5 @@
 # tests/test_optimize_evaluator.py
 from __future__ import annotations
-import pytest
 
 
 def test_evaluate_applicable_now():

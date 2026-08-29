@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from core.resilience.atomic_json import atomic_write_json, safe_read_json
 
@@ -51,9 +51,9 @@ class BillingTracker:
 
     def __init__(self, data_dir: str) -> None:
         self._path = Path(data_dir) / "llm_billing.json"
-        self._data: Dict[str, Any] = self._load()
+        self._data: dict[str, Any] = self._load()
 
-    def _load(self) -> Dict[str, Any]:
+    def _load(self) -> dict[str, Any]:
         default = {
             "month": _this_month(),
             "days": {},

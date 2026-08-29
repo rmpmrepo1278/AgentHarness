@@ -1,10 +1,11 @@
 """MCP server registry with persistence and state management."""
 from __future__ import annotations
+
 import json
+import logging
 import os
 import threading
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import gateway_log
 
@@ -50,7 +51,7 @@ def init():
 def register(name: str, address: str, container_name: str = None, tools: list = None) -> dict:
     """Register or re-register an MCP server."""
     with _lock:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         existing = _mcps.get(name)
         _mcps[name] = {
             "name": name,
@@ -96,7 +97,7 @@ def update_status(name: str, status: str):
         if name in _mcps:
             old_status = _mcps[name]["status"]
             _mcps[name]["status"] = status
-            _mcps[name]["last_health_check"] = datetime.now(timezone.utc).isoformat()
+            _mcps[name]["last_health_check"] = datetime.now(UTC).isoformat()
             if status != old_status:
                 gateway_log.emit(f"health_{status}", mcp=name,
                                  consecutive_failures=_mcps[name]["consecutive_failures"])
@@ -108,7 +109,7 @@ def record_health_success(name: str):
         if name in _mcps:
             _mcps[name]["consecutive_failures"] = 0
             _mcps[name]["status"] = "healthy"
-            _mcps[name]["last_health_check"] = datetime.now(timezone.utc).isoformat()
+            _mcps[name]["last_health_check"] = datetime.now(UTC).isoformat()
             _save()
 
 
@@ -116,7 +117,7 @@ def record_health_failure(name: str) -> int:
     with _lock:
         if name in _mcps:
             _mcps[name]["consecutive_failures"] += 1
-            _mcps[name]["last_health_check"] = datetime.now(timezone.utc).isoformat()
+            _mcps[name]["last_health_check"] = datetime.now(UTC).isoformat()
             count = _mcps[name]["consecutive_failures"]
             _save()
             return count

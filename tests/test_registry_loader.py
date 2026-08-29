@@ -1,9 +1,6 @@
 """Tests for registry bundle loader."""
 from __future__ import annotations
 
-import textwrap
-
-import pytest
 import yaml
 
 from core.registry.loader import load_registry

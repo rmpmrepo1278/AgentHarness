@@ -9,7 +9,6 @@ from __future__ import annotations
 import glob
 import os
 import tempfile
-from typing import List
 
 
 def pid_alive(pid: int) -> bool:
@@ -24,12 +23,12 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
-def find_stale_locks(data_dir: str) -> List[str]:
+def find_stale_locks(data_dir: str) -> list[str]:
     """Return lock files under *data_dir* whose recorded PID is dead or unreadable."""
-    stale: List[str] = []
+    stale: list[str] = []
     for lock_path in glob.glob(os.path.join(data_dir, "*.lock")):
         try:
-            with open(lock_path, "r") as fh:
+            with open(lock_path) as fh:
                 content = fh.read().strip()
             pid = int(content)
         except (ValueError, OSError):

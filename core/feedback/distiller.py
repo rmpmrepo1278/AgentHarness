@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +26,7 @@ class Distiller:
 
     def compile(self) -> dict[str, Any]:
         """Compile today's briefing from all data sources."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         metrics = self._read_metrics()
         budget = self._read_budget()
         proposals = self._read_proposals()

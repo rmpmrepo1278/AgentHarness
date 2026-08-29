@@ -11,7 +11,7 @@ import json
 import logging
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class NotificationRouter:
         if not self.log_file.exists():
             return None
 
-        cutoff = datetime.now(timezone.utc).timestamp() - 86400  # 24h ago
+        cutoff = datetime.now(UTC).timestamp() - 86400  # 24h ago
 
         entries: list[dict] = []
         for line in self.log_file.read_text().splitlines():
@@ -199,7 +199,7 @@ class NotificationRouter:
         """Append one JSONL line to doctor_log.jsonl."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": level,
             "title": title,
             "body": body,
@@ -217,7 +217,7 @@ class NotificationRouter:
             "title": title,
             "body": body,
             "runbook": runbook,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "_source": "agentharness_doctor",
         }
         target = self.chaguli_inbox_dir / filename

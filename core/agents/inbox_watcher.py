@@ -1,9 +1,8 @@
-import os
+import argparse
 import json
 import time
-import sys
-import argparse
 from pathlib import Path
+
 
 class InboxWatcher:
     def __init__(self, inbox_path):
@@ -20,7 +19,7 @@ class InboxWatcher:
                 if time.time() - session_file.stat().st_mtime > 3600:
                     continue
 
-                with open(session_file, 'r') as f:
+                with open(session_file) as f:
                     data = json.load(f)
 
                 # Append the system alert
@@ -34,7 +33,6 @@ class InboxWatcher:
                 })
 
                 # Atomic write to prevent corruption
-                import tempfile
                 tmp = session_file.with_suffix('.tmp')
                 with open(tmp, 'w') as f:
                     json.dump(data, f, indent=2)
@@ -45,7 +43,7 @@ class InboxWatcher:
 
     def check_alerts(self):
         if not self.inbox_path.exists(): return
-        
+
         try:
             lines = self.inbox_path.read_text().splitlines()
         except Exception:
@@ -53,7 +51,7 @@ class InboxWatcher:
 
         new_lines = []
         injected_count = 0
-        
+
         for line in lines:
             if not line.strip(): continue
             try:
@@ -64,21 +62,20 @@ class InboxWatcher:
             if alert.get('injected'):
                 new_lines.append(line)
                 continue
-                
+
             msg = alert.get('message', 'Unknown Alert')
-            
+
             # Inject to active agent sessions if critical
             if 'CRITICAL' in msg.upper() or 'FATAL' in msg.upper():
                 self.inject_to_active_sessions(msg)
                 alert['injected'] = True
                 injected_count += 1
-                
+
             new_lines.append(json.dumps(alert))
 
         if injected_count > 0:
             try:
                 # Atomic write: write to temp file then rename
-                import tempfile
                 tmp = self.inbox_path.with_suffix('.tmp')
                 tmp.write_text('\n'.join(new_lines) + '\n')
                 tmp.replace(self.inbox_path)
@@ -92,7 +89,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     watcher = InboxWatcher(args.inbox_dir)
-    
+
     if args.once:
         watcher.check_alerts()
     else:

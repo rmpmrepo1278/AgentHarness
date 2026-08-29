@@ -2,13 +2,9 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 
-import pytest
-
-from core.security.audit import AuditLogger, MAX_OUTPUT_LENGTH
-
+from core.security.audit import MAX_OUTPUT_LENGTH, AuditLogger
 
 # --- test_log_execution ---
 

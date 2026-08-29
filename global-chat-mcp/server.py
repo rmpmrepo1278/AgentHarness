@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Global Chat MCP - Communication services."""
 from __future__ import annotations
+
+import logging
 import os
 import sys
-import logging
+
 import requests
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
@@ -98,7 +100,6 @@ def main():
     import logging
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("global-chat-mcp")
-    from mcp_base import MCPServer
     import os
     port = int(os.environ.get("MCP_PORT", "8104"))
     s = MCPServer(name="global-chat-mcp", port=port, tools=TOOL_SCHEMAS)

@@ -3,14 +3,15 @@ Handles gateway registration with retry-backoff, health endpoint, JSON-RPC dispa
 Supports both the internal gateway protocol and the MCP Streamable HTTP specification
 for direct Claude Code connections."""
 from __future__ import annotations
+
 import json
+import logging
 import os
-import time
 import signal
 import threading
-import logging
+import time
 import uuid
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import requests
 

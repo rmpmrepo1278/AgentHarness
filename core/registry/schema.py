@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 VALID_CHECK_TYPES = frozenset(
     {"threshold", "command_exit", "command_output", "regex_match", "http_probe"}
@@ -14,9 +14,9 @@ VALID_WINDOWS = frozenset({"online", "offline", "offline_lan", "any"})
 _FREQUENCY_RE = re.compile(r"^(\d+[mhd]|daily|weekly|monthly|on_boot)$")
 
 
-def validate_check(name: str, check: Dict[str, Any]) -> List[str]:
+def validate_check(name: str, check: dict[str, Any]) -> list[str]:
     """Validate a check definition. Returns a list of error strings (empty = valid)."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     if "command" not in check:
         errors.append(f"{name}: 'command' is required")
@@ -33,9 +33,9 @@ def validate_check(name: str, check: Dict[str, Any]) -> List[str]:
     return errors
 
 
-def validate_tool(name: str, tool: Dict[str, Any]) -> List[str]:
+def validate_tool(name: str, tool: dict[str, Any]) -> list[str]:
     """Validate a tool definition. Returns a list of error strings (empty = valid)."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     if "description" not in tool:
         errors.append(f"{name}: 'description' is required")
@@ -55,9 +55,9 @@ def validate_tool(name: str, tool: Dict[str, Any]) -> List[str]:
     return errors
 
 
-def validate_harness(name: str, harness: Dict[str, Any]) -> List[str]:
+def validate_harness(name: str, harness: dict[str, Any]) -> list[str]:
     """Validate a harness definition. Returns a list of error strings (empty = valid)."""
-    errors: List[str] = []
+    errors: list[str] = []
 
     if "script" not in harness:
         errors.append(f"{name}: 'script' is required")

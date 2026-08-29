@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
-
 from core.resilience.atomic_json import (
-    safe_read_json,
-    atomic_write_json,
     atomic_append_json,
+    atomic_write_json,
+    safe_read_json,
 )
 
 

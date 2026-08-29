@@ -1,9 +1,7 @@
 """Tests for the Groq cloud LLM provider."""
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from core.providers.base import LLMRequest
 from core.providers.groq import GroqProvider

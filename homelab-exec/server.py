@@ -15,9 +15,14 @@ Research-backed additions (June 2026):
   - fix_issue now actually fixes when confirm=true (was broken: always dry-run)
 """
 from __future__ import annotations
-import os, sys, json, subprocess, logging, shutil
-from pathlib import Path
+
+import json
+import logging
+import os
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer

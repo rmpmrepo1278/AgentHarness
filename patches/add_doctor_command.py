@@ -18,7 +18,6 @@ What it does:
 """
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import sys
@@ -197,7 +196,7 @@ def adapt_block(source: str, block: str) -> str:
         handle_match = re.search(r'async\s+def\s+(handle_message|_process_message)\b', source)
     if handle_match:
         # Add await before subprocess and send calls
-        adapted = adapted.replace('result = subprocess.run(', 'result = await asyncio.to_thread(subprocess.run, ')  # noqa
+        adapted = adapted.replace('result = subprocess.run(', 'result = await asyncio.to_thread(subprocess.run, ')
         # Actually, simpler: subprocess.run is sync, keep it. But send might need await
         adapted = adapted.replace('result = await asyncio.to_thread(subprocess.run, ', 'result = subprocess.run(')
         if send_fn:
@@ -251,7 +250,7 @@ def check_already_patched(source: str) -> bool:
 def main():
     dry_run = '--dry-run' in sys.argv
 
-    print(f"=== Add /doctor command to Chaguli agent.py ===")
+    print("=== Add /doctor command to Chaguli agent.py ===")
     print(f"Target: {AGENT_PY}")
     print(f"Mode:   {'DRY RUN' if dry_run else 'LIVE'}")
     print()

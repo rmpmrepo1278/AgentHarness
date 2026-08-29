@@ -1,13 +1,14 @@
 """Route tool calls to the correct MCP server.
 Converts MCP tool schemas to OpenAI function-calling format."""
 from __future__ import annotations
+
 import logging
 import time
-import requests
 
-import registry
-import rate_limiter
 import gateway_log
+import rate_limiter
+import registry
+import requests
 
 log = logging.getLogger("router")
 

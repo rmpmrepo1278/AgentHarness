@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Network MCP Server - Port scanning, DNS lookups, service discovery, connectivity checks."""
 from __future__ import annotations
+
+import logging
 import os
-import sys
 import socket
 import subprocess
-import logging
-import json
-import requests as http_requests
+import sys
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -122,11 +121,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("network-mcp")
 
-    from mcp_base import MCPServer
     import os
 
     port = int(os.environ.get("MCP_PORT", "8103"))
-    from mcp_base import MCPServer
     s = MCPServer(name="system-network", port=8103, tools=TOOL_SCHEMAS)
 
     s.register_handler("port_scan", port_scan)

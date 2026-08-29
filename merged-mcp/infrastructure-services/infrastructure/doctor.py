@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Doctor MCP Server - Health checks and runbook execution."""
 from __future__ import annotations
-import os, sys, requests, logging
+
+import logging
+import os
+import sys
+
+import requests
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -77,8 +82,6 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
-    import os
     import logging
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("doctor-mcp")

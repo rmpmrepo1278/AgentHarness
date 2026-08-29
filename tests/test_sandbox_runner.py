@@ -1,9 +1,10 @@
 # tests/test_sandbox_runner.py
 from __future__ import annotations
-import os
+
 import stat
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture
@@ -71,7 +72,7 @@ def test_dispatch_containerized_builds_docker_command(scripts_dir, reports_dir):
 
 
 def test_invalid_sandbox_mode_raises(scripts_dir, reports_dir):
-    from core.sandbox.runner import SandboxRunner, InvalidSandboxMode
+    from core.sandbox.runner import InvalidSandboxMode, SandboxRunner
     runner = SandboxRunner(
         scripts_dir=str(scripts_dir),
         reports_dir=str(reports_dir),

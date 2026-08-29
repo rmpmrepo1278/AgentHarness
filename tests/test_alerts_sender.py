@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import json
+
 import pytest
-from pathlib import Path
 
 
 @pytest.fixture
@@ -74,6 +74,7 @@ def test_clear_old_removes_delivered(alert_dir):
 def test_no_telegram_api_calls(alert_dir):
     """Verify the alert sender makes NO direct Telegram API calls."""
     import inspect
+
     from core.alerts import sender as module
     source = inspect.getsource(module)
     assert "TELEGRAM_BOT_TOKEN" not in source

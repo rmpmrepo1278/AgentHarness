@@ -1,8 +1,8 @@
 """Send notifications to Chaguli via alerts_inbox.jsonl."""
 import json
+import logging
 import os
 import time
-import logging
 
 log = logging.getLogger("notify")
 

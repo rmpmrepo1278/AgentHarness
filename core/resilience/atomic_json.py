@@ -30,7 +30,7 @@ def _acquire_lock(fd: int, timeout: float = _LOCK_TIMEOUT_S) -> bool:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return True
-        except (OSError, IOError):
+        except OSError:
             if time.monotonic() >= deadline:
                 logger.warning(
                     "Lock timeout after %.1fs — proceeding without lock", timeout

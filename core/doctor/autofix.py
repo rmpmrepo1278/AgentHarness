@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 from core.doctor.diagnose import DiagnosticCollector
 from core.providers.base import Complexity, LLMRequest, LLMResponse
@@ -55,10 +54,10 @@ class AutoFixer:
     def _call_llm(self, prompt: str) -> LLMResponse:
         """Send diagnostic prompt to the LLM router."""
         try:
-            from core.providers.router import Router
             from core.providers.budget import BudgetTracker
-            from core.providers.llamacpp import LlamaCppProvider
             from core.providers.groq import GroqProvider
+            from core.providers.llamacpp import LlamaCppProvider
+            from core.providers.router import Router
 
             # Build a minimal router with available providers
             providers = []

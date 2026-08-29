@@ -1,14 +1,15 @@
 """Data Management MCP - Git, Paperless, RSS combined."""
 from __future__ import annotations
-import os
-import sys
+
 import json
 import logging
-import requests
-import feedparser
-import feedparser
+import os
+import sys
 import xml.etree.ElementTree as ET
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import feedparser
+import requests
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
 from mcp_base import MCPServer
@@ -192,7 +193,7 @@ def upload_file(args):
         dest = os.path.join(CONSUME_DIR, os.path.basename(file_path))
         import shutil
         shutil.copy2(file_path, dest)
-        return {"status": "uploaded", "file": os.path.basename(file_path), "message": f"Copied to consume folder. Paperless will auto-import it shortly."}
+        return {"status": "uploaded", "file": os.path.basename(file_path), "message": "Copied to consume folder. Paperless will auto-import it shortly."}
     except Exception as e:
         return {"error": str(e)}
 
@@ -272,7 +273,6 @@ TOOL_SCHEMAS = [
 
 
 def main():
-    from mcp_base import MCPServer
     port = int(os.environ.get("MCP_PORT", "8100"))
     s = MCPServer(name="data-management", port=8100, tools=TOOL_SCHEMAS)
     # Git

@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """System Monitoring - Homelab Ops: Docker, systemd, disk, health checks."""
 from __future__ import annotations
-import os
-import sys
-import json
-import subprocess
+
 import logging
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 sys.path.insert(0, os.environ.get("MCP_BASE_DIR", "/mcp-base"))
-from mcp_base import MCPServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -207,7 +206,6 @@ def main():
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("homelab-ops-mcp")
 
-    from mcp_base import MCPServer
     import os
 
     port = int(os.environ.get("MCP_PORT", "8106"))

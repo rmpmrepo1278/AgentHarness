@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 """MCP Gateway - Central registry and router for all MCP services."""
 from __future__ import annotations
+
 import logging
 import os
 import time
-import json
-import threading
-
-from flask import Flask, request, jsonify
 
 import registry
 import router
-import health
-import gateway_log
+from flask import Flask, jsonify, request
 
 logging.basicConfig(
     level=logging.INFO,
@@ -110,8 +106,9 @@ def list_mcps():
 
 
 if __name__ == "__main__":
-    import http_requests
     import os
+
+    import http_requests
 
     logging.basicConfig(
         level=logging.INFO,

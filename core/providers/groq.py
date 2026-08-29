@@ -1,16 +1,20 @@
 from __future__ import annotations
+
 import os
 import time
 from typing import Any
+
 import httpx
+
 from core.providers.base import BudgetStatus, LLMProvider, LLMRequest, LLMResponse
+
 
 class GroqProvider(LLMProvider):
     def __init__(
         self,
         name: str = "groq",
         api_key: str | None = None,
-        model: str = "llama-3.3-70b-versatile",
+        model: str = "qwen/qwen3.8-27b",
         daily_limit: int = 200,
         timeout: float = 600.0,
         **kwargs: Any

@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class FeedbackBridge:
         self.data_dir = Path(data_dir)
         self.bridge_dir = Path(bridge_dir)
 
-    def push_briefing(self, briefing: Dict[str, Any]) -> None:
+    def push_briefing(self, briefing: dict[str, Any]) -> None:
         """Write a briefing JSON to the agent's briefings directory."""
         briefings_dir = self.bridge_dir / "briefings"
         try:

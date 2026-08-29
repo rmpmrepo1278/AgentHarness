@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import json
-import os
 import time
+
 import pytest
 
 
@@ -13,7 +14,7 @@ def proposals_dir(tmp_path):
 
 
 def test_create_proposal(proposals_dir):
-    from core.approval.gateway import ApprovalGateway, Proposal
+    from core.approval.gateway import ApprovalGateway
     gw = ApprovalGateway(proposals_dir=str(proposals_dir))
     p = gw.create(
         tool_name="cleanup_system",

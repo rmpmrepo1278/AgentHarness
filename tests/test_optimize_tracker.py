@@ -1,6 +1,5 @@
 # tests/test_optimize_tracker.py
 from __future__ import annotations
-import pytest
 
 
 def test_record_finding(tmp_path):

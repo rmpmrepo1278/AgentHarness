@@ -17,10 +17,9 @@ import json
 import os
 import socket
 import subprocess
-import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -259,7 +258,7 @@ def check_dns() -> dict:
         try:
             socket.setdefaulttimeout(3)
             socket.getaddrinfo(domain, port)
-        except (socket.gaierror, socket.timeout):
+        except (TimeoutError, socket.gaierror):
             failures.append(domain)
     if failures:
         return _check("dns", "critical", {"failures": failures})
@@ -346,10 +345,9 @@ def check_backups() -> dict:
         start_time = latest.get("startTime", "")
         if start_time:
             # Parse ISO timestamp
-            from datetime import timezone
             try:
                 dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+                age_hours = (datetime.now(UTC) - dt).total_seconds() / 3600
             except Exception:
                 age_hours = 0
         else:
@@ -388,8 +386,8 @@ def check_ssl_certs() -> dict:
             r = _run(["openssl", "x509", "-in", str(cert_file), "-noout", "-enddate"])
             if r.returncode == 0:
                 try:
-                    from datetime import datetime as _dt
                     import re as _re
+                    from datetime import datetime as _dt
                     m = _re.search(r"notAfter=(.+)", r.stdout)
                     if m:
                         expiry = _dt.strptime(m.group(1).strip(), "%b %d %H:%M:%S %Y %Z")

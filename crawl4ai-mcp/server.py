@@ -1,7 +1,7 @@
 """Crawl4AI MCP server. Web crawling and content extraction via crawl4ai."""
 from __future__ import annotations
+
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -42,8 +42,8 @@ async def _crawl_url(url: str, **kwargs) -> dict:
 
 
 async def _crawl_with_strategy(url: str, css_selector: str, **kwargs) -> dict:
-    from crawl4ai import AsyncWebCrawler
     from bs4 import BeautifulSoup
+    from crawl4ai import AsyncWebCrawler
     async with AsyncWebCrawler() as crawler:
         result = await crawler.arun(url=url)
         extracted = []

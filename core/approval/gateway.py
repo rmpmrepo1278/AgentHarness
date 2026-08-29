@@ -13,11 +13,9 @@ import logging
 import os
 import secrets
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from core.approval.policies import ApprovalTier, ProposalType
+from typing import Any
 
 log = logging.getLogger("approval.gateway")
 
@@ -37,7 +35,7 @@ def _generate_id() -> str:
     return secrets.token_hex(3).upper()
 
 
-def _compute_state_hash(tool_name: str, args: dict, preconditions: Optional[dict]) -> str:
+def _compute_state_hash(tool_name: str, args: dict, preconditions: dict | None) -> str:
     """SHA-256 hash of proposal content for tamper detection."""
     content = json.dumps(
         {"tool_name": tool_name, "args": args, "preconditions": preconditions},
@@ -50,17 +48,17 @@ def _compute_state_hash(tool_name: str, args: dict, preconditions: Optional[dict
 class Proposal:
     proposal_id: str
     tool_name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     reason: str
     proposal_type: str
     status: str = "pending"
-    preconditions: Optional[Dict[str, Any]] = None
-    state_hash: Optional[str] = None
+    preconditions: dict[str, Any] | None = None
+    state_hash: str | None = None
     created_at: float = field(default_factory=time.time)
-    expires_at: Optional[float] = None
-    approved_at: Optional[float] = None
-    rejected_at: Optional[float] = None
-    rejection_reason: Optional[str] = None
+    expires_at: float | None = None
+    approved_at: float | None = None
+    rejected_at: float | None = None
+    rejection_reason: str | None = None
     sandbox_mode: str = "direct"
 
     def to_dict(self) -> dict:
@@ -114,7 +112,7 @@ class ApprovalGateway:
         args: dict,
         reason: str,
         proposal_type: str,
-        preconditions: Optional[dict] = None,
+        preconditions: dict | None = None,
         sandbox_mode: str = "direct",
     ) -> Proposal:
         """Create a new proposal and persist it."""
@@ -179,7 +177,7 @@ class ApprovalGateway:
         log.info("Rejected proposal %s: %s", proposal_id, reason)
         return proposal
 
-    def list_pending(self) -> List[Proposal]:
+    def list_pending(self) -> list[Proposal]:
         """List all proposals with status 'pending' (not expired)."""
         pending = []
         for path in sorted(self.proposals_dir.glob("*.json")):
@@ -197,7 +195,7 @@ class ApprovalGateway:
         """Get a proposal by ID."""
         return self._load(proposal_id)
 
-    def expire_stale(self) -> List[str]:
+    def expire_stale(self) -> list[str]:
         """Find and mark all expired proposals. Returns list of expired IDs."""
         expired_ids = []
         for path in self.proposals_dir.glob("*.json"):

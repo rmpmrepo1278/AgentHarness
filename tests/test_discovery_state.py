@@ -1,8 +1,5 @@
 """Tests for core.discovery.state — StateManager with atomic writes and file locking."""
 
-import json
-import os
-import pathlib
 
 import pytest
 

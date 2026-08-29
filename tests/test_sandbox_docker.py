@@ -1,6 +1,6 @@
 from __future__ import annotations
-import pytest
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import MagicMock, patch
 
 
 def test_build_command_default_isolation():
@@ -100,8 +100,9 @@ def test_run_success(mock_subprocess):
 
 @patch("core.sandbox.docker_sandbox.subprocess")
 def test_run_timeout(mock_subprocess):
-    from core.sandbox.docker_sandbox import ContainerRunner
     import subprocess as real_subprocess
+
+    from core.sandbox.docker_sandbox import ContainerRunner
     mock_subprocess.run.side_effect = real_subprocess.TimeoutExpired(
         cmd=["docker"], timeout=10,
     )

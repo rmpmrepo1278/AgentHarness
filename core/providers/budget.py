@@ -10,7 +10,6 @@ import datetime
 import logging
 import time as _time
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 from core.resilience.atomic_json import atomic_write_json, safe_read_json
 
@@ -20,7 +19,7 @@ _DEPRIORITIZE_THRESHOLD = 0.80  # 80 % of daily limit
 
 # Default RPM limits per provider (requests per minute).
 # Override in config.yaml with `rpm_limit` per provider.
-_DEFAULT_RPM_LIMITS: Dict[str, int] = {
+_DEFAULT_RPM_LIMITS: dict[str, int] = {
     "groq": 30,          # Groq free tier: 30 req/min
     "cerebras": 30,      # Cerebras free tier: 30 req/min
     "sambanova": 10,     # SambaNova free tier: ~10 req/min
@@ -47,14 +46,14 @@ def _minute_bucket() -> str:
 class BudgetTracker:
     """Track per-provider LLM usage with daily + RPM limits and atomic persistence."""
 
-    def __init__(self, data_dir: str, rpm_limits: Dict[str, int] | None = None) -> None:
+    def __init__(self, data_dir: str, rpm_limits: dict[str, int] | None = None) -> None:
         self._path = Path(data_dir) / "llm_budget.json"
         self._rpm_limits = rpm_limits or _DEFAULT_RPM_LIMITS
-        self._data: Dict = self._load()
+        self._data: dict = self._load()
 
     # -- persistence helpers --------------------------------------------------
 
-    def _load(self) -> Dict:
+    def _load(self) -> dict:
         default = {
             "date": _today(),
             "providers": {},
@@ -73,7 +72,7 @@ class BudgetTracker:
     def _save(self) -> None:
         atomic_write_json(self._path, self._data)
 
-    def _ensure_provider(self, provider: str) -> Dict:
+    def _ensure_provider(self, provider: str) -> dict:
         if provider not in self._data["providers"]:
             self._data["providers"][provider] = {
                 "requests": 0,
@@ -83,7 +82,7 @@ class BudgetTracker:
             }
         return self._data["providers"][provider]
 
-    def _prune_rpm(self, data: Dict | None = None) -> None:
+    def _prune_rpm(self, data: dict | None = None) -> None:
         """Remove RPM buckets older than 2 minutes to keep the file small."""
         d = data or self._data
         buckets = d.get("rpm", {})
@@ -138,7 +137,7 @@ class BudgetTracker:
 
 
 
-    def get_usage(self, provider: str) -> Dict:
+    def get_usage(self, provider: str) -> dict:
         """Return usage dict for *provider* (requests, tokens_in, tokens_out, errors)."""
         entry = self._ensure_provider(provider)
         return dict(entry)  # defensive copy

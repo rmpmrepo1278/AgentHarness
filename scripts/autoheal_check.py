@@ -12,7 +12,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 AG_HOME = os.environ.get("AG_HOME", "/home/rohit/agentharness")
 HERMES_HOME = os.environ.get("HERMES_HOME", "/home/rohit/.hermes")
@@ -23,7 +23,7 @@ REQUIRED_STRIKES = 2
 
 
 def log(msg: str) -> None:
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     line = f"[{ts}] {msg}"
     print(line)
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)

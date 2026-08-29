@@ -11,10 +11,8 @@ import os
 import shutil
 import sys
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass
+from typing import Any
 
 from core.common import fs_checks
 
@@ -43,20 +41,20 @@ class Troubleshooter:
 
     def __init__(self, data_dir: str) -> None:
         self._data_dir = data_dir
-        self._state: Dict[str, Any] = {}
+        self._state: dict[str, Any] = {}
         self._install_dir: str = ""
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
-    def _load_state(self) -> Dict[str, Any]:
+    def _load_state(self) -> dict[str, Any]:
         """Load state.json if it exists."""
         path = os.path.join(self._data_dir, "state.json")
         if not os.path.isfile(path):
             return {}
         try:
-            with open(path, "r") as fh:
+            with open(path) as fh:
                 return json.load(fh)
         except (json.JSONDecodeError, OSError):
             return {}
@@ -68,7 +66,7 @@ class Troubleshooter:
     # Individual issue detectors
     # ------------------------------------------------------------------
 
-    def _check_state_file(self) -> Optional[Issue]:
+    def _check_state_file(self) -> Issue | None:
         path = os.path.join(self._data_dir, "state.json")
         if not os.path.isfile(path):
             return Issue(
@@ -86,7 +84,7 @@ class Troubleshooter:
             )
         # Try parsing
         try:
-            with open(path, "r") as fh:
+            with open(path) as fh:
                 json.load(fh)
         except (json.JSONDecodeError, OSError) as exc:
             return Issue(
@@ -104,7 +102,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_dir_writable(self, label: str, dir_key: str) -> Optional[Issue]:
+    def _check_dir_writable(self, label: str, dir_key: str) -> Issue | None:
         path = self._state.get(dir_key, "")
         if not path:
             return None  # Can't check without state
@@ -154,7 +152,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_docker(self) -> Optional[Issue]:
+    def _check_docker(self) -> Issue | None:
         if shutil.which("docker") is None:
             return Issue(
                 name="docker_not_available",
@@ -171,7 +169,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_python_version(self) -> Optional[Issue]:
+    def _check_python_version(self) -> Issue | None:
         if sys.version_info < (3, 9):
             return Issue(
                 name="python_version_too_old",
@@ -188,7 +186,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_pip(self) -> Optional[Issue]:
+    def _check_pip(self) -> Issue | None:
         if shutil.which("pip3") is None and shutil.which("pip") is None:
             return Issue(
                 name="pip_not_available",
@@ -205,7 +203,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_pyyaml(self) -> Optional[Issue]:
+    def _check_pyyaml(self) -> Issue | None:
         try:
             import yaml  # noqa: F401
         except ImportError:
@@ -224,7 +222,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_stale_locks(self) -> Optional[Issue]:
+    def _check_stale_locks(self) -> Issue | None:
         stale = fs_checks.find_stale_locks(self._data_dir)
         if stale:
             stale_list = " ".join(stale)
@@ -248,7 +246,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_integrity(self) -> Optional[Issue]:
+    def _check_integrity(self) -> Issue | None:
         install_dir = self._state.get("paths", {}).get("install_dir", "")
         if not install_dir:
             return None
@@ -266,7 +264,7 @@ class Troubleshooter:
         if result.get("status") in ("modified", "missing"):
             modified = result.get("modified", [])
             missing = result.get("missing", [])
-            details: List[str] = []
+            details: list[str] = []
             if modified:
                 details.append(f"Modified: {', '.join(modified[:5])}")
             if missing:
@@ -284,19 +282,19 @@ class Troubleshooter:
                     ),
                     FixStep(
                         description="Or investigate the changes manually",
-                        command=f"python3 cli.py integrity",
+                        command="python3 cli.py integrity",
                         verify="Review the output for unexpected modifications",
                     ),
                 ],
             )
         return None
 
-    def _check_circuit_breakers(self) -> Optional[Issue]:
+    def _check_circuit_breakers(self) -> Issue | None:
         cb_path = os.path.join(self._data_dir, "circuit_breaker.json")
         if not os.path.isfile(cb_path):
             return None
         try:
-            with open(cb_path, "r") as fh:
+            with open(cb_path) as fh:
                 cb_state = json.load(fh)
         except (json.JSONDecodeError, OSError):
             return None
@@ -325,7 +323,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_scheduler_heartbeat(self) -> Optional[Issue]:
+    def _check_scheduler_heartbeat(self) -> Issue | None:
         hb_path = os.path.join(self._data_dir, "heartbeat.json")
         if not os.path.isfile(hb_path):
             return Issue(
@@ -353,7 +351,7 @@ class Troubleshooter:
             )
 
         try:
-            with open(hb_path, "r") as fh:
+            with open(hb_path) as fh:
                 heartbeat = json.load(fh)
         except (json.JSONDecodeError, OSError):
             return None
@@ -382,7 +380,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_systemd(self) -> Optional[Issue]:
+    def _check_systemd(self) -> Issue | None:
         if shutil.which("systemctl") is None:
             return Issue(
                 name="systemd_not_available",
@@ -401,7 +399,7 @@ class Troubleshooter:
             )
         return None
 
-    def _check_llm_providers(self) -> Optional[Issue]:
+    def _check_llm_providers(self) -> Issue | None:
         has_groq = bool(os.environ.get("GROQ_API_KEY", ""))
         has_anthropic = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
         has_openrouter = bool(os.environ.get("OPENROUTER_API_KEY", ""))
@@ -449,7 +447,7 @@ class Troubleshooter:
         self._state = self._load_state()
         self._install_dir = self._state.get("paths", {}).get("install_dir", "")
 
-        issues: List[Issue] = []
+        issues: list[Issue] = []
 
         # Order: critical checks first, then warnings, then info
         detectors = [
@@ -484,7 +482,7 @@ class Troubleshooter:
         if not issues:
             return "No issues detected. System is healthy."
 
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append("=" * 60)
         lines.append("  AgentHarness Troubleshooting Guide")
         lines.append("=" * 60)

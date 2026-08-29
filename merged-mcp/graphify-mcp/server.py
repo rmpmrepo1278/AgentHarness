@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """graphify MCP server with gateway registration."""
-import os
-import sys
-import subprocess
-import threading
-import time
 import logging
+import os
+import subprocess
+import sys
+import threading
 from pathlib import Path
 
 # Ensure graphify is in path
@@ -141,7 +140,7 @@ class GraphifyMCP(MCPServer):
         try:
             # Ensure graph directory exists
             Path(GRAPH_PATH).parent.mkdir(parents=True, exist_ok=True)
-            
+
             cmd = ["graphify"] + cmd_args
 
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd="/data")
@@ -157,12 +156,12 @@ class GraphifyMCP(MCPServer):
 def main():
     # Ensure graph directory exists
     Path(GRAPH_PATH).parent.mkdir(parents=True, exist_ok=True)
-    
+
     server = GraphifyMCP()
     # Start registration thread
     reg_thread = threading.Thread(target=server._register_with_gateway, daemon=True)
     reg_thread.start()
-    
+
     # Start HTTP server
     server.start()
 

@@ -6,7 +6,6 @@ suppressed.  It re-closes on a recorded success or a manual reset.
 from __future__ import annotations
 
 import os
-from typing import Dict, List
 
 from core.resilience.atomic_json import atomic_write_json, safe_read_json
 
@@ -23,14 +22,14 @@ class CircuitBreaker:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _load(self) -> Dict[str, int]:
+    def _load(self) -> dict[str, int]:
         """Return ``{check_name: consecutive_failure_count, ...}``."""
         data = safe_read_json(self._path)
         if not isinstance(data, dict):
             return {}
         return data
 
-    def _save(self, state: Dict[str, int]) -> None:
+    def _save(self, state: dict[str, int]) -> None:
         atomic_write_json(self._path, state)
 
     # ------------------------------------------------------------------
@@ -63,7 +62,7 @@ class CircuitBreaker:
         """Close every circuit."""
         self._save({})
 
-    def get_open_circuits(self) -> List[str]:
+    def get_open_circuits(self) -> list[str]:
         """Return a list of all check names whose circuits are open."""
         state = self._load()
         return [name for name, count in state.items()

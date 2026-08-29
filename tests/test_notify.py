@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import json
 import stat
-import pytest
+from datetime import UTC
 from pathlib import Path
+
+import pytest
 
 from core.doctor.notify import NotificationRouter
 
@@ -188,10 +190,9 @@ def _write_log_entries(env, entries: list[dict]) -> None:
 
 def _make_entry(title: str, body: str, level: str = "silent", hours_ago: float = 0) -> dict:
     """Build a log entry dict with a timestamp *hours_ago* hours in the past."""
-    from datetime import timedelta
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta
 
-    ts = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    ts = datetime.now(UTC) - timedelta(hours=hours_ago)
     return {
         "timestamp": ts.isoformat(),
         "level": level,

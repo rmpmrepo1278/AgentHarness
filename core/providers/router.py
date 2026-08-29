@@ -1,12 +1,11 @@
 """Smart LLM router — routes requests by complexity, budget, and availability."""
 
 from __future__ import annotations
-import os
 
 import logging
+import os
 import re
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.providers.base import (
     Complexity,
@@ -25,6 +24,8 @@ TOOL_CAPABLE_PROVIDERS = {
 from core.providers.budget import BudgetTracker
 from core.providers.circuit_breaker import (
     is_available as cb_is_available,
+)
+from core.providers.circuit_breaker import (
     record_failure,
     record_success,
 )
@@ -34,12 +35,12 @@ logger = logging.getLogger(__name__)
 
 # ponytail: module-level failure counter, exposed as a helper; per-provider
 # locks if this ever runs multi-process.
-_failure_counts: Dict[str, int] = {}
+_failure_counts: dict[str, int] = {}
 
 
 
 # Default routing order: complexity -> list of provider names in priority order.
-_DEFAULT_ROUTING: Dict[str, List[str]] = {
+_DEFAULT_ROUTING: dict[str, list[str]] = {
     Complexity.LOW.value: ["local_small"],
     Complexity.MEDIUM.value: ["local_small", "groq", "google"],
     Complexity.HIGH.value: ["groq", "google", "openrouter"],
@@ -64,14 +65,14 @@ class Router:
 
     def __init__(
         self,
-        providers: List[LLMProvider],
+        providers: list[LLMProvider],
         budget: BudgetTracker,
-        routing: Optional[Dict[str, List[str]]] = None,
-        policies: Optional[List[Dict[str, Any]]] = None,
+        routing: dict[str, list[str]] | None = None,
+        policies: list[dict[str, Any]] | None = None,
         max_retries: int = 3,
-        rate_limit_tracker: Optional[RateLimitTracker] = None,
+        rate_limit_tracker: RateLimitTracker | None = None,
     ) -> None:
-        self._providers_by_name: Dict[str, LLMProvider] = {p.name: p for p in providers}
+        self._providers_by_name: dict[str, LLMProvider] = {p.name: p for p in providers}
         self._budget = budget
         self._routing = routing or _DEFAULT_ROUTING
         self._policies = policies or []
@@ -133,7 +134,7 @@ class Router:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _try_provider(self, provider: LLMProvider, request: LLMRequest) -> Optional[LLMResponse]:
+    def _try_provider(self, provider: LLMProvider, request: LLMRequest) -> LLMResponse | None:
         """Attempt a single provider. Return LLMResponse on success, None to skip."""
 
         # 1. Skip if not enabled or not available.
@@ -217,7 +218,7 @@ class Router:
         record_failure(provider.name, auth_category)
         return None
 
-    def _check_cooldown_retry(self, provider: str, auth_category: str) -> Optional[dict]:
+    def _check_cooldown_retry(self, provider: str, auth_category: str) -> dict | None:
         """
         Check if provider is in short cooldown we could wait for.
         Returns {wait_ms, should_wait} or None if no wait.
@@ -235,7 +236,7 @@ class Router:
             return {"wait_ms": remaining_ms, "should_wait": True}
         return {"wait_ms": 0, "should_wait": False}
 
-    def _match_policy(self, request: LLMRequest) -> Optional[str]:
+    def _match_policy(self, request: LLMRequest) -> str | None:
         """Return the provider name forced by policy, or None."""
         if request.tool_name is None:
             return None

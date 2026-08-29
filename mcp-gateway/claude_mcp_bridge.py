@@ -14,8 +14,8 @@ Environment:
 import json
 import os
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 
 GATEWAY_URL = os.environ.get("MCP_GATEWAY_URL", "http://192.168.29.10:8090").rstrip("/")
 

@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import json
 import os
-import re
-import urllib.request
 import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path

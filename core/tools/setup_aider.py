@@ -1,11 +1,9 @@
 """Configure Aider to use AgentHarness LLM providers."""
 from __future__ import annotations
 
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 

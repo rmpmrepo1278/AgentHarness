@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 
 import pytest
 
@@ -92,7 +90,7 @@ def test_smoketest_format_report(smoke_env, monkeypatch):
     monkeypatch.setattr(
         "core.scheduler.windows.get_network_state", lambda *a, **kw: "online"
     )
-    from core.doctor.smoketest import run_smoketest, format_report
+    from core.doctor.smoketest import format_report, run_smoketest
 
     result = run_smoketest(smoke_env["data_dir"])
     text = format_report(result)

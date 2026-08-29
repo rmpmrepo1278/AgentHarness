@@ -16,17 +16,16 @@ Cron entry (example):
 import json
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 # Ensure the current directory is on the import path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import homelab_ops as ops  # noqa: E402
-
 import hashlib
-import urllib.request
 import urllib.error
+import urllib.request
+
+import homelab_ops as ops
 
 # ---------------------------------------------------------------------------
 # Application-level health checks (beyond container status)
@@ -206,7 +205,7 @@ def check_config_drift() -> list:
                 continue
 
             import json
-            with open(f"/tmp/_config_check_{name}.json", "r") as f:
+            with open(f"/tmp/_config_check_{name}.json") as f:
                 current = json.load(f)
 
             # schema_key can be a nested key (e.g. "services") or None to count top-level keys
@@ -254,7 +253,7 @@ def auto_fix_config_drift(drift_issues: list) -> list:
         ok = restart_result.get("ok", False)
         ops._log(f"monitor: config restore + restart for {name}: {'OK' if ok else 'FAILED'}")
         results.append({"container": name, "action": "config_restore", "ok": ok, "detail": "restored from backup"})
-        ops.log_incident(name, f"Config drift auto-fixed from backup", "WARNING", "config_restore", ok)
+        ops.log_incident(name, "Config drift auto-fixed from backup", "WARNING", "config_restore", ok)
 
     return results
 

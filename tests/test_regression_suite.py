@@ -32,15 +32,9 @@ HISTORY OF BUGS THIS SUITE PREVENTS REGRESSING INTO:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import os
-import subprocess
-import sys
-import tempfile
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -71,7 +65,7 @@ def proxy_request(payload: dict, timeout: float = 40.0) -> dict:
             continue
         break
     if r.status_code == 503:
-        pytest.skip(f"All providers exhausted (free-tier saturation, 503)")
+        pytest.skip("All providers exhausted (free-tier saturation, 503)")
     # Any other non-200 is a real failure — don't mask it with a broken .json().
     assert r.status_code == 200, f"Proxy returned {r.status_code}: {r.text[:200]}"
     return r.json()
@@ -155,7 +149,7 @@ class TestProxyInitialization:
         s = proxy_status()
         cbs = s.get("circuit_breakers", {})
         open_circuits = [name for name, cb in cbs.items() if cb.get("open")]
-        assert not open_circuits, f"Open circuit breakers at startup: {open_circnets}"
+        assert not open_circuits, f"Open circuit breakers at startup: {open_circuits}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -473,7 +467,7 @@ class TestConfiguration:
         is_disabled = not trinity.get("enabled", True)
         in_routing = "trinity" in order
         assert is_disabled or not in_routing, \
-            f"Trinity paid model is active and in routing"
+            "Trinity paid model is active and in routing"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

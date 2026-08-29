@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import json
+
 import pytest
-from pathlib import Path
 
 
 @pytest.fixture
@@ -23,8 +24,9 @@ def test_dashboard_creates_app(dash_env):
 
 
 def test_health_endpoint(dash_env):
-    from core.observe.dashboard import create_app
     from starlette.testclient import TestClient
+
+    from core.observe.dashboard import create_app
     app = create_app(data_dir=str(dash_env))
     client = TestClient(app)
     resp = client.get("/api/health")
@@ -34,8 +36,9 @@ def test_health_endpoint(dash_env):
 
 
 def test_briefings_endpoint(dash_env):
-    from core.observe.dashboard import create_app
     from starlette.testclient import TestClient
+
+    from core.observe.dashboard import create_app
     app = create_app(data_dir=str(dash_env))
     client = TestClient(app)
     resp = client.get("/api/briefings")

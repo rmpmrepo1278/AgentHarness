@@ -1,6 +1,5 @@
 # tests/test_approval_policies.py
 from __future__ import annotations
-import pytest
 
 
 def test_approval_tier_enum_values():
