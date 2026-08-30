@@ -77,10 +77,7 @@ _HEDGING_RE = re.compile("|".join(HEDGING_PATTERNS), re.IGNORECASE)
 
 # Maps Ollama model name → proxy provider name
 MODEL_TO_PROVIDER: dict[str, str] = {
-    "qwen3.5:27b": "local",
-    "qwen3.5:27b":   "local-gemma12b",
-    "qwen3.5:2b":     "local-qwen8b",
-    "qwen3.5:27b":    "local-qwen32b",
+    "qwen3:32b-64k": "local",
 }
 
 def local_provider_for_model(model: str) -> str:
@@ -90,25 +87,25 @@ def local_provider_for_model(model: str) -> str:
 # Maps (intent, complexity) → Ollama model name
 LOCAL_MODEL_MAP: dict[tuple[str, str], str] = {
     # PLANNING
-    ("planning", "low"):    "qwen3.5:27b",     # Simple Q&A, quick answers
-    ("planning", "medium"): "qwen3.5:27b",      # Medium design tasks
-    ("planning", "high"):   "qwen3.5:27b",      # Complex planning
-    ("planning", "critical"): "qwen3.5:27b",     # Deep reasoning (rare)
+    ("planning", "low"):    "qwen3:32b-64k",     # Simple Q&A, quick answers
+    ("planning", "medium"): "qwen3:32b-64k",      # Medium design tasks
+    ("planning", "high"):   "qwen3:32b-64k",      # Complex planning
+    ("planning", "critical"): "qwen3:32b-64k",     # Deep reasoning (rare)
     # CODING
-    ("coding", "low"):      "qwen3.5:2b",        # Quick snippets, fixes
-    ("coding", "medium"):   "qwen3.5:27b",       # Standard code — 32b for quality
-    ("coding", "high"):     "qwen3.5:27b",       # Multi-function code
-    ("coding", "critical"): "qwen3.5:27b",       # Large modules
+    ("coding", "low"):      "qwen3:32b-64k",        # Quick snippets, fixes
+    ("coding", "medium"):   "qwen3:32b-64k",       # Standard code — 32b for quality
+    ("coding", "high"):     "qwen3:32b-64k",       # Multi-function code
+    ("coding", "critical"): "qwen3:32b-64k",       # Large modules
     # EXECUTION
-    ("execution", "low"):   "qwen3.5:27b",     # Tool use, simple checks
-    ("execution", "medium"): "qwen3.5:27b",
-    ("execution", "high"):   "qwen3.5:2b",
-    ("execution", "critical"): "qwen3.5:2b",
+    ("execution", "low"):   "qwen3:32b-64k",     # Tool use, simple checks
+    ("execution", "medium"): "qwen3:32b-64k",
+    ("execution", "high"):   "qwen3:32b-64k",
+    ("execution", "critical"): "qwen3:32b-64k",
     # SIMPLE (fallback)
-    ("simple", "low"):      "qwen3.5:27b",
-    ("simple", "medium"):   "qwen3.5:27b",
-    ("simple", "high"):     "qwen3.5:27b",
-    ("simple", "critical"): "qwen3.5:27b",
+    ("simple", "low"):      "qwen3:32b-64k",
+    ("simple", "medium"):   "qwen3:32b-64k",
+    ("simple", "high"):     "qwen3:32b-64k",
+    ("simple", "critical"): "qwen3:32b-64k",
 }
 
 # Cloud providers to escalate to (in order) if local quality gate fails
@@ -222,7 +219,7 @@ def select_local_model(intent: TaskIntent, complexity: Complexity) -> str:
     """Choose the best local Ollama model for this intent + complexity."""
     model = LOCAL_MODEL_MAP.get(
         (intent.value, complexity.value),
-        "qwen3.5:27b",
+        "qwen3:32b-64k",
     )
     # Ensure model is available in local Ollama
     return model

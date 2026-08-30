@@ -79,8 +79,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Larger models need longer timeout for cold starts.
         local_endpoint = os.environ.get("LOCAL_LLM_URL", "http://localhost:11434")
         local_models = [
-            ("local", "qwen3.5:27b", 180),
-            ("local-qwen8b", "qwen3.5:2b", 180),
+            ("local", "qwen3:32b-64k", 240),
         ]
         for name, model, timeout in local_models:
             providers.append(LlamaCppProvider(
@@ -158,7 +157,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         # Routing — speed-first order across providers.
         # The task_router in chat_completions() overrides with forced_provider
         # for intent-based local-first routing + quality-gated escalation.
-        speed_order = ["groq", "sambanova", "cerebras", "mistral", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "owl", "github-models", "local-qwen32b", "local-qwen8b", "local"]
+        speed_order = ["groq", "sambanova", "cerebras", "mistral", "openrouter", "tokenrouter-qwen", "tokenrouter-nvidia", "owl", "github-models", "local"]
         router = Router(
             providers=providers,
             budget=bt,
@@ -347,10 +346,7 @@ def create_proxy_app(data_dir: str = "") -> object:
         has_tools = bool(body.get("tools"))
         requested_model = body.get("model", "")
         explicit_model_map = {
-            "qwen3.5:27b": "local",
-            "qwen3.5:27b": "local-gemma12b",
-            "qwen3.5:2b": "local-qwen8b",
-            "qwen3.5:27b": "local-qwen32b",
+            "qwen3:32b-64k": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
             "stealth/ox-alpha": "stealth-ox-alpha",
         }
@@ -551,19 +547,15 @@ def create_proxy_app(data_dir: str = "") -> object:
 
         # Model routing (same map as /v1/chat/completions)
         tool_model_routing = {
-            "qwen3.5:27b": "local",
-            "qwen3.5:27b": "local",
-            "qwen2.5:7b": "local",
+            "qwen3:32b-64k": "local",
             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
             "stealth/ox-alpha": "stealth-ox-alpha",
         }
         standard_model_routing = {
-             "qwen3.5:27b": "local",
-             "qwen3.5:27b": "local",
-             "qwen2.5:7b": "local",
-             "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
-             "stealth/ox-alpha": "stealth-ox-alpha",
-         }
+            "qwen3:32b-64k": "local",
+            "deepseek/deepseek-v4-flash": "deepseek-v4-flash",
+            "stealth/ox-alpha": "stealth-ox-alpha",
+        }
         model_routing = tool_model_routing if has_tools else standard_model_routing
 
         resp_text = ""
