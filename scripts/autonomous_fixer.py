@@ -1,4 +1,3 @@
-import signal
 #!/usr/bin/env python3
 """
 autonomous_fixer.py — Periodic orchestrator that detects complex issues and
@@ -31,7 +30,7 @@ from pathlib import Path
 
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
 AG_HOME = Path("/home/rohit/agentharness")
-STATE_DIR = HERMES_HOME / "state"
+STATE_DIR = AG_HOME / "state"
 DATA_DIR = AG_HOME / "data"
 LOG_DIR = AG_HOME / "logs"
 
@@ -41,8 +40,8 @@ SESSION_LOG = STATE_DIR / "auto_fix_sessions.jsonl"
 FIXER_LOG = LOG_DIR / "autonomous_fixer.log"
 STATE_FILE = DATA_DIR / "autonomous_fixer_state.json"
 STAGNATION_FILE = DATA_DIR / "stagnation_state.json"
-REFLEXION_FILE = HERMES_HOME / "reflexion_memory.jsonl"
-EXPERIMENTS_FILE = HERMES_HOME / "experiments.jsonl"
+REFLEXION_FILE = DATA_DIR / "reflexion_memory.jsonl"
+EXPERIMENTS_FILE = DATA_DIR / "experiments.jsonl"
 
 # Stagnation detection: max attempts per (issue_type, target) within window
 STAGNATION_THRESHOLD = 3          # max attempts
@@ -658,7 +657,16 @@ def check_critical_scripts() -> list[dict]:
     import os
     issues = []
     for name, path in CRITICAL_SCRIPTS.items():
-        if not path.exists():
+        # Path.exists() propagates PermissionError when the app user (rohit)
+        # can't traverse a container-private dir (e.g. .hermes/cron re-secured
+        # to 0700 by the hermes container). Treat that as exists-but-unreadable
+        # instead of crashing the run.
+        try:
+            present = path.exists()
+            readable = os.access(path, os.R_OK)
+        except OSError:
+            present, readable = True, False
+        if not present:
             issues.append({
                 "issue": f"Critical script missing: {name} (expected at {path})",
                 "type": "missing_script",
@@ -666,7 +674,7 @@ def check_critical_scripts() -> list[dict]:
                 "script_name": name,
                 "script_path": str(path),
             })
-        elif not os.access(path, os.R_OK):
+        elif not readable:
             issues.append({
                 "issue": f"Critical script not readable: {name} (at {path})",
                 "type": "missing_script",
@@ -2270,6 +2278,30 @@ def main():
         all_issues.extend(ux_issues)
 
     log(f"Detected {len(all_issues)} total issues")
+
+    # ── 1o. Reassert runtime policy (watchtower-replacement) ──
+    # Recipe: `docker compose` ignores deploy.resources, so image upgrades /
+    # container recreates silently drop memory caps. Re-apply the canonical
+    # policy every cycle unless in dry-run mode.
+    try:
+        _policy = AG_HOME / "scripts" / "reapply_runtime_policy.sh"
+        if _policy.exists() and not dry_run:
+            _r = subprocess.run(["bash", str(_policy)], capture_output=True, text=True, timeout=60)
+            if _r.returncode != 0:
+                log(f"Runtime policy reapply failed: {_r.stderr.strip()[:200]}")
+            else:
+                _out = _r.stdout.strip().splitlines()
+                _changed = [l for l in _out if l.startswith("reapply:" or l.startswith("FAIL"))]
+                if _changed:
+                    for l in _changed:
+                        log(f"Runtime policy: {l}")
+                else:
+                    log("Runtime policy: compliant (no changes)")
+        else:
+            log("Runtime policy reapply skipped (dry-run or missing)")
+    except Exception as e:
+        log(f"Runtime policy reapply error: {e}")
+
 
     # ── 2. Filter to Claude-fixable issues ──
     fixable = filter_issues(all_issues, args.min_severity)
