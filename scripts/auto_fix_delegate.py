@@ -525,6 +525,29 @@ def read_json_safe(path: Path) -> dict:
 # Safety pre-flight checks
 # ---------------------------------------------------------------------------
 
+AUTO_FIX_MODEL_STATE = Path.home() / ".claude" / "state" / "auto_fix_model.json"
+AUTO_FIX_MODEL_SILENCE_SECONDS = 12 * 3600
+
+
+def _model_silenced_until() -> float:
+    data = read_json_safe(AUTO_FIX_MODEL_STATE)
+    try:
+        return float(data.get("silenced_until", 0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def model_error_silenced() -> bool:
+    return time.time() < _model_silenced_until()
+
+
+def silence_model_error(seconds: int = AUTO_FIX_MODEL_SILENCE_SECONDS) -> None:
+    AUTO_FIX_MODEL_STATE.parent.mkdir(parents=True, exist_ok=True)
+    AUTO_FIX_MODEL_STATE.write_text(
+        json.dumps({"silenced_until": time.time() + seconds, "reason": "unrecognized_model"}))
+    log(f"Model config error — suppressing auto-fix Telegram noise for {seconds // 3600}h")
+
+
 def check_cost_guard() -> tuple[bool, str]:
     """Verify the current Claude model is free. Returns (passed, reason)."""
     if not COST_GUARD_SCRIPT.exists():
@@ -1203,6 +1226,16 @@ def main():
             sys.exit(0)
 
         # ── 6. Send "session started" Telegram notification ──
+        suppress = cc_suppressed = False
+        if model_error_silenced():
+            suppress = True
+            log("Model error recently reported — skipping this session silently")
+            result = {"status": "suppressed", "session_id": sid, "issue": issue,
+                      "issue_type": actual_type, "source": source}
+            log_session(result)
+            if args.json:
+                print(json.dumps(result, indent=2, default=str))
+            sys.exit(0)
         send_telegram(build_telegram_pre_report(issue, actual_type, sid))
 
         # ── 7. Update rate limit ──
@@ -1224,12 +1257,22 @@ def main():
         duration = time.time() - start_time
         cc_result["duration_s"] = round(duration, 1)
 
+        if "unrecognized_model" in (cc_result.get("error") or ""):
+            if model_error_silenced():
+                cc_result["status"] = "suppressed"
+                cc_result["error"] = "Model config error (already reported) — suppressed"
+                log(f"Suppressing auto-fix Telegram report (session {sid})")
+            else:
+                silence_model_error()
+                log(f"Model config error reported once — future sessions silenced (session {sid})")
+
         # ── 11. Log session ──
         log_session(cc_result)
 
         # ── 12. Send Telegram report ──
-        report = build_telegram_report(cc_result, issue, actual_type, duration, commit_hash, health)
-        send_telegram(report)
+        if cc_result.get("status") != "suppressed":
+            report = build_telegram_report(cc_result, issue, actual_type, duration, commit_hash, health)
+            send_telegram(report)
 
         # ── 13. Output result ──
         if args.json:
